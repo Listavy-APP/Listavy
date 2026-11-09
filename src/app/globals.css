@@ -1,49 +1,68 @@
+/* Mobile-first. Large tap targets. No external fonts (fast on weak signal). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #1b1f1e;
+  --muted: #5b6360;
+  --brand: #0f5c4d;
+  --paper: #ffffff;
+  --line: #d7dcd9;
+  --danger: #a4262c;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { box-sizing: border-box; }
 
-html {
-  height: 100%;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
+html, body {
   margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
 }
 
-a {
-  color: inherit;
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  min-height: 100dvh;
+}
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+h1 { font-size: 1.6rem; line-height: 1.2; margin: 8px 0 0; }
+.lead { margin: 0; font-size: 1.05rem; }
+.muted { color: var(--muted); font-size: 0.95rem; margin: 0; }
+.error { color: var(--danger); margin: 0; font-weight: 600; }
+
+.field { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.field input {
+  font: inherit;
+  font-size: 1.1rem;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-height: 52px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 20px;
+  font: inherit;
+  font-weight: 700;
+  color: #fff;
+  background: var(--brand);
+  border: 0;
+  border-radius: 12px;
   text-decoration: none;
+  cursor: pointer;
 }
+.button:disabled { opacity: 0.6; cursor: default; }
+.button.secondary { background: #eef3f1; color: var(--brand); }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-}
+.details { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
+.details dt { color: var(--muted); }
+.details dd { margin: 0; font-weight: 600; }
