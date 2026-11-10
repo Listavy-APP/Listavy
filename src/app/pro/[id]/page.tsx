@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getProCard, getWorkPhotoUrls } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
+import { initials } from "@/lib/domain/initials";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: es.proDetail.title };
@@ -18,6 +19,12 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
   if (!pro) {
     return (
       <section className="stack">
+        <div className="backbar">
+          <Link className="back" href="/buscar" aria-label={es.common.back}>
+            ‹
+          </Link>
+          <span className="bt">{es.proDetail.title}</span>
+        </div>
         <h1>{es.proDetail.notFound}</h1>
         <Link className="button secondary" href="/buscar">
           {es.common.back}
@@ -30,19 +37,32 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <section className="stack">
-      <h1>{pro.full_name ?? es.proDetail.title}</h1>
-      <div className="badge">{es.search.verified}</div>
-      <p className="muted">{es.proDetail.noReviews}</p>
-      <dl className="details">
-        <dt>{es.proDetail.trade}</dt>
-        <dd>{es.trades[pro.trade]}</dd>
-        <dt>{es.proDetail.zone}</dt>
-        <dd>{pro.zone}</dd>
-        <dt>{es.search.priceRange}</dt>
-        <dd>
+      <div className="backbar">
+        <Link className="back" href="/buscar" aria-label={es.common.back}>
+          ‹
+        </Link>
+        <span className="bt">{es.proDetail.title}</span>
+      </div>
+
+      <div className="pro-hero">
+        <div className="avatar" aria-hidden="true">
+          {initials(pro.full_name)}
+        </div>
+        <h1>{pro.full_name ?? es.proDetail.title}</h1>
+        <div className="badge">{es.search.verified}</div>
+        <p className="sub">
+          {es.trades[pro.trade]} · {pro.zone}
+        </p>
+      </div>
+
+      <div className="price-block">
+        <span className="muted">{es.search.priceRange}</span>
+        <b>
           {es.money.dop(pro.price_min_dop)} – {es.money.dop(pro.price_max_dop)}
-        </dd>
-      </dl>
+        </b>
+      </div>
+
+      <p className="muted">{es.proDetail.noReviews}</p>
 
       <h2>{es.proDetail.photos}</h2>
       {!signedIn ? (
@@ -60,10 +80,6 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
           ))}
         </div>
       )}
-
-      <Link className="button secondary" href="/buscar">
-        {es.common.back}
-      </Link>
     </section>
   );
 }

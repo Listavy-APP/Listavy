@@ -3,20 +3,12 @@ import { listProCards } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { SD_ZONES, TRADES, isTrade, isZone } from "@/lib/domain/catalog";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { initials } from "@/lib/domain/initials";
 
 export const metadata = { title: es.search.title };
 // Session-dependent page: block on the server so redirects return real status codes.
 export const instant = false;
 
-// Visual only: two-letter monogram from the first two words of the name.
-function initials(name: string | null): string {
-  if (!name) return "?";
-  const words = name.split(/\s+/).filter((w) => /\p{L}/u.test(w));
-  return words
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join("") || "?";
-}
 
 export default async function SearchPage({
   searchParams,
@@ -33,7 +25,23 @@ export default async function SearchPage({
 
   return (
     <section className="stack">
-      <h1>{es.search.title}</h1>
+      <div className="backbar">
+        <Link className="back" href="/" aria-label={es.common.back}>
+          ‹
+        </Link>
+        <span className="bt">{es.search.title}</span>
+      </div>
+
+      <div className="chip-row">
+        <Link className={`chip${trade === null ? " on" : ""}`} href="/buscar">
+          {es.search.all}
+        </Link>
+        {TRADES.map((t) => (
+          <Link key={t} className={`chip${trade === t ? " on" : ""}`} href={`/buscar?trade=${t}`}>
+            {es.trades[t]}
+          </Link>
+        ))}
+      </div>
 
       <form className="stack" method="get" action="/buscar">
         <label className="field">
