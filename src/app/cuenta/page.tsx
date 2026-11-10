@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "./SignOutButton";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -29,6 +30,12 @@ export default async function AccountPage() {
       ) : (
         <p className="error">{es.account.noProfile}</p>
       )}
+      <Link className="button secondary" href="/pro/estado">
+        {es.account.proStatus}
+      </Link>
+      <Link className="button secondary" href="/pro/registro">
+        {es.account.becomePro}
+      </Link>
       <SignOutButton />
     </section>
   );

@@ -9,6 +9,9 @@ export default function HomePage() {
       <Link className="button" href="/login">
         {es.home.loginCta}
       </Link>
+      <Link className="button secondary" href="/buscar">
+        {es.home.searchCta}
+      </Link>
       <Link className="button secondary" href="/cuenta">
         {es.home.accountCta}
       </Link>

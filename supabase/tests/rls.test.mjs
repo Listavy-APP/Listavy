@@ -1,6 +1,7 @@
-// RLS and privilege-guard tests for supabase/migrations/0001_init.sql.
-// Runs the migration in an in-memory Postgres (PGlite) with a stub auth schema.
-// Usage: npm run test:rls   (all data is TEST data)
+// RLS, privilege-guard, and storage-policy tests for supabase/migrations/*.sql.
+// Runs every migration in order in an in-memory Postgres (PGlite) with stub
+// auth and storage schemas. All data is TEST data.
+// Usage: npm run test:rls
 import { PGlite } from "@electric-sql/pglite";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -8,51 +9,82 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const migration = fs.readFileSync(path.join(here, "../migrations/0001_init.sql"), "utf8");
+const migrationsDir = path.join(here, "../migrations");
+const migrations = fs
+  .readdirSync(migrationsDir)
+  .filter((f) => f.endsWith(".sql"))
+  .sort();
 
 const HOMEOWNER = "00000000-0000-0000-0000-000000000001";
 const PRO = "00000000-0000-0000-0000-000000000002";
 const ADMIN = "00000000-0000-0000-0000-000000000003";
 const OUTSIDER_PRO = "00000000-0000-0000-0000-000000000004";
+const PENDING_PRO = "00000000-0000-0000-0000-000000000005";
 const JOB = "10000000-0000-0000-0000-000000000001";
 
 const db = new PGlite();
 
-// Stand-in for Supabase's auth schema and roles.
+// Stand-ins for Supabase's auth and storage schemas.
 await db.exec(`
   create schema auth;
   create table auth.users (id uuid primary key, phone text);
   create role authenticated;
+  create role anon;
   create or replace function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema auth to public;
-`);
-await db.exec(migration);
-await db.exec(
-  `grant usage on schema public to authenticated;
-   grant all on all tables in schema public to authenticated;
-   grant execute on all functions in schema public to authenticated;`,
-);
 
-// Seed as the SQL editor would (no auth.uid), so the trigger creates profiles.
+  create schema storage;
+  create table storage.buckets (id text primary key, name text, public boolean);
+  create table storage.objects (
+    id uuid primary key default gen_random_uuid(),
+    bucket_id text references storage.buckets (id),
+    name text
+  );
+  alter table storage.objects enable row level security;
+  create or replace function storage.foldername(name text) returns text[]
+    language sql immutable as
+    $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
+`);
+
+for (const file of migrations) {
+  await db.exec(fs.readFileSync(path.join(migrationsDir, file), "utf8"));
+}
+
+// Supabase grants these to the API roles by default on public tables.
+await db.exec(`
+  grant usage on schema public to authenticated;
+  grant all on all tables in schema public to authenticated;
+  grant usage on schema storage to authenticated;
+  grant select, insert on storage.objects to authenticated;
+  grant select on storage.buckets to authenticated;
+  -- Supabase grants anon table access by default; RLS is what blocks rows.
+  grant usage on schema public to anon;
+  grant select on all tables in schema public to anon;
+`);
+
+// Seed as the SQL editor would (no auth.uid), so the auth trigger creates profiles.
 await db.exec(`
   insert into auth.users (id, phone) values
     ('${HOMEOWNER}', '+18095550001'),
     ('${PRO}', '+18095550002'),
     ('${ADMIN}', '+18095550003'),
-    ('${OUTSIDER_PRO}', '+18095550004');
+    ('${OUTSIDER_PRO}', '+18095550004'),
+    ('${PENDING_PRO}', '+18095550005');
   update public.profiles set role = 'admin' where id = '${ADMIN}';
-  update public.profiles set role = 'pro' where id in ('${PRO}', '${OUTSIDER_PRO}');
+  update public.profiles set role = 'pro' where id in ('${PRO}', '${OUTSIDER_PRO}', '${PENDING_PRO}');
+  update public.profiles set full_name = 'TEST Pro Uno' where id = '${PRO}';
   insert into public.pros (id, trade, zone, price_min_dop, price_max_dop, verification_status)
     values ('${PRO}', 'plumber', 'Piantini', 2000, 4000, 'pending'),
-           ('${OUTSIDER_PRO}', 'electrician', 'Naco', 2000, 4000, 'approved');
+           ('${OUTSIDER_PRO}', 'electrician', 'Naco', 2000, 4000, 'approved'),
+           ('${PENDING_PRO}', 'ac_technician', 'Gazcue', 2000, 4000, 'pending');
   insert into public.jobs (id, homeowner_id, trade, zone, description)
     values ('${JOB}', '${HOMEOWNER}', 'plumber', 'Piantini', 'TEST: fuga en baño');
   insert into public.quotes (job_id, pro_id, amount_dop)
     values ('${JOB}', '${PRO}', 3000);
 `);
 
-/** Runs a query as a given user and returns rows. Resets role afterwards. */
+/** Runs SQL as a given user and returns the result. Always resets role. */
 async function asUser(uid, sql) {
   await db.exec(`set role authenticated; set request.jwt.claim.sub = '${uid}';`);
   try {
@@ -71,6 +103,8 @@ async function check(name, fn) {
     results.push(["FAIL", `${name}: ${e.message.split("\n")[0]}`]);
   }
 }
+
+// ---- Sprint 0 checks -------------------------------------------------------
 
 await check("pro cannot self-verify", async () => {
   await assert.rejects(
@@ -93,25 +127,14 @@ await check("user cannot change own role", async () => {
   );
 });
 
-await check("admin can verify a pro", async () => {
-  await asUser(ADMIN, `update public.pros set verification_status = 'approved' where id = '${PRO}'`);
-  const r = await asUser(ADMIN, `select verification_status from public.pros where id = '${PRO}'`);
-  assert.equal(r.rows[0].verification_status, "approved");
-});
-
 await check("quoting pro reads job without RLS recursion", async () => {
   const r = await asUser(PRO, "select id from public.jobs");
   assert.equal(r.rows.length, 1);
 });
 
-await check("homeowner reads own job", async () => {
-  const r = await asUser(HOMEOWNER, "select id from public.jobs");
-  assert.equal(r.rows.length, 1);
-});
-
-await check("unrelated pro cannot read the job", async () => {
-  const r = await asUser(OUTSIDER_PRO, "select id from public.jobs");
-  assert.equal(r.rows.length, 0);
+await check("homeowner reads own job, unrelated pro does not", async () => {
+  assert.equal((await asUser(HOMEOWNER, "select id from public.jobs")).rows.length, 1);
+  assert.equal((await asUser(OUTSIDER_PRO, "select id from public.jobs")).rows.length, 0);
 });
 
 await check("client cannot insert payments", async () => {
@@ -125,21 +148,6 @@ await check("client cannot insert payments", async () => {
   );
 });
 
-await check("only approved pros visible to homeowners", async () => {
-  // PRO was approved by the admin test above, so both seeded pros are approved.
-  // Pending pros must stay hidden; add one and check it is not listed.
-  const pending = "00000000-0000-0000-0000-000000000005";
-  await db.exec(`insert into auth.users (id, phone) values ('${pending}', '+18095550005')`);
-  await db.exec(`update public.profiles set role = 'pro' where id = '${pending}'`);
-  await db.exec(
-    `insert into public.pros (id, trade, zone, price_min_dop, price_max_dop)
-     values ('${pending}', 'ac_technician', 'Gazcue', 2000, 4000)`,
-  );
-  const r = await asUser(HOMEOWNER, "select id from public.pros");
-  assert.equal(r.rows.some((row) => row.id === pending), false);
-  assert.equal(r.rows.length, 2);
-});
-
 await check("job FX rate must be positive", async () => {
   await assert.rejects(
     asUser(
@@ -149,6 +157,154 @@ await check("job FX rate must be positive", async () => {
     ),
     /check constraint/,
   );
+});
+
+// ---- Sprint 1 checks -------------------------------------------------------
+
+await check("zone must be a Santo Domingo zone", async () => {
+  await assert.rejects(
+    db.exec(`insert into public.pros (id, trade, zone, price_min_dop, price_max_dop)
+             values ('${PENDING_PRO}', 'plumber', 'Santiago', 1000, 2000)
+             on conflict (id) do update set zone = 'Santiago'`),
+    /pros_zone_valid|check constraint/,
+  );
+});
+
+await check("list_pro_cards returns only safe columns", async () => {
+  const r = await asUser(HOMEOWNER, "select * from public.list_pro_cards()");
+  const cols = Object.keys(r.rows[0] ?? {}).sort();
+  assert.deepEqual(cols, [
+    "full_name", "id", "plan", "price_max_dop", "price_min_dop", "trade", "verified_at", "zone",
+  ]);
+});
+
+await check("list_pro_cards shows only approved pros", async () => {
+  const r = await asUser(HOMEOWNER, "select id from public.list_pro_cards()");
+  const ids = r.rows.map((x) => x.id);
+  assert.ok(ids.includes(OUTSIDER_PRO));
+  assert.ok(!ids.includes(PRO));          // pending at this point
+  assert.ok(!ids.includes(PENDING_PRO));  // pending
+});
+
+await check("list_pro_cards filters by trade and zone", async () => {
+  const byTrade = await asUser(HOMEOWNER, `select id from public.list_pro_cards('electrician', null)`);
+  assert.ok(byTrade.rows.some((x) => x.id === OUTSIDER_PRO));
+  const wrongTrade = await asUser(HOMEOWNER, `select id from public.list_pro_cards('plumber', null)`);
+  assert.equal(wrongTrade.rows.some((x) => x.id === OUTSIDER_PRO), false);
+  const byZone = await asUser(HOMEOWNER, `select id from public.list_pro_cards(null, 'Naco')`);
+  assert.ok(byZone.rows.some((x) => x.id === OUTSIDER_PRO));
+  const wrongZone = await asUser(HOMEOWNER, `select id from public.list_pro_cards(null, 'Gazcue')`);
+  assert.equal(wrongZone.rows.some((x) => x.id === OUTSIDER_PRO), false);
+});
+
+await check("anonymous users can browse approved pro cards", async () => {
+  await db.exec("set role anon;");
+  try {
+    const r = await db.query("select id, full_name, trade, zone from public.list_pro_cards()");
+    assert.ok(r.rows.some((x) => x.id === OUTSIDER_PRO));
+    assert.ok(!r.rows.some((x) => x.id === PENDING_PRO));
+  } finally {
+    await db.exec("reset role;");
+  }
+});
+
+await check("anonymous users cannot read profiles, pros table, or pro files", async () => {
+  await db.exec("set role anon;");
+  try {
+    const p = await db.query("select id from public.profiles");
+    assert.equal(p.rows.length, 0);
+    const pr = await db.query("select id from public.pros where verification_status = 'pending'");
+    assert.equal(pr.rows.length, 0);
+    const f = await db.query("select id from public.pro_files");
+    assert.equal(f.rows.length, 0);
+  } finally {
+    await db.exec("reset role;");
+  }
+});
+
+await check("non-admin cannot run admin_review_pro", async () => {
+  await assert.rejects(
+    asUser(PRO, `select public.admin_review_pro('${PRO}', 'approved')`),
+    /permission denied|Solo un administrador/,
+  );
+});
+
+await check("admin approves a pro: badge set and role granted", async () => {
+  await asUser(ADMIN, `select public.admin_review_pro('${PRO}', 'approved')`);
+  const p = await db.query(`select verification_status, verified_by from public.pros where id = '${PRO}'`);
+  assert.equal(p.rows[0].verification_status, "approved");
+  assert.equal(p.rows[0].verified_by, ADMIN);
+  const pr = await db.query(`select role from public.profiles where id = '${PRO}'`);
+  assert.equal(pr.rows[0].role, "pro");
+});
+
+await check("admin suspends a pro: badge removed", async () => {
+  await asUser(ADMIN, `select public.admin_review_pro('${PRO}', 'suspended')`);
+  const r = await asUser(HOMEOWNER, `select id from public.list_pro_cards() where id = '${PRO}'`);
+  assert.equal(r.rows.length, 0);
+  await asUser(ADMIN, `select public.admin_review_pro('${PRO}', 'approved')`);
+});
+
+await check("admin_review_pro rejects unknown status", async () => {
+  await assert.rejects(
+    asUser(ADMIN, `select public.admin_review_pro('${PRO}', 'verified')`),
+    /Estado no válido/,
+  );
+});
+
+await check("pro cannot read another pro's pro_files; owner can", async () => {
+  await asUser(PRO, `insert into public.pro_files (pro_id, kind, storage_path)
+                     values ('${PRO}', 'id_document', '${PRO}/id.jpg')`);
+  const other = await asUser(OUTSIDER_PRO, `select id from public.pro_files where pro_id = '${PRO}'`);
+  assert.equal(other.rows.length, 0);
+  const own = await asUser(PRO, `select id from public.pro_files where pro_id = '${PRO}'`);
+  assert.equal(own.rows.length, 1);
+});
+
+await check("homeowner sees approved pro's work photo, not ID document", async () => {
+  await asUser(OUTSIDER_PRO, `insert into public.pro_files (pro_id, kind, storage_path)
+                              values ('${OUTSIDER_PRO}', 'work_photo', '${OUTSIDER_PRO}/w1.jpg'),
+                                     ('${OUTSIDER_PRO}', 'id_document', '${OUTSIDER_PRO}/id.jpg')`);
+  const r = await asUser(HOMEOWNER, `select kind from public.pro_files where pro_id = '${OUTSIDER_PRO}'`);
+  assert.deepEqual(r.rows.map((x) => x.kind), ["work_photo"]);
+});
+
+await check("homeowner cannot see work photos of an unapproved pro", async () => {
+  await asUser(PENDING_PRO, `insert into public.pro_files (pro_id, kind, storage_path)
+                             values ('${PENDING_PRO}', 'work_photo', '${PENDING_PRO}/w1.jpg')`);
+  const r = await asUser(HOMEOWNER, `select id from public.pro_files where pro_id = '${PENDING_PRO}'`);
+  assert.equal(r.rows.length, 0);
+});
+
+await check("storage: pro can upload only into own folder", async () => {
+  await asUser(PRO, `insert into storage.objects (bucket_id, name)
+                     values ('pro-documents', '${PRO}/id.jpg')`);
+  await assert.rejects(
+    asUser(PRO, `insert into storage.objects (bucket_id, name)
+                 values ('pro-documents', '${OUTSIDER_PRO}/id.jpg')`),
+    /row-level security/,
+  );
+});
+
+await check("storage: ID documents are private to owner and admin", async () => {
+  const other = await asUser(OUTSIDER_PRO, `select id from storage.objects where bucket_id = 'pro-documents'`);
+  assert.equal(other.rows.length, 0);
+  const admin = await asUser(ADMIN, `select id from storage.objects where bucket_id = 'pro-documents'`);
+  assert.ok(admin.rows.length >= 1);
+});
+
+await check("storage: approved pro's work photos readable by signed-in users", async () => {
+  await asUser(OUTSIDER_PRO, `insert into storage.objects (bucket_id, name)
+                              values ('pro-work-photos', '${OUTSIDER_PRO}/w1.jpg')`);
+  const r = await asUser(HOMEOWNER, `select name from storage.objects where bucket_id = 'pro-work-photos'`);
+  assert.ok(r.rows.some((x) => x.name === `${OUTSIDER_PRO}/w1.jpg`));
+});
+
+await check("storage: unapproved pro's work photos hidden", async () => {
+  await asUser(PENDING_PRO, `insert into storage.objects (bucket_id, name)
+                             values ('pro-work-photos', '${PENDING_PRO}/w1.jpg')`);
+  const r = await asUser(HOMEOWNER, `select name from storage.objects where name like '${PENDING_PRO}%'`);
+  assert.equal(r.rows.length, 0);
 });
 
 await db.close();

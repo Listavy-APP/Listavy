@@ -96,3 +96,25 @@ export interface Dispute {
   created_at: string;
   resolved_at: string | null;
 }
+
+export type ProFileKind = "id_document" | "work_photo";
+
+export interface ProFile {
+  id: string;
+  pro_id: string;
+  kind: ProFileKind;
+  storage_path: string;
+  created_at: string;
+}
+
+/** Row returned by the list_pro_cards() function. Safe to show to other users. */
+export interface ProCard {
+  id: string;
+  full_name: string | null;
+  trade: Trade;
+  zone: string;
+  price_min_dop: number;
+  price_max_dop: number;
+  plan: ProPlan;
+  verified_at: string | null;
+}

@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Phone sign-in with a one-time code delivered over WhatsApp.
- * Requires a WhatsApp-capable OTP provider configured in Supabase (see README).
+ * Phone sign-in with a one-time code delivered over SMS (Twilio Verify).
+ * Requires the Twilio Verify provider enabled in Supabase Auth (see README).
+ * WhatsApp delivery is deferred until the Meta sender is approved.
  * Phone numbers must be E.164, for example +18095551234.
  */
 
@@ -16,7 +17,7 @@ export function normalizePhone(input: string): string | null {
 export async function sendWhatsAppCode(supabase: SupabaseClient, phone: string): Promise<void> {
   const { error } = await supabase.auth.signInWithOtp({
     phone,
-    options: { channel: "whatsapp" },
+    options: { channel: "sms" },
   });
   if (error) throw error;
 }

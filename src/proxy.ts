@@ -3,7 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
 
 /** Routes that need a signed-in user. Each page also checks, as a second layer. */
-const PROTECTED_PREFIXES = ["/cuenta"];
+// Browsing (/buscar, /pro/[id]) is public. Applying and account pages need sign-in.
+const PROTECTED_PREFIXES = ["/cuenta", "/pro/registro", "/pro/estado"];
 
 /**
  * Refreshes the Supabase session cookie and redirects anonymous visitors

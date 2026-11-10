@@ -2,7 +2,7 @@
 
 Marketplace de servicios del hogar para Santo Domingo. Un profesional verificado, cotización por foto, pago por la plataforma, fotos antes y después.
 
-Estado: **Sprint 0 (Fundación)**. Ver `Sprint status` abajo.
+Estado: **Sprint 1 (Perfiles y búsqueda)** en desarrollo. Sprint 0 abierto en WhatsApp y prueba en dispositivo. Ver `Sprint status` abajo.
 
 ---
 
@@ -78,7 +78,7 @@ Sin proveedor configurado, el envío del código falla y la app muestra un mensa
 | `npm run build` | Build de producción |
 | `npm run start` | Sirve el build |
 | `npm run typecheck` | Chequeo de tipos sin emitir archivos |
-| `npm run test:rls` | Prueba RLS y los guardas de privilegios contra la migración (PGlite, datos TEST) |
+| `npm run test:rls` | Prueba RLS, guardas, función de búsqueda y políticas de Storage (PGlite, datos TEST). 23 pruebas. |
 
 ---
 
@@ -114,12 +114,40 @@ supabase/
 
 ---
 
+## Aprobar un profesional (Sprint 1)
+
+Hasta Sprint 4 no hay panel de administración. Para aprobar una solicitud, usa el SQL editor de Supabase. Ese contexto no tiene sesión de usuario, así que las guardas dejan pasar el cambio.
+
+```sql
+-- 1. Revisa la solicitud: cédula y fotos están en Storage (buckets privados).
+select p.id, pr.full_name, p.trade, p.zone, p.verification_status
+from public.pros p join public.profiles pr on pr.id = p.id
+where p.verification_status = 'pending';
+
+-- 2. Aprueba (reemplaza <pro_id>). Sin esto no hay insignia verificada.
+update public.pros
+   set verification_status = 'approved', verified_at = now()
+ where id = '<pro_id>';
+update public.profiles set role = 'pro' where id = '<pro_id>';
+```
+
+El mismo cambio desde la app pasa por `admin_review_pro(uuid, text)`, que solo ejecuta un administrador con sesión. Sprint 4 lo expone en el panel.
+
+Zonas: la lista en `src/lib/domain/catalog.ts` y en la migración 0003 es PROVISIONAL. Confírmala con el verificador antes del lanzamiento.
+
+---
+
 ## Seguridad de la base de datos
 
 - RLS activo en las siete tablas.
 - `pros.verification_status`, `pros.plan` y `profiles.role` solo cambian con sesión de administrador. Lo impone un trigger, no solo la UI.
 - Las tablas `payments` y `disputes` no aceptan escrituras de clientes para pagos. Los pagos se escriben desde Edge Functions con `service_role` (Sprint 3).
 - Las funciones auxiliares `SECURITY DEFINER` evitan recursión entre políticas de `jobs` y `quotes`.
+
+- Sprint 1: documentos de identidad en bucket privado `pro-documents`, visibles solo al dueño y a administradores. Fotos de trabajo en `pro-work-photos`, visibles a usuarios con sesión solo si el profesional está aprobado.
+- Sprint 1: la búsqueda y el perfil público son anónimos (migración 0006). Fotos de trabajo y solicitudes requieren sesión.
+- Sprint 1: el teléfono nunca aparece en búsqueda. La búsqueda pasa por `list_pro_cards()`, que devuelve solo columnas seguras de profesionales aprobados.
+- Avisos del advisor de Supabase: 0 errores. Quedan avisos WARN de funciones `SECURITY DEFINER` que los usuarios con sesión deben poder llamar. Cada una valida el rol dentro de la función.
 
 Pendiente para Sprint 4: `reviews` solo para trabajos completados y pagados por la plataforma.
 
@@ -170,6 +198,15 @@ Dependencia que supere US$150 al mes: se consulta antes de agregarla.
 
 ## Sprint status
 
+Sprint 1 — Perfiles y búsqueda
+
+| Criterio | Estado | Evidencia |
+|---|---|---|
+| Registro de profesional: oficio, zona, precio, cédula, fotos | Hecho | `/pro/registro`. Fotos se comprimen en el teléfono antes de subir. |
+| Insignia verificada solo por administrador | Hecho | Trigger `pros_guard` y función `admin_review_pro`. Probado en RLS. |
+| Búsqueda por oficio y zona, solo Santo Domingo | Hecho | `/buscar`. Zona validada en base de datos. Visible sin sesión. |
+| Búsqueda en menos de 60 s en Android de US$150 | Pendiente | Requiere prueba en dispositivo. |
+
 Sprint 0 — Fundación (Semana 1)
 
 | Criterio | Estado | Evidencia |
@@ -179,7 +216,7 @@ Sprint 0 — Fundación (Semana 1)
 | Interfaz en español | Hecho | `lang="es-DO"`. Página 404 y error en español. |
 | Esquema de Supabase con RLS | Hecho | 10 de 10 pruebas en `npm run test:rls`. |
 | Esquema aplicado en Supabase | Hecho | Proyecto `listavy` (us-east-2). Migraciones 0001 y 0002 aplicadas. 7 tablas, RLS activo, 18 políticas. |
-| Advisor de seguridad | Hecho con 4 avisos aceptados | Quedan 4 avisos de funciones `SECURITY DEFINER` (`is_admin`, `is_job_party`, `is_job_homeowner`, `has_quoted_job`). Son necesarias para RLS y solo las ejecuta `authenticated`. |
+| Advisor de seguridad | Hecho con avisos WARN aceptados | Quedan 4 avisos de funciones `SECURITY DEFINER` (`is_admin`, `is_job_party`, `is_job_homeowner`, `has_quoted_job`). Son necesarias para RLS y solo las ejecuta `authenticated`. |
 | Login por teléfono y WhatsApp | Código listo, sin probar en vivo | Requiere proveedor de OTP con WhatsApp configurado en Supabase. |
 | App arranca en Android e iPhone | Pendiente | Requiere prueba manual en dispositivo. |
 | README con costos y migración | Hecho | Este archivo. |
