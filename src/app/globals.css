@@ -17,7 +17,6 @@
   --accent: #0e7490;
   --accent-tint: #ecfeff;
 
-  --danger: #b42318;
 
   /* Spacing scale (8px base) */
   --s1: 8px;
@@ -71,7 +70,7 @@ h2 {
 }
 .lead { margin: 0; font-size: 1.1rem; color: var(--ink-2); }
 .muted { color: var(--muted); font-size: 0.95rem; margin: 0; }
-.error { color: var(--danger); margin: 0; font-weight: 600; }
+.error { color: var(--ink); margin: 0; font-weight: 800; }
 
 /* Home hero */
 .hero { gap: var(--s2); padding-top: var(--s2); }
@@ -298,7 +297,8 @@ a.button.secondary:hover { color: var(--primary); }
   font-weight: 700;
 }
 .backbar .bt { font-size: 1.05rem; font-weight: 700; }
-.chip-row { display: flex; gap: var(--s1); overflow-x: auto; padding-bottom: 4px; }
+.chip-row { display: flex; gap: var(--s1); overflow-x: auto; scrollbar-width: none; }
+.chip-row::-webkit-scrollbar { display: none; }
 .chip {
   flex: none;
   display: inline-flex;
@@ -319,9 +319,9 @@ a.button.secondary:hover { color: var(--primary); }
 .pro-hero .sub { color: var(--muted); font-size: 0.95rem; margin: 0; }
 .price-block {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--s2);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s1);
   padding: var(--s2);
   border: 1px solid var(--line);
   border-radius: var(--radius-card);

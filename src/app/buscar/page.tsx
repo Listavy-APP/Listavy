@@ -44,17 +44,8 @@ export default async function SearchPage({
       </div>
 
       <form className="stack" method="get" action="/buscar">
-        <label className="field">
-          <span>{es.search.trade}</span>
-          <select name="trade" defaultValue={trade ?? ""}>
-            <option value="">{es.search.all}</option>
-            {TRADES.map((t) => (
-              <option key={t} value={t}>
-                {es.trades[t]}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* Trade is chosen with the chips above; keep it in the query when searching. */}
+        <input type="hidden" name="trade" value={trade ?? ""} />
         <label className="field">
           <span>{es.search.zone}</span>
           <select name="zone" defaultValue={zone ?? ""}>
