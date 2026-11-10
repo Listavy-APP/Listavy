@@ -8,6 +8,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const BUCKETS = {
   documents: "pro-documents",
   workPhotos: "pro-work-photos",
+  /** Public bucket. Only approved avatars are listed, so only approved photos are reachable. */
+  avatars: "pro-avatars",
 } as const;
 
 export type Bucket = (typeof BUCKETS)[keyof typeof BUCKETS];
@@ -55,4 +57,10 @@ export async function signedUrl(
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, seconds);
   if (error) return null;
   return data.signedUrl;
+}
+
+/** Public URL for an approved profile photo. Null when the pro has no photo. */
+export function avatarUrl(supabase: SupabaseClient, path: string | null): string | null {
+  if (!path) return null;
+  return supabase.storage.from(BUCKETS.avatars).getPublicUrl(path).data.publicUrl;
 }

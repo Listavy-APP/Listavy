@@ -437,3 +437,6 @@ select {
   cursor: pointer;
 }
 select:disabled { opacity: 0.6; }
+
+/* Profile photo: same circle as the monogram, cropped to fit */
+img.avatar { object-fit: cover; padding: 0; }

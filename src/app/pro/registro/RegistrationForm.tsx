@@ -52,6 +52,7 @@ export function RegistrationForm() {
   const [idFile, setIdFile] = useState<File | null>(null);
   const [workFiles, setWorkFiles] = useState<File[]>([]);
   const [companyDocFile, setCompanyDocFile] = useState<File | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -110,6 +111,7 @@ export function RegistrationForm() {
         workPhotos,
         proType,
         company,
+        avatar: avatarFile ? await resizeImage(avatarFile) : undefined,
       });
       router.push("/pro/estado");
       router.refresh();
@@ -205,6 +207,16 @@ export function RegistrationForm() {
         multiple
         files={workFiles}
         onFiles={(files) => setWorkFiles(files.slice(0, MAX_WORK_PHOTOS))}
+      />
+
+      <FilePick
+        label={es.registration.avatarLabel}
+        hint={es.registration.avatarHint}
+        buttonLabel={es.registration.chooseOne}
+        accept="image/*"
+        capture="environment"
+        files={avatarFile ? [avatarFile] : []}
+        onFiles={(files) => setAvatarFile(files[0] ?? null)}
       />
 
       {proType === "company" && (

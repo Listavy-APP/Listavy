@@ -109,7 +109,7 @@ export interface Dispute {
   resolved_at: string | null;
 }
 
-export type ProFileKind = "id_document" | "work_photo" | "company_document";
+export type ProFileKind = "id_document" | "work_photo" | "company_document" | "avatar";
 
 export interface ProFile {
   id: string;
@@ -129,4 +129,6 @@ export interface ProCard {
   price_max_dop: number;
   plan: ProPlan;
   verified_at: string | null;
+  /** Approved profile photo path in the pro-avatars bucket, or null. */
+  avatar_path: string | null;
 }

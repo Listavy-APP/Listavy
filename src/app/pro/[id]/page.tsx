@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getProCard, getWorkPhotoUrls } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
-import { initials } from "@/lib/domain/initials";
+import { avatarUrl } from "@/lib/storage/proFiles";
+import { ProAvatar } from "@/components/ProAvatar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: es.proDetail.title };
@@ -45,9 +46,7 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       <div className="pro-hero">
-        <div className="avatar" aria-hidden="true">
-          {initials(pro.full_name)}
-        </div>
+        <ProAvatar name={pro.full_name} src={avatarUrl(supabase, pro.avatar_path)} />
         <h1>{pro.full_name ?? es.proDetail.title}</h1>
         <div className="badge">{es.search.verified}</div>
         <p className="sub">

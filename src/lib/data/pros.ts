@@ -30,6 +30,8 @@ export interface ProApplicationInput {
   proType: ProType;
   /** Required when proType is "company". Must be absent for "individual". */
   company?: CompanyInput;
+  /** Optional profile photo. Shown only after an admin approves it. */
+  avatar?: Blob;
 }
 
 /** Returns the signed-in user's pro application, or null. */
@@ -71,6 +73,9 @@ export async function createProApplication(
   const companyPath = company
     ? await uploadCompanyDocument(supabase, uid, company.document, company.documentType)
     : null;
+  const avatarPath = input.avatar
+    ? await uploadJpeg(supabase, BUCKETS.avatars, uid, input.avatar)
+    : null;
 
   // One transaction in the database: name, pro row, company row, file rows.
   // If any insert fails, nothing is written and the applicant can retry.
@@ -86,6 +91,7 @@ export async function createProApplication(
     p_company_path: companyPath,
     p_razon_social: company?.razonSocial ?? null,
     p_rnc: company?.rnc ?? null,
+    p_avatar_path: avatarPath,
   });
   if (error) throw error;
 }

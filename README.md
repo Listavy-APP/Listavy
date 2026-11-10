@@ -148,6 +148,13 @@ Aplica solo a profesionales con `pro_type = 'company'`. Los profesionales físic
 
 El RNC nunca aparece en búsqueda ni en el perfil público. La consulta DGII es manual: el sistema no la hace.
 
+### Checklist: foto de perfil
+
+1. Revisa la foto en `pro_files` (tipo `avatar`, estado `pending`). Solo un administrador puede cambiar el estado.
+2. Aprueba o rechaza con `select public.admin_review_avatar('<file_id>', 'approved' | 'rejected');`.
+3. Si la rechazas, borra también el objeto del bucket público `pro-avatars` (Storage en el dashboard de Supabase o la API de Storage). No dejes la foto rechazada en el bucket.
+4. Una foto pendiente bloquea la aprobación del profesional. Una foto rechazada no la bloquea.
+
 ---
 
 ## Seguridad de la base de datos

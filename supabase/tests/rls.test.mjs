@@ -178,7 +178,7 @@ await check("list_pro_cards returns only safe columns", async () => {
   const r = await asUser(HOMEOWNER, "select * from public.list_pro_cards()");
   const cols = Object.keys(r.rows[0] ?? {}).sort();
   assert.deepEqual(cols, [
-    "full_name", "id", "plan", "price_max_dop", "price_min_dop", "trade", "verified_at", "zone",
+    "avatar_path", "full_name", "id", "plan", "price_max_dop", "price_min_dop", "trade", "verified_at", "zone",
   ]);
 });
 
@@ -455,6 +455,73 @@ await check("individual submit rejects company fields and writes no company row"
     null, null, null)`);
   const c = await db.query(`select pro_id from public.pro_companies where pro_id = '${NEW_APPLICANT_2}'`);
   assert.equal(c.rows.length, 0);
+});
+
+// ---- Profile photo (migration 0008) ---------------------------------------
+
+const AV_PRO = "00000000-0000-0000-0000-00000000000a";
+const AV_PRO_2 = "00000000-0000-0000-0000-00000000000b";
+
+await check("avatar: submit stores a pending avatar; foreign folder rejected", async () => {
+  await db.exec(`insert into auth.users (id, phone) values ('${AV_PRO}', '+18095550010')`);
+  await assert.rejects(
+    asUser(AV_PRO, `select public.create_pro_application('TEST Foto', 'plumber', 'Naco', 2000, 4000, 'individual',
+      '${AV_PRO}/id.jpg', array['${AV_PRO}/w1.jpg']::text[], null, null, null, '${OUTSIDER_PRO}/avatar.jpg')`),
+    /tu carpeta/,
+  );
+  await asUser(AV_PRO, `select public.create_pro_application('TEST Foto', 'plumber', 'Naco', 2000, 4000, 'individual',
+    '${AV_PRO}/id.jpg', array['${AV_PRO}/w1.jpg']::text[], null, null, null, '${AV_PRO}/avatar.jpg')`);
+  const r = await db.query(`select review_status from public.pro_files where pro_id = '${AV_PRO}' and kind = 'avatar'`);
+  assert.deepEqual(r.rows.map((x) => x.review_status), ["pending"]);
+});
+
+await check("owner cannot change avatar review status", async () => {
+  const r = await asUser(AV_PRO, `update public.pro_files set review_status = 'approved'
+                                   where pro_id = '${AV_PRO}' and kind = 'avatar'`);
+  assert.equal(r.affectedRows, 0);
+});
+
+await check("only admin can review avatars", async () => {
+  const f = await db.query(`select id from public.pro_files where pro_id = '${AV_PRO}' and kind = 'avatar'`);
+  await assert.rejects(
+    asUser(AV_PRO, `select public.admin_review_avatar('${f.rows[0].id}', 'approved')`),
+    /Solo un administrador/,
+  );
+});
+
+await check("pending avatar blocks approval", async () => {
+  await assert.rejects(
+    asUser(ADMIN, `select public.admin_review_pro('${AV_PRO}', 'approved')`),
+    /Revisa la foto/,
+  );
+});
+
+await check("approved avatar appears on the public card after approval", async () => {
+  const f = await db.query(`select id from public.pro_files where pro_id = '${AV_PRO}' and kind = 'avatar'`);
+  await asUser(ADMIN, `select public.admin_review_avatar('${f.rows[0].id}', 'approved')`);
+  await asUser(ADMIN, `select public.admin_review_pro('${AV_PRO}', 'approved')`);
+  const r = await asUser(HOMEOWNER, `select avatar_path from public.list_pro_cards(null, null, '${AV_PRO}')`);
+  assert.equal(r.rows[0].avatar_path, `${AV_PRO}/avatar.jpg`);
+});
+
+await check("rejected avatar does not block approval and is never shown", async () => {
+  await db.exec(`insert into auth.users (id, phone) values ('${AV_PRO_2}', '+18095550011')`);
+  await asUser(AV_PRO_2, `select public.create_pro_application('TEST Foto 2', 'plumber', 'Naco', 2000, 4000, 'individual',
+    '${AV_PRO_2}/id.jpg', array['${AV_PRO_2}/w1.jpg']::text[], null, null, null, '${AV_PRO_2}/avatar.jpg')`);
+  const f = await db.query(`select id from public.pro_files where pro_id = '${AV_PRO_2}' and kind = 'avatar'`);
+  await asUser(ADMIN, `select public.admin_review_avatar('${f.rows[0].id}', 'rejected')`);
+  await asUser(ADMIN, `select public.admin_review_pro('${AV_PRO_2}', 'approved')`);
+  const r = await asUser(HOMEOWNER, `select avatar_path from public.list_pro_cards(null, null, '${AV_PRO_2}')`);
+  assert.equal(r.rows.length, 1);
+  assert.equal(r.rows[0].avatar_path, null);
+});
+
+await check("storage: avatar upload only into own folder", async () => {
+  await asUser(AV_PRO, `insert into storage.objects (bucket_id, name) values ('pro-avatars', '${AV_PRO}/x.jpg')`);
+  await assert.rejects(
+    asUser(AV_PRO, `insert into storage.objects (bucket_id, name) values ('pro-avatars', '${AV_PRO_2}/x.jpg')`),
+    /row-level security/,
+  );
 });
 
 await db.close();

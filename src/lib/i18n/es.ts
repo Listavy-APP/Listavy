@@ -101,6 +101,8 @@ export const es = {
     chooseOne: "Elegir foto",
     chooseMany: "Elegir fotos",
     chooseDoc: "Elegir archivo",
+    avatarLabel: "Foto de perfil (opcional)",
+    avatarHint: "La revisamos antes de publicarla. Si no subes foto, mostramos tus iniciales.",
     individual: "Persona física",
     company: "Empresa",
     companyTitle: "Datos de la empresa",
