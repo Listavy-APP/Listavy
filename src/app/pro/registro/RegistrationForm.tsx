@@ -12,6 +12,38 @@ import type { ProType } from "@/lib/types/database";
 const MAX_WORK_PHOTOS = 3;
 const RNC_PATTERN = /^[0-9]{9}$/;
 
+/** Styled file picker: a navy-outline button, the chosen file names below it. */
+function FilePick(props: {
+  label: string;
+  hint: string;
+  buttonLabel: string;
+  accept: string;
+  capture?: "environment";
+  multiple?: boolean;
+  files: File[];
+  onFiles: (files: File[]) => void;
+}) {
+  const names = props.files.map((f) => f.name).join(", ");
+  return (
+    <div className="file">
+      <span className="field-label">{props.label}</span>
+      <label className="file-pick">
+        <input
+          className="sr-only"
+          type="file"
+          accept={props.accept}
+          capture={props.capture}
+          multiple={props.multiple}
+          onChange={(e) => props.onFiles(Array.from(e.target.files ?? []))}
+        />
+        <span>{props.buttonLabel}</span>
+      </label>
+      <span className="file-name">{names || es.registration.noFile}</span>
+      <p className="muted">{props.hint}</p>
+    </div>
+  );
+}
+
 export function RegistrationForm() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -93,28 +125,24 @@ export function RegistrationForm() {
       <h1>{es.registration.title}</h1>
       <p className="lead">{es.registration.intro}</p>
 
-      <fieldset className="field">
+      <fieldset>
         <legend>{es.registration.proTypeLabel}</legend>
-        <label className="row">
-          <input
-            type="radio"
-            name="proType"
-            value="individual"
-            checked={proType === "individual"}
-            onChange={() => setProType("individual")}
-          />
-          <span>{es.registration.individual}</span>
-        </label>
-        <label className="row">
-          <input
-            type="radio"
-            name="proType"
-            value="company"
-            checked={proType === "company"}
-            onChange={() => setProType("company")}
-          />
-          <span>{es.registration.company}</span>
-        </label>
+        <div className="choice-group">
+          {(["individual", "company"] as const).map((value) => (
+            <label key={value} className={`choice${proType === value ? " on" : ""}`}>
+              <input
+                className="sr-only"
+                type="radio"
+                name="proType"
+                value={value}
+                checked={proType === value}
+                onChange={() => setProType(value)}
+              />
+              <span className="choice-mark" aria-hidden="true" />
+              <span>{value === "individual" ? es.registration.individual : es.registration.company}</span>
+            </label>
+          ))}
+        </div>
       </fieldset>
 
       <label className="field">
@@ -158,28 +186,26 @@ export function RegistrationForm() {
       </div>
       <p className="muted">{es.registration.priceHint}</p>
 
-      <label className="field">
-        <span>{es.registration.idLabel}</span>
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={(e) => setIdFile(e.target.files?.[0] ?? null)}
-        />
-      </label>
-      <p className="muted">{es.registration.idHint}</p>
+      <FilePick
+        label={es.registration.idLabel}
+        hint={es.registration.idHint}
+        buttonLabel={es.registration.chooseOne}
+        accept="image/*"
+        capture="environment"
+        files={idFile ? [idFile] : []}
+        onFiles={(files) => setIdFile(files[0] ?? null)}
+      />
 
-      <label className="field">
-        <span>{es.registration.photosLabel}</span>
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          multiple
-          onChange={(e) => setWorkFiles(Array.from(e.target.files ?? []).slice(0, MAX_WORK_PHOTOS))}
-        />
-      </label>
-      <p className="muted">{es.registration.photosHint}</p>
+      <FilePick
+        label={es.registration.photosLabel}
+        hint={es.registration.photosHint}
+        buttonLabel={es.registration.chooseMany}
+        accept="image/*"
+        capture="environment"
+        multiple
+        files={workFiles}
+        onFiles={(files) => setWorkFiles(files.slice(0, MAX_WORK_PHOTOS))}
+      />
 
       {proType === "company" && (
         <fieldset className="stack">
@@ -196,15 +222,14 @@ export function RegistrationForm() {
           </label>
           <p className="muted">{es.registration.rncHint}</p>
 
-          <label className="field">
-            <span>{es.registration.companyDocLabel}</span>
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={(e) => setCompanyDocFile(e.target.files?.[0] ?? null)}
-            />
-          </label>
-          <p className="muted">{es.registration.companyDocHint}</p>
+          <FilePick
+            label={es.registration.companyDocLabel}
+            hint={es.registration.companyDocHint}
+            buttonLabel={es.registration.chooseDoc}
+            accept="image/*,application/pdf"
+            files={companyDocFile ? [companyDocFile] : []}
+            onFiles={(files) => setCompanyDocFile(files[0] ?? null)}
+          />
         </fieldset>
       )}
 

@@ -345,3 +345,82 @@ input[type="file"] {
   background: var(--paper);
   box-shadow: var(--shadow-card);
 }
+
+/* Registration: custom choices and file pickers in the navy/cyan system */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend {
+  padding: 0;
+  margin-bottom: var(--s1);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ink-2);
+}
+.field-label { font-weight: 600; font-size: 0.95rem; color: var(--ink-2); }
+
+.choice-group { display: flex; flex-direction: column; gap: var(--s1); }
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.choice.on {
+  border-color: var(--primary);
+  background: var(--primary-tint);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.choice:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.choice-mark {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  display: grid;
+  place-items: center;
+}
+.choice.on .choice-mark { border-color: var(--primary); }
+.choice.on .choice-mark::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.file { display: flex; flex-direction: column; gap: var(--s1); }
+.file-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0 var(--s2);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--primary);
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.file-pick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.file-name { font-size: 0.95rem; color: var(--ink-2); overflow-wrap: anywhere; }
