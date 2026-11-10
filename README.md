@@ -135,6 +135,19 @@ El mismo cambio desde la app pasa por `admin_review_pro(uuid, text)`, que solo e
 
 Zonas: la lista en `src/lib/domain/catalog.ts` y en la migración 0003 es PROVISIONAL. Confírmala con el verificador antes del lanzamiento.
 
+### Checklist: empresas (RNC)
+
+Aplica solo a profesionales con `pro_type = 'company'`. Los profesionales físicos no envían RNC.
+
+1. Abre el certificado de RNC o Registro Mercantil en `pro-documents` (tipo `company_document`).
+2. Busca el RNC (9 dígitos) en la consulta pública de RNC de la DGII.
+3. Confirma que la razón social coincide con el nombre de la empresa en la solicitud.
+4. Confirma que el estado no es "Suspendido".
+5. Ejecuta `select public.admin_verify_rnc('<pro_id>');`.
+6. Aprueba con `admin_review_pro`. La función rechaza la aprobación si el RNC no está verificado.
+
+El RNC nunca aparece en búsqueda ni en el perfil público. La consulta DGII es manual: el sistema no la hace.
+
 ---
 
 ## Seguridad de la base de datos

@@ -9,6 +9,7 @@ export type Role = "homeowner" | "pro" | "admin";
 export type Trade = "plumber" | "electrician" | "ac_technician";
 export type VerificationStatus = "pending" | "approved" | "suspended";
 export type ProPlan = "free" | "pro";
+export type ProType = "individual" | "company";
 export type JobStatus =
   | "requested"
   | "quoted"
@@ -41,6 +42,17 @@ export interface Pro {
   verified_at: string | null;
   verified_by: string | null;
   plan: ProPlan;
+  pro_type: ProType;
+  created_at: string;
+}
+
+/** Private company data. Owner and admins only. Never shown in search or on public profiles. */
+export interface ProCompany {
+  pro_id: string;
+  razon_social: string;
+  rnc: string;
+  rnc_verified_at: string | null;
+  rnc_verified_by: string | null;
   created_at: string;
 }
 
@@ -97,7 +109,7 @@ export interface Dispute {
   resolved_at: string | null;
 }
 
-export type ProFileKind = "id_document" | "work_photo";
+export type ProFileKind = "id_document" | "work_photo" | "company_document";
 
 export interface ProFile {
   id: string;

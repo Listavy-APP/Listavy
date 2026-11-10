@@ -1,10 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { BUCKETS, signedUrl, uploadJpeg } from "@/lib/storage/proFiles";
-import type { ProCard, ProFile, Pro, Trade } from "@/lib/types/database";
+import {
+  BUCKETS,
+  signedUrl,
+  uploadCompanyDocument,
+  uploadJpeg,
+} from "@/lib/storage/proFiles";
+import type { ProCard, ProFile, Pro, ProType, Trade } from "@/lib/types/database";
 
 /**
  * Data-access layer for pros. UI code calls these functions, never raw queries.
  */
+
+export interface CompanyInput {
+  razonSocial: string;
+  /** 9 digits, validated by the form and by a database check. */
+  rnc: string;
+  document: Blob;
+  documentType: "image/jpeg" | "application/pdf";
+}
 
 export interface ProApplicationInput {
   fullName: string;
@@ -14,6 +27,9 @@ export interface ProApplicationInput {
   priceMaxDop: number;
   idDocument: Blob;
   workPhotos: Blob[];
+  proType: ProType;
+  /** Required when proType is "company". Must be absent for "individual". */
+  company?: CompanyInput;
 }
 
 /** Returns the signed-in user's pro application, or null. */
@@ -41,34 +57,37 @@ export async function createProApplication(
   const uid = userData.user?.id;
   if (!uid) throw new Error("Debes entrar primero.");
 
+  const company = input.proType === "company" ? input.company : undefined;
+  if (input.proType === "company" && !company) {
+    throw new Error("Faltan los datos de la empresa.");
+  }
+
   // Upload files first. If an upload fails, no pro row exists and the applicant can retry.
   const idPath = await uploadJpeg(supabase, BUCKETS.documents, uid, input.idDocument);
   const workPaths: string[] = [];
   for (const photo of input.workPhotos) {
     workPaths.push(await uploadJpeg(supabase, BUCKETS.workPhotos, uid, photo));
   }
+  const companyPath = company
+    ? await uploadCompanyDocument(supabase, uid, company.document, company.documentType)
+    : null;
 
-  const { error: nameError } = await supabase
-    .from("profiles")
-    .update({ full_name: input.fullName })
-    .eq("id", uid);
-  if (nameError) throw nameError;
-
-  const { error: proError } = await supabase.from("pros").insert({
-    id: uid,
-    trade: input.trade,
-    zone: input.zone,
-    price_min_dop: input.priceMinDop,
-    price_max_dop: input.priceMaxDop,
+  // One transaction in the database: name, pro row, company row, file rows.
+  // If any insert fails, nothing is written and the applicant can retry.
+  const { error } = await supabase.rpc("create_pro_application", {
+    p_full_name: input.fullName,
+    p_trade: input.trade,
+    p_zone: input.zone,
+    p_price_min: input.priceMinDop,
+    p_price_max: input.priceMaxDop,
+    p_pro_type: input.proType,
+    p_id_path: idPath,
+    p_work_paths: workPaths,
+    p_company_path: companyPath,
+    p_razon_social: company?.razonSocial ?? null,
+    p_rnc: company?.rnc ?? null,
   });
-  if (proError) throw proError;
-
-  const fileRows = [
-    { pro_id: uid, kind: "id_document", storage_path: idPath },
-    ...workPaths.map((path) => ({ pro_id: uid, kind: "work_photo", storage_path: path })),
-  ];
-  const { error: filesError } = await supabase.from("pro_files").insert(fileRows);
-  if (filesError) throw filesError;
+  if (error) throw error;
 }
 
 /** Approved pros for a trade and/or zone. Uses the list_pro_cards function. */

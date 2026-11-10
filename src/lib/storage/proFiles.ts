@@ -28,6 +28,23 @@ export async function uploadJpeg(
   return path;
 }
 
+/** Uploads a company document (JPEG or PDF) under <ownerId>/<random>.<ext>. Returns the object path. */
+export async function uploadCompanyDocument(
+  supabase: SupabaseClient,
+  ownerId: string,
+  blob: Blob,
+  contentType: "image/jpeg" | "application/pdf",
+): Promise<string> {
+  const ext = contentType === "application/pdf" ? "pdf" : "jpg";
+  const path = `${ownerId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKETS.documents).upload(path, blob, {
+    contentType,
+    upsert: false,
+  });
+  if (error) throw error;
+  return path;
+}
+
 /** Short-lived link for a private object. RLS decides whether the caller may sign it. */
 export async function signedUrl(
   supabase: SupabaseClient,
