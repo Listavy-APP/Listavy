@@ -8,6 +8,16 @@ export const metadata = { title: es.search.title };
 // Session-dependent page: block on the server so redirects return real status codes.
 export const instant = false;
 
+// Visual only: two-letter monogram from the first two words of the name.
+function initials(name: string | null): string {
+  if (!name) return "?";
+  const words = name.split(/\s+/).filter((w) => /\p{L}/u.test(w));
+  return words
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("") || "?";
+}
+
 export default async function SearchPage({
   searchParams,
 }: {
@@ -61,17 +71,22 @@ export default async function SearchPage({
         <ul className="cards">
           {pros.map((p) => (
             <li key={p.id} className="card">
-              <div>
-                <strong>{p.full_name ?? "—"}</strong>
-                <div className="muted">
-                  {es.trades[p.trade]} · {p.zone}
+              <div className="card-head">
+                <div className="avatar" aria-hidden="true">
+                  {initials(p.full_name)}
                 </div>
-                <div>
-                  {es.search.priceRange}: {es.money.dop(p.price_min_dop)} – {es.money.dop(p.price_max_dop)}
+                <div className="card-body">
+                  <p className="card-name">{p.full_name ?? "—"}</p>
+                  <p className="muted">
+                    {es.trades[p.trade]} · {p.zone}
+                  </p>
                 </div>
-                <div className="badge">{es.search.verified}</div>
-                <div className="muted">{es.search.noReviews}</div>
               </div>
+              <div className="badge">{es.search.verified}</div>
+              <p className="card-price">
+                {es.search.priceRange}: {es.money.dop(p.price_min_dop)} – {es.money.dop(p.price_max_dop)}
+              </p>
+              <p className="muted">{es.search.noReviews}</p>
               <Link className="button secondary" href={`/pro/${p.id}`}>
                 {es.search.viewProfile}
               </Link>

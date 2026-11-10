@@ -1,8 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { es } from "@/lib/i18n/es";
 import "./globals.css";
+
+// Self-hosted Manrope (SIL OFL, see src/fonts/OFL-Manrope.txt). Latin subset covers Spanish.
+const manrope = localFont({
+  src: "../fonts/Manrope-latin-variable.woff2",
+  weight: "200 800",
+  variable: "--font-manrope",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: { default: es.brand, template: `%s · ${es.brand}` },
@@ -15,12 +24,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0f5c4d",
+  themeColor: "#0b5d4b",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="es-DO">
+    <html lang="es-DO" className={manrope.variable}>
       <body>
         <RegisterServiceWorker />
         <main className="page">{children}</main>

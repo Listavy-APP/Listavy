@@ -17,6 +17,7 @@ export const es = {
     home: "Ir al inicio",
   },
   home: {
+    eyebrow: "Santo Domingo",
     title: "Profesionales verificados en Santo Domingo",
     subtitle: "Plomería, electricidad y aire acondicionado. Un profesional, un precio aprobado, con fotos antes y después.",
     loginCta: "Entrar con tu teléfono",

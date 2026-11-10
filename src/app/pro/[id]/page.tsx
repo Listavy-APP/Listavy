@@ -46,9 +46,9 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
 
       <h2>{es.proDetail.photos}</h2>
       {!signedIn ? (
-        <p className="muted">
+        <div className="panel">
           <Link href="/login">{es.proDetail.loginForPhotos}</Link>
-        </p>
+        </div>
       ) : photos.length === 0 ? (
         <p className="muted">{es.proDetail.noPhotos}</p>
       ) : (
