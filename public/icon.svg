@@ -1,4 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#0f5c4d"/>
-  <text x="256" y="340" font-family="system-ui, sans-serif" font-size="280" font-weight="700" text-anchor="middle" fill="#ffffff">L</text>
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <!-- List bars forming an L -->
+  <rect x="128" y="112" width="56" height="288" rx="16" fill="#ffffff"/>
+  <rect x="128" y="344" width="236" height="56" rx="16" fill="#ffffff"/>
+  <!-- Checkmark -->
+  <polyline points="282,214 326,258 396,176" fill="none" stroke="#06b6d4" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

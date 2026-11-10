@@ -1,23 +1,23 @@
 /* Visual system. Mobile-first. Large touch targets. No feature changes. */
 :root {
   /* Neutrals */
-  --ink: #111815;
-  --ink-2: #3a4540;
-  --muted: #6b7570;
+  --ink: #0f172a;
+  --ink-2: #334155;
+  --muted: #64748b;
   --paper: #ffffff;
-  --canvas: #f6f7f6;
-  --line: #e4e8e6;
+  --canvas: #f5f7fa;
+  --line: #e2e8f0;
 
-  /* One primary */
-  --primary: #0b5d4b;
+  /* One primary: deep navy */
+  --primary: #0f172a;
   --primary-ink: #ffffff;
-  --primary-tint: #e8f1ee;
+  --primary-tint: #e8edf5;
 
-  /* One accent, used sparingly (verified marks) */
-  --accent: #b8860b;
-  --accent-tint: #faf3e1;
+  /* One accent: cyan, used sparingly (verified marks). Text uses the darker step for contrast. */
+  --accent: #0e7490;
+  --accent-tint: #ecfeff;
 
-  --danger: #a4262c;
+  --danger: #b42318;
 
   /* Spacing scale (8px base) */
   --s1: 8px;
@@ -28,7 +28,7 @@
   --radius-card: 16px;
   --radius-control: 14px;
 
-  --shadow-card: 0 1px 2px rgba(17, 24, 21, 0.04), 0 8px 24px rgba(17, 24, 21, 0.06);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 * { box-sizing: border-box; }
@@ -81,7 +81,7 @@ h2 {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--primary);
+  color: var(--accent);
 }
 .note {
   margin: var(--s2) 0 0;
