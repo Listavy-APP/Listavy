@@ -1,7 +1,7 @@
 // Listavy · delete-account
 // Signed-in customer deletes their account. Steps:
 //   1. anonymise_customer (service role): blocks on open work; clears personal data; returns photo paths.
-//   2. remove the customer photo objects from storage.
+//   2. remove the customer's avatar, request photos, and voice note from storage.
 //   3. delete the auth user (removes the phone login). Job, payment, review, and dispute records stay.
 // Idempotent on retry: step 1 finds nothing left to clear, step 3 retries.
 // NOT DEPLOYED until reviewed. Deleting an account is irreversible: test with a TEST account only.
@@ -35,10 +35,13 @@ Deno.serve(async (req) => {
     return json({ error: rpcError.message }, 409);
   }
 
-  const photoPaths = (paths ?? []) as string[];
-  if (photoPaths.length > 0) {
-    // Best effort: the personal data is already gone from the profile row.
-    await admin.storage.from("customer-avatars").remove(photoPaths);
+  // Best effort: the personal data is already gone from the database.
+  const result = paths as { avatars?: string[]; job_files?: string[] } | null;
+  if (result?.avatars?.length) {
+    await admin.storage.from("customer-avatars").remove(result.avatars);
+  }
+  if (result?.job_files?.length) {
+    await admin.storage.from("job-photos").remove(result.job_files);
   }
 
   const { error: authError } = await admin.auth.admin.deleteUser(userId);

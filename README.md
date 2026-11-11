@@ -161,6 +161,14 @@ El RNC nunca aparece en búsqueda ni en el perfil público. La consulta DGII es 
 2. Un borrado directo deja datos personales en el perfil anonimizado. El perfil se conserva como registro.
 3. Para cerrar un perfil profesional de un cliente con cuenta dual, hazlo manualmente antes de que el cliente elimine su cuenta.
 
+### Checklist: antes de lanzar (pendiente)
+
+1. Eliminar `public.test_mark_job_paid` (migración 0011) antes de la Sprint 5. Sustituirla por el webhook de Stripe (Sprint 3).
+2. Aviso de anti-ghosting a 3 solicitudes sin contratar. Requiere canal de notificaciones.
+3. Programar `public.expire_quotes()` (Edge Function o pg_cron, solo service role).
+4. Cobro y devolución de la diferencia de cambios de precio (`jobs.pending_difference_dop`). Sprint 3.
+5. Crédito del diagnóstico contra la reparación. Sprint 3.
+
 ---
 
 ## Seguridad de la base de datos

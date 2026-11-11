@@ -6,7 +6,9 @@ import {
   addJobPhoto,
   approveCloseout,
   approveQuote,
+  approveRevision,
   cancelJobRequest,
+  proposeRevision,
   startJob,
   submitCloseout,
   uploadJobFile,
@@ -62,6 +64,15 @@ export function JobActions(props: {
 
   const isDiagnostic = job.job_type === "diagnostic";
   const paid = job.payment_status === "paid";
+  const pendingRevision = quotes.find((q) => q.revision_of && q.status === "sent") ?? null;
+  const [revAmount, setRevAmount] = useState("");
+  const [revIncludes, setRevIncludes] = useState("");
+  const [revExcludes, setRevExcludes] = useState("");
+  const [revMaterials, setRevMaterials] = useState<"yes" | "no" | "">("");
+  const [revStart, setRevStart] = useState("");
+  const [revEnd, setRevEnd] = useState("");
+  const [revDuration, setRevDuration] = useState("");
+  const [revReason, setRevReason] = useState("");
 
   return (
     <div className="stack">
@@ -189,6 +200,70 @@ export function JobActions(props: {
             </>
           )}
         </>
+      ) : null}
+
+      {job.status === "in_progress" && !isDiagnostic ? (
+        <section className="stack">
+          <h2>{es.jobs.revisionTitle}</h2>
+          {pendingRevision ? (
+            <>
+              <p>{es.jobs.revisionPending(pendingRevision.amount_dop ?? 0)}</p>
+              <p className="muted">{pendingRevision.includes}</p>
+              <p className="muted">{pendingRevision.revision_reason}</p>
+              {role === "homeowner" ? (
+                <button className="button" type="button" disabled={busy}
+                  onClick={() => run(() => approveRevision(supabase(), pendingRevision.id))}>
+                  {es.jobs.approveRevision}
+                </button>
+              ) : (
+                <p className="muted">{es.jobs.revisionSent}</p>
+              )}
+            </>
+          ) : null}
+          {job.pending_difference_dop !== 0 && job.pending_difference_dop !== undefined ? (
+            <p className="muted">{es.jobs.revisionDifference(job.pending_difference_dop)}</p>
+          ) : null}
+          {role === "pro" && !pendingRevision ? (
+            <div className="stack">
+              <label className="field"><span>{es.jobs.amountLabel}</span>
+                <input inputMode="numeric" value={revAmount} onChange={(e) => setRevAmount(e.target.value.replace(/\D/g, ""))} /></label>
+              <label className="field"><span>{es.jobs.includesLabel}</span>
+                <textarea rows={3} value={revIncludes} onChange={(e) => setRevIncludes(e.target.value)} /></label>
+              <label className="field"><span>{es.jobs.excludesLabel}</span>
+                <textarea rows={2} value={revExcludes} onChange={(e) => setRevExcludes(e.target.value)} /></label>
+              <fieldset className="field">
+                <legend>{es.jobs.materialsLabel}</legend>
+                <label><input type="radio" name="rev-mat" checked={revMaterials === "yes"} onChange={() => setRevMaterials("yes")} />{" "}{es.jobs.materialsYes}</label>
+                <label><input type="radio" name="rev-mat" checked={revMaterials === "no"} onChange={() => setRevMaterials("no")} />{" "}{es.jobs.materialsNo}</label>
+              </fieldset>
+              <label className="field"><span>{es.jobs.startLabel}</span>
+                <input type="datetime-local" value={revStart} onChange={(e) => setRevStart(e.target.value)} /></label>
+              <label className="field"><span>{es.jobs.endLabel}</span>
+                <input type="datetime-local" value={revEnd} onChange={(e) => setRevEnd(e.target.value)} /></label>
+              <label className="field"><span>{es.jobs.durationLabel}</span>
+                <input inputMode="decimal" value={revDuration} onChange={(e) => setRevDuration(e.target.value)} /></label>
+              <label className="field"><span>{es.jobs.revisionReason}</span>
+                <textarea rows={3} value={revReason} onChange={(e) => setRevReason(e.target.value)} /></label>
+              <button className="button" type="button" disabled={busy || revMaterials === ""}
+                onClick={() =>
+                  run(async () => {
+                    await proposeRevision(supabase(), job.id, {
+                      amountDop: Number(revAmount),
+                      includes: revIncludes.trim(),
+                      excludes: revExcludes.trim(),
+                      materialsIncluded: revMaterials === "yes",
+                      windowStart: new Date(revStart).toISOString(),
+                      windowEnd: new Date(revEnd).toISOString(),
+                      durationHours: Number(revDuration),
+                      reason: revReason.trim(),
+                    });
+                  })
+                }>
+                {es.jobs.revisionForm}
+              </button>
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
       {job.status === "completed" ? <p className="ok">{es.jobs.completed}</p> : null}

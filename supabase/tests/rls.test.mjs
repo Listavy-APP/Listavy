@@ -701,7 +701,8 @@ await check("deletion: only the service role can call it", async () => {
 
 await check("deletion: clears personal data and returns the photo path to remove", async () => {
   const r = await db.query(`select public.anonymise_customer('${DEL}') as paths`);
-  assert.deepEqual(r.rows[0].paths, [`${DEL}/borrar.jpg`]);
+  assert.deepEqual(r.rows[0].paths.avatars, [`${DEL}/borrar.jpg`]);
+  assert.deepEqual(r.rows[0].paths.job_files, []);
   const p = await db.query(`select full_name, phone, email, email_verified_at, zone, avatar_path
                               from public.profiles where id = '${DEL}'`);
   assert.equal(p.rows[0].full_name, null);
@@ -978,6 +979,109 @@ await check("expiry sweep: invites over 24h and quotes past validity become expi
   const r = await db.query(`select public.expire_quotes() as n`);
   assert.ok(r.rows[0].n >= 0);
   await assert.rejects(asUser(HOMEOWNER, `select public.expire_quotes()`), /permission denied/);
+});
+
+// ---------------------------------------------------------------------------
+// 0012 · Revised quotes and job files in deletion.
+// ---------------------------------------------------------------------------
+const REV_JOB = "10000000-0000-0000-0000-00000000f010";
+const REV_HO = "00000000-0000-0000-0000-000000000034";
+const REV_PRO = "00000000-0000-0000-0000-000000000035";
+
+await db.exec(`
+  insert into auth.users (id, phone) values ('${REV_HO}', '+18095550034'), ('${REV_PRO}', '+18095550035');
+  update public.pros set trade = 'plumber', verification_status = 'approved'
+    where id = '${PRO}';
+  insert into public.pros (id, trade, zone, price_min_dop, price_max_dop, verification_status)
+    values ('${REV_PRO}', 'plumber', 'Naco', 500, 5000, 'approved');
+  insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, payment_status, job_type, voice_path, approved_quote_id)
+    values ('${REV_JOB}', '${REV_HO}', '${REV_PRO}', 'plumber', 'Naco', 'TEST: cambio de precio', 'in_progress', 'paid', 'repair',
+            '${REV_HO}/voz.m4a', null);
+  insert into public.quotes (id, job_id, pro_id, status, amount_dop, includes, materials_included, window_start, window_end,
+                             duration_hours, valid_until)
+    values ('10000000-0000-0000-0000-00000000f011', '${REV_JOB}', '${REV_PRO}', 'accepted', 2000, 'Trabajo original',
+            true, now(), now() + interval '1 day', 2, now() + interval '2 days');
+  update public.jobs set approved_quote_id = '10000000-0000-0000-0000-00000000f011' where id = '${REV_JOB}';
+  insert into public.job_photos (job_id, uploaded_by, kind, storage_path)
+    values ('${REV_JOB}', '${REV_HO}', 'request', '${REV_HO}/problema.jpg'),
+           ('${REV_JOB}', '${REV_PRO}', 'after', '${REV_PRO}/despues.jpg');
+`);
+
+const later = () => ({
+  s: new Date(Date.now() + 3600e3).toISOString(),
+  e: new Date(Date.now() + 7200e3).toISOString(),
+});
+
+await check("revision: only the assigned pro can propose one", async () => {
+  const { s, e } = later();
+  await assert.rejects(
+    asUser(HOMEOWNER, `select public.propose_revision('${REV_JOB}', 2500, 'Tubería detrás de la pared', null, true, '${s}', '${e}', 3, 'Se encontró tubería rota')`),
+    /Solo el profesional asignado/,
+  );
+});
+
+await check("revision: needs a reason of at least 10 characters", async () => {
+  const { s, e } = later();
+  await assert.rejects(
+    asUser(REV_PRO, `select public.propose_revision('${REV_JOB}', 2500, 'Tubería detrás de la pared', null, true, '${s}', '${e}', 3, 'corto')`),
+    /al menos 10/,
+  );
+});
+
+await check("revision: pro proposes; the original quote stays approved until the homeowner approves", async () => {
+  const { s, e } = later();
+  const r = await asUser(REV_PRO, `select public.propose_revision('${REV_JOB}', 2500, 'Tubería detrás de la pared', null, true, '${s}', '${e}', 3, 'Se encontró tubería rota') as id`);
+  globalThis.REV_Q = r.rows[0].id;
+  const q = await db.query(`select status, revision_of from public.quotes where id = '${globalThis.REV_Q}'`);
+  assert.equal(q.rows[0].status, "sent");
+  assert.equal(q.rows[0].revision_of, "10000000-0000-0000-0000-00000000f011");
+  const orig = await db.query(`select status from public.quotes where id = '10000000-0000-0000-0000-00000000f011'`);
+  assert.equal(orig.rows[0].status, "accepted");
+});
+
+await check("revision: a second pending revision is refused", async () => {
+  const { s, e } = later();
+  await assert.rejects(
+    asUser(REV_PRO, `select public.propose_revision('${REV_JOB}', 2600, 'Otra cosa distinta aquí', null, true, '${s}', '${e}', 3, 'Otro motivo válido')`),
+    /pendiente/,
+  );
+});
+
+await check("revision: approve_quote cannot approve a revision", async () => {
+  await assert.rejects(asUser(HOMEOWNER, `select public.approve_quote('${globalThis.REV_Q}')`), /aprobar_cambio|Este cambio/);
+});
+
+await check("revision: homeowner approves; old quote superseded; difference recorded", async () => {
+  await asUser(REV_HO, `select public.approve_revision('${globalThis.REV_Q}')`);
+  const orig = await db.query(`select status from public.quotes where id = '10000000-0000-0000-0000-00000000f011'`);
+  assert.equal(orig.rows[0].status, "superseded");
+  const j = await db.query(`select approved_quote_id, pending_difference_dop from public.jobs where id = '${REV_JOB}'`);
+  assert.equal(j.rows[0].approved_quote_id, globalThis.REV_Q);
+  assert.equal(j.rows[0].pending_difference_dop, 500);
+});
+
+await check("revision: only in_progress repair jobs accept revisions", async () => {
+  await db.exec(`update public.jobs set status = 'awaiting_approval' where id = '${REV_JOB}'`);
+  const { s, e } = later();
+  await assert.rejects(
+    asUser(REV_PRO, `select public.propose_revision('${REV_JOB}', 2700, 'Tubería detrás de la pared', null, true, '${s}', '${e}', 3, 'Otro motivo válido')`),
+    /en curso/,
+  );
+  await db.exec(`update public.jobs set status = 'in_progress' where id = '${REV_JOB}'`);
+});
+
+await check("deletion: request photos and voice note are returned and removed; pro photos stay", async () => {
+  await db.exec(`insert into auth.users (id, phone) values ('00000000-0000-4000-8000-0000000d0101', '+18095559911')
+     on conflict (id) do nothing`);
+  await db.exec(`update public.jobs set status = 'completed' where id = '${REV_JOB}'`);
+  // REV_HO's job is now completed, so the account can be deleted.
+  const r = await db.query(`select public.anonymise_customer('${REV_HO}') as paths`);
+  assert.deepEqual(r.rows[0].paths.job_files.sort(), [`${REV_HO}/problema.jpg`, `${REV_HO}/voz.m4a`].sort());
+  const left = await db.query(`select storage_path from public.job_photos where job_id = '${REV_JOB}'`);
+  assert.deepEqual(left.rows.map((x) => x.storage_path), [`${REV_PRO}/despues.jpg`]);
+  const j = await db.query(`select voice_path, description from public.jobs where id = '${REV_JOB}'`);
+  assert.equal(j.rows[0].voice_path, null);
+  assert.equal(j.rows[0].description, "[eliminado]");
 });
 
 await db.close();

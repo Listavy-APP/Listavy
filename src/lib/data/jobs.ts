@@ -21,6 +21,7 @@ export interface JobRow {
   payment_status: string;
   voice_path: string | null;
   diagnosis_text: string | null;
+  pending_difference_dop: number;
   approved_quote_id: string | null;
   created_at: string;
 }
@@ -39,6 +40,8 @@ export interface QuoteRow {
   duration_hours: number | null;
   invited_at: string;
   valid_until: string | null;
+  revision_of: string | null;
+  revision_reason: string | null;
 }
 
 export interface JobPhotoRow {
@@ -168,4 +171,39 @@ export async function getContactPhone(supabase: SupabaseClient, jobId: string): 
   const { data, error } = await supabase.rpc("get_contact", { p_job: jobId });
   if (error) return null;
   return (data as string | null) ?? null;
+}
+
+export async function proposeRevision(
+  supabase: SupabaseClient,
+  jobId: string,
+  input: {
+    amountDop: number;
+    includes: string;
+    excludes: string;
+    materialsIncluded: boolean;
+    windowStart: string;
+    windowEnd: string;
+    durationHours: number;
+    reason: string;
+  },
+): Promise<void> {
+  fail(
+    (
+      await supabase.rpc("propose_revision", {
+        p_job: jobId,
+        p_amount_dop: input.amountDop,
+        p_includes: input.includes,
+        p_excludes: input.excludes,
+        p_materials_included: input.materialsIncluded,
+        p_window_start: input.windowStart,
+        p_window_end: input.windowEnd,
+        p_duration_hours: input.durationHours,
+        p_reason: input.reason,
+      })
+    ).error,
+  );
+}
+
+export async function approveRevision(supabase: SupabaseClient, quoteId: string): Promise<void> {
+  fail((await supabase.rpc("approve_revision", { p_quote: quoteId })).error);
 }

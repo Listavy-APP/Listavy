@@ -275,6 +275,15 @@ export const es = {
     approveWork: "Aprobar trabajo",
     confirmVisit: "Confirmar que la visita se hizo",
     completed: "Trabajo completado.",
+    revisionTitle: "Cambio de precio",
+    revisionPending: (a: number) => `Cambio propuesto: RD$${a.toLocaleString("es-DO")}`,
+    revisionDifference: (d: number) =>
+      d === 0 ? "Sin diferencia de precio." : `Diferencia: RD$${Math.abs(d).toLocaleString("es-DO")} ${d > 0 ? "a pagar" : "a devolver"} (se procesa cuando se active el pago).`,
+    revisionForm: "Proponer cambio de precio",
+    revisionReason: "Motivo del cambio (qué encontraste)",
+    approveRevision: "Aprobar cambio",
+    revisionSent: "Cambio enviado. Esperando aprobación del cliente.",
+    revisionOnlyRepair: "Los cambios de precio solo aplican a reparaciones.",
     cancelled: "Solicitud cancelada.",
   },
   trades: {
