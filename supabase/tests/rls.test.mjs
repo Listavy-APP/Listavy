@@ -1084,6 +1084,78 @@ await check("deletion: request photos and voice note are returned and removed; p
   assert.equal(j.rows[0].description, "[eliminado]");
 });
 
+// 0013 · Payments split and Stripe event log.
+// The suite grants table access to authenticated after migrations (Supabase default
+// privileges). RLS with no policies is the effective guard, so assert on rows and RLS.
+await check("0013 stripe_events: a signed-in user sees no rows and cannot write", async () => {
+  assert.equal((await asUser(HOMEOWNER, "select id from public.stripe_events")).rows.length, 0);
+  await assert.rejects(
+    asUser(HOMEOWNER, `insert into public.stripe_events (id, type, livemode) values ('evt_x', 'x', false)`),
+    /row-level security/,
+  );
+});
+
+await check("0013 stripe_events: anon sees no rows and cannot write", async () => {
+  await db.exec("set role anon;");
+  try {
+    assert.equal((await db.query("select id from public.stripe_events")).rows.length, 0);
+    await assert.rejects(
+      db.query(`insert into public.stripe_events (id, type, livemode) values ('evt_anon', 'x', false)`),
+      /permission denied|row-level security/,
+    );
+  } finally {
+    await db.exec("reset role;");
+  }
+});
+
+await check("0013 stripe_events: service role inserts; duplicate event id is refused", async () => {
+  await db.exec(`insert into public.stripe_events (id, type, livemode) values ('evt_test_dup', 'checkout.session.completed', false)`);
+  await assert.rejects(
+    db.exec(`insert into public.stripe_events (id, type, livemode) values ('evt_test_dup', 'checkout.session.completed', false)`),
+    /duplicate key/,
+  );
+});
+
+// Split constraint: payout + commission must equal the amount actually charged.
+// Diagnostic-credit case: RD$6,000 quote, RD$750 diagnostic credited, RD$5,250 charged.
+// Commission at 12% on the charged amount: 630. Pro payout: 4,620.
+await check("0013 split: diagnostic-credit repair charged RD$5,250 is accepted", async () => {
+  await db.exec("begin;");
+  try {
+    await db.exec(`insert into public.payments (job_id, provider, currency, amount_minor, fx_rate_dop_per_usd,
+                     amount_dop, commission_dop, pro_payout_dop, purpose, status)
+                   values ('${JOB}', 'stripe', 'USD', 8750, 60, 5250, 630, 4620, 'job', 'held')`);
+  } finally {
+    await db.exec("rollback;");
+  }
+});
+
+await check("0013 split: charging the quote (RD$6,000) with the credited split is refused", async () => {
+  await db.exec("begin;");
+  try {
+    await assert.rejects(
+      db.exec(`insert into public.payments (job_id, provider, currency, amount_minor, fx_rate_dop_per_usd,
+                 amount_dop, commission_dop, pro_payout_dop, purpose, status)
+               values ('${JOB}', 'stripe', 'USD', 10000, 60, 6000, 630, 4620, 'job', 'held')`),
+      /payments_split_consistent/,
+    );
+  } finally {
+    await db.exec("rollback;");
+  }
+});
+
+// Diagnostic RD$750 at 15%, minimum waived: 112.5 rounds half-up to 113. Payout 637.
+await check("0013 split: diagnostic RD$750 at 15% (commission 113) is accepted", async () => {
+  await db.exec("begin;");
+  try {
+    await db.exec(`insert into public.payments (job_id, provider, currency, amount_minor, fx_rate_dop_per_usd,
+                     amount_dop, commission_dop, pro_payout_dop, purpose, status)
+                   values ('${JOB}', 'stripe', 'USD', 1250, 60, 750, 113, 637, 'diagnostic', 'held')`);
+  } finally {
+    await db.exec("rollback;");
+  }
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);
