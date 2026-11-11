@@ -168,6 +168,8 @@ El RNC nunca aparece en búsqueda ni en el perfil público. La consulta DGII es 
 3. Programar `public.expire_quotes()` (Edge Function o pg_cron, solo service role).
 4. Cobro y devolución de la diferencia de cambios de precio (`jobs.pending_difference_dop`). Sprint 3.
 5. Crédito del diagnóstico contra la reparación. Sprint 3.
+6. Borrado de archivos en `delete-account`: si falla el borrado en Storage, registrar el fallo y crear una tabla de pendientes (`storage_cleanup`) con reintento. Un fallo no puede dejar una foto huérfana en el bucket sin rastro.
+7. D11 (abogado, antes de Sprint 5): decidir la retención de fotos de antes y después del profesional que muestran el hogar del cliente. Propuesta actual: se borran las fotos de la solicitud del cliente; se conservan las fotos del profesional como evidencia de disputas y contracargos (planes 1.4 y 2.3). Confirmar esta división.
 
 ---
 
