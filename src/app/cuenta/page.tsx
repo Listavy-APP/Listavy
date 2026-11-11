@@ -4,6 +4,7 @@ import { SignOutButton } from "./SignOutButton";
 import { PhotoPicker } from "./PhotoPicker";
 import { ProfileForm } from "./ProfileForm";
 import { EmailForm } from "./EmailForm";
+import { DeleteAccount } from "./DeleteAccount";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listMyJobs, listMyReviews } from "@/lib/data/customer";
 import { customerPhotoUrl } from "@/lib/storage/customerFiles";
@@ -108,7 +109,8 @@ export default async function ProfilePage() {
         </Link>
       )}
 
-      <p className="muted">{es.profile.deleteSoon}</p>
+      <h2>{es.profile.deleteTitle}</h2>
+      <DeleteAccount />
       <SignOutButton />
     </section>
   );

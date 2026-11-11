@@ -31,6 +31,7 @@ await db.exec(`
   create table auth.users (id uuid primary key, phone text);
   create role authenticated;
   create role anon;
+  create role service_role;
   create or replace function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema auth to public;
@@ -630,6 +631,101 @@ await check("storage: customer photo cannot be listed by pros who never had a jo
 await check("verification codes: not readable by users (service role only)", async () => {
   const r = await asUser(HOMEOWNER, `select id from public.email_verifications`);
   assert.equal(r.rows.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// 0010 · Account deletion: anonymise_customer.
+// ---------------------------------------------------------------------------
+const DEL = "00000000-0000-0000-0000-000000000021"; // completed job, review, photo
+const DEL_HELD = "00000000-0000-0000-0000-000000000022"; // held payment
+const DEL_DISPUTE = "00000000-0000-0000-0000-000000000023"; // open dispute
+const DEL_JOB = "10000000-0000-0000-0000-000000000021";
+const DEL_JOB_HELD = "10000000-0000-0000-0000-000000000022";
+const DEL_JOB_DISPUTE = "10000000-0000-0000-0000-000000000023";
+
+await db.exec(`
+  insert into auth.users (id, phone) values
+    ('${DEL}', '+18095550021'), ('${DEL_HELD}', '+18095550022'), ('${DEL_DISPUTE}', '+18095550023');
+  update public.profiles set full_name = 'TEST Borrar Uno', zone = 'Naco',
+    avatar_path = '${DEL}/borrar.jpg', email = 'borrar@example.com', email_verified_at = now()
+    where id = '${DEL}';
+  update public.profiles set full_name = 'TEST Borrar Dos' where id = '${DEL_HELD}';
+  update public.profiles set full_name = 'TEST Borrar Tres' where id = '${DEL_DISPUTE}';
+  insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status) values
+    ('${DEL_JOB}', '${DEL}', '${PRO}', 'plumber', 'Naco', 'TEST: calle privada 12', 'completed'),
+    ('${DEL_JOB_HELD}', '${DEL_HELD}', '${PRO}', 'plumber', 'Naco', 'TEST: pago retenido', 'completed'),
+    ('${DEL_JOB_DISPUTE}', '${DEL_DISPUTE}', '${PRO}', 'plumber', 'Naco', 'TEST: disputa', 'completed');
+  insert into public.reviews (job_id, reviewer_id, pro_id, rating, comment)
+    values ('${DEL_JOB}', '${DEL}', '${PRO}', 4, 'TEST: buen trabajo');
+  insert into public.email_verifications (user_id, email, code_hash, expires_at)
+    values ('${DEL}', 'borrar@example.com', 'x', now() + interval '15 minutes');
+`);
+
+await check("deletion: blocked for a customer with an open job", async () => {
+  await assert.rejects(
+    db.query(`select public.anonymise_customer('${HOMEOWNER}')`),
+    /trabajos abiertos/,
+  );
+});
+
+await check("deletion: blocked for a customer with a pro profile", async () => {
+  await assert.rejects(db.query(`select public.anonymise_customer('${PRO}')`), /perfil profesional/);
+});
+
+await check("deletion: blocked while a payment is held", async () => {
+  await db.exec(`insert into public.payments (job_id, provider, currency, amount_minor, fx_rate_dop_per_usd, commission_dop, status)
+                 values ('${DEL_JOB_HELD}', 'stripe', 'USD', 10000, 60, 720, 'held')`);
+  await assert.rejects(db.query(`select public.anonymise_customer('${DEL_HELD}')`), /pagos retenidos/);
+});
+
+await check("deletion: blocked while a dispute is open", async () => {
+  await db.exec(`insert into public.disputes (job_id, opened_by, reason, status)
+                 values ('${DEL_JOB_DISPUTE}', '${DEL_DISPUTE}', 'TEST', 'open')`);
+  await assert.rejects(db.query(`select public.anonymise_customer('${DEL_DISPUTE}')`), /disputa abierta/);
+});
+
+await check("deletion: only the service role can call it", async () => {
+  await db.exec("set role authenticated;");
+  await db.exec(`set request.jwt.claim.sub = '${DEL}';`);
+  try {
+    await assert.rejects(db.query(`select public.anonymise_customer('${DEL}')`), /permission denied/);
+  } finally {
+    await db.exec("reset role; reset request.jwt.claim.sub;");
+  }
+});
+
+await check("deletion: clears personal data and returns the photo path to remove", async () => {
+  const r = await db.query(`select public.anonymise_customer('${DEL}') as paths`);
+  assert.deepEqual(r.rows[0].paths, [`${DEL}/borrar.jpg`]);
+  const p = await db.query(`select full_name, phone, email, email_verified_at, zone, avatar_path
+                              from public.profiles where id = '${DEL}'`);
+  assert.equal(p.rows[0].full_name, null);
+  assert.equal(p.rows[0].phone, null);
+  assert.equal(p.rows[0].email, null);
+  assert.equal(p.rows[0].email_verified_at, null);
+  assert.equal(p.rows[0].zone, null);
+  assert.equal(p.rows[0].avatar_path, null);
+  const codes = await db.query(`select id from public.email_verifications where user_id = '${DEL}'`);
+  assert.equal(codes.rows.length, 0);
+});
+
+await check("deletion: job record kept, description replaced, review kept", async () => {
+  const j = await db.query(`select status, trade, zone, description from public.jobs where id = '${DEL_JOB}'`);
+  assert.equal(j.rows.length, 1);
+  assert.equal(j.rows[0].status, "completed");
+  assert.equal(j.rows[0].trade, "plumber");
+  assert.equal(j.rows[0].description, "[eliminado]");
+  const rev = await db.query(`select rating from public.reviews where job_id = '${DEL_JOB}'`);
+  assert.equal(rev.rows.length, 1);
+  assert.equal(rev.rows[0].rating, 4);
+});
+
+await check("deletion: auth user can be removed; anonymised profile row remains", async () => {
+  await db.exec(`delete from auth.users where id = '${DEL}'`);
+  const p = await db.query(`select id from public.profiles where id = '${DEL}'`);
+  assert.equal(p.rows.length, 1);
+  const j = await db.query(`select id from public.jobs where id = '${DEL_JOB}'`);
+  assert.equal(j.rows.length, 1);
 });
 
 await db.close();
