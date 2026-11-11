@@ -155,6 +155,12 @@ El RNC nunca aparece en búsqueda ni en el perfil público. La consulta DGII es 
 3. Si la rechazas, borra también el objeto del bucket público `pro-avatars` (Storage en el dashboard de Supabase o la API de Storage). No dejes la foto rechazada en el bucket.
 4. Una foto pendiente bloquea la aprobación del profesional. Una foto rechazada no la bloquea.
 
+### Checklist: cuentas de usuario (eliminación)
+
+1. Nunca borres un usuario de `auth.users` desde el dashboard de Supabase. Elimínalo solo con la función `delete-account`, que borra las fotos y el usuario en el orden correcto.
+2. Un borrado directo deja datos personales en el perfil anonimizado. El perfil se conserva como registro.
+3. Para cerrar un perfil profesional de un cliente con cuenta dual, hazlo manualmente antes de que el cliente elimine su cuenta.
+
 ---
 
 ## Seguridad de la base de datos
