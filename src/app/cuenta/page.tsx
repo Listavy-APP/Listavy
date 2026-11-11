@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { SignOutButton } from "./SignOutButton";
 import { PhotoPicker } from "./PhotoPicker";
 import { ProfileForm } from "./ProfileForm";
@@ -21,6 +22,8 @@ function formatDate(iso: string): string {
 }
 
 export default async function ProfilePage() {
+  // Per-request render: the session and profile are read at request time.
+  await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) redirect("/login");

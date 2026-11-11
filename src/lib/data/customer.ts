@@ -32,7 +32,7 @@ export async function listMyJobs(supabase: SupabaseClient, homeownerId: string):
 export async function listMyReviews(supabase: SupabaseClient, reviewerId: string): Promise<CustomerReview[]> {
   const { data, error } = await supabase
     .from("reviews")
-    .select("id, rating, comment, created_at, pros(profiles(full_name))")
+    .select("id, rating, comment, created_at, pros:pros!reviews_pro_id_fkey(profiles:profiles!pros_id_fkey(full_name))")
     .eq("reviewer_id", reviewerId)
     .order("created_at", { ascending: false })
     .limit(50);
