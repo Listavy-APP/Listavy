@@ -30,6 +30,12 @@ export interface Profile {
   full_name: string | null;
   phone: string | null;
   created_at: string;
+  /** Contact email. Never a login method. Verified by code (migration 0009). */
+  email: string | null;
+  email_verified_at: string | null;
+  zone: string | null;
+  /** Private bucket customer-avatars. Null means monogram. */
+  avatar_path: string | null;
 }
 
 export interface Pro {

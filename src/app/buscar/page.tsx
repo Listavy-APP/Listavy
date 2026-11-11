@@ -4,7 +4,7 @@ import { es } from "@/lib/i18n/es";
 import { SD_ZONES, TRADES, isTrade, isZone } from "@/lib/domain/catalog";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { avatarUrl } from "@/lib/storage/proFiles";
-import { ProAvatar } from "@/components/ProAvatar";
+import { Avatar } from "@/components/Avatar";
 
 export const metadata = { title: es.search.title };
 // Session-dependent page: block on the server so redirects return real status codes.
@@ -72,7 +72,7 @@ export default async function SearchPage({
           {pros.map((p) => (
             <li key={p.id} className="card">
               <div className="card-head">
-                <ProAvatar name={p.full_name} src={avatarUrl(supabase, p.avatar_path)} />
+                <Avatar name={p.full_name} src={avatarUrl(supabase, p.avatar_path)} />
                 <div className="card-body">
                   <p className="card-name">{p.full_name ?? "—"}</p>
                   <p className="muted">

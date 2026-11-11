@@ -524,6 +524,114 @@ await check("storage: avatar upload only into own folder", async () => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// 0009 · Customer profile: guard, customer card, private customer-avatars bucket.
+// ---------------------------------------------------------------------------
+const CUST_OWN = HOMEOWNER; // JOB's homeowner; PRO has a quote on JOB, OUTSIDER_PRO does not.
+
+await check("profile: owner can set own zone and own-folder avatar", async () => {
+  await asUser(HOMEOWNER, `update public.profiles set zone = 'Naco', avatar_path = '${CUST_OWN}/a.jpg' where id = '${CUST_OWN}'`);
+  const r = await asUser(HOMEOWNER, `select zone, avatar_path from public.profiles where id = '${CUST_OWN}'`);
+  assert.equal(r.rows[0].zone, "Naco");
+  assert.equal(r.rows[0].avatar_path, `${CUST_OWN}/a.jpg`);
+});
+
+await check("profile: owner cannot point avatar at another folder", async () => {
+  await assert.rejects(
+    asUser(HOMEOWNER, `update public.profiles set avatar_path = '${PRO}/x.jpg' where id = '${CUST_OWN}'`),
+    /carpeta/,
+  );
+});
+
+await check("profile: owner cannot change phone", async () => {
+  await assert.rejects(
+    asUser(HOMEOWNER, `update public.profiles set phone = '+18095559999' where id = '${CUST_OWN}'`),
+    /teléfono/,
+  );
+});
+
+await check("profile: owner cannot set email or email_verified_at directly", async () => {
+  await assert.rejects(
+    asUser(HOMEOWNER, `update public.profiles set email = 'x@example.com' where id = '${CUST_OWN}'`),
+    /código/,
+  );
+  await assert.rejects(
+    asUser(HOMEOWNER, `update public.profiles set email_verified_at = now() where id = '${CUST_OWN}'`),
+    /código/,
+  );
+});
+
+await check("profile: service role (verification function) can set email", async () => {
+  await db.exec(`update public.profiles set email = 'test@example.com', email_verified_at = now() where id = '${CUST_OWN}'`);
+  const r = await db.query(`select email, email_verified_at from public.profiles where id = '${CUST_OWN}'`);
+  assert.equal(r.rows[0].email, "test@example.com");
+  assert.ok(r.rows[0].email_verified_at);
+});
+
+await check("profile: other users cannot read a customer's email", async () => {
+  const r = await asUser(OUTSIDER_PRO, `select email from public.profiles where id = '${CUST_OWN}'`);
+  assert.equal(r.rows.length, 0);
+});
+
+await check("customer card: pro with a quote on the job gets first name, avatar, zone only", async () => {
+  const r = await asUser(PRO, `select * from public.get_customer_card('${CUST_OWN}')`);
+  assert.equal(r.rows.length, 1);
+  assert.deepEqual(Object.keys(r.rows[0]).sort(), ["avatar_path", "first_name", "zone"]);
+  assert.equal(r.rows[0].zone, "Naco");
+  assert.equal(r.rows[0].avatar_path, `${CUST_OWN}/a.jpg`);
+});
+
+await check("customer card: pro without a job or quote gets nothing", async () => {
+  const r = await asUser(OUTSIDER_PRO, `select * from public.get_customer_card('${CUST_OWN}')`);
+  assert.equal(r.rows.length, 0);
+});
+
+await check("customer card: anonymous gets nothing (no execute grant)", async () => {
+  await db.exec("set role anon;");
+  try {
+    await assert.rejects(
+      db.query(`select * from public.get_customer_card('${CUST_OWN}')`),
+      /permission denied/,
+    );
+  } finally {
+    await db.exec("reset role;");
+  }
+});
+
+await check("customer card: admin sees the card", async () => {
+  const r = await asUser(ADMIN, `select * from public.get_customer_card('${CUST_OWN}')`);
+  assert.equal(r.rows.length, 1);
+});
+
+await check("storage: customer photo upload only into own folder", async () => {
+  await asUser(HOMEOWNER, `insert into storage.objects (bucket_id, name) values ('customer-avatars', '${CUST_OWN}/a.jpg')`);
+  await assert.rejects(
+    asUser(HOMEOWNER, `insert into storage.objects (bucket_id, name) values ('customer-avatars', '${PRO}/x.jpg')`),
+    /row-level security/,
+  );
+});
+
+await check("storage: customer photo visible to owner, related pro, admin; not to outsider", async () => {
+  const own = await asUser(HOMEOWNER, `select name from storage.objects where bucket_id = 'customer-avatars'`);
+  assert.equal(own.rows.length, 1);
+  const pro = await asUser(PRO, `select name from storage.objects where bucket_id = 'customer-avatars'`);
+  assert.equal(pro.rows.length, 1);
+  const admin = await asUser(ADMIN, `select name from storage.objects where bucket_id = 'customer-avatars'`);
+  assert.equal(admin.rows.length, 1);
+  const outsider = await asUser(OUTSIDER_PRO, `select name from storage.objects where bucket_id = 'customer-avatars'`);
+  assert.equal(outsider.rows.length, 0);
+});
+
+await check("storage: customer photo cannot be listed by pros who never had a job", async () => {
+  const r = await asUser(OUTSIDER_PRO, `select public.can_view_customer_avatar('${CUST_OWN}/a.jpg') as ok`);
+  assert.equal(r.rows[0].ok, false);
+});
+
+await check("verification codes: not readable by users (service role only)", async () => {
+  const r = await asUser(HOMEOWNER, `select id from public.email_verifications`);
+  assert.equal(r.rows.length, 0);
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);
