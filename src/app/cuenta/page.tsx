@@ -75,7 +75,9 @@ export default async function ProfilePage() {
         <ul className="list">
           {jobs.map((j) => (
             <li key={j.id}>
-              <strong>{j.trade}</strong> · {j.zone} · {formatDate(j.created_at)}
+              <Link href={`/trabajos/${j.id}`}>
+                <strong>{j.trade}</strong> · {j.zone} · {formatDate(j.created_at)}
+              </Link>
               <div className="muted">
                 {es.profile.jobStatus[j.status as keyof typeof es.profile.jobStatus] ?? j.status}
               </div>
@@ -100,6 +102,12 @@ export default async function ProfilePage() {
 
       <h2>{es.profile.paymentsTitle}</h2>
       <p className="muted">{es.profile.paymentsSoon}</p>
+
+      {profile.role === "pro" ? (
+        <Link className="button secondary" href="/pro/solicitudes">
+          {es.jobs.inboxTitle}
+        </Link>
+      ) : null}
 
       <h2>{es.profile.proTitle}</h2>
       {profile.role === "pro" ? (

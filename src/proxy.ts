@@ -4,7 +4,7 @@ import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
 
 /** Routes that need a signed-in user. Each page also checks, as a second layer. */
 // Browsing (/buscar, /pro/[id]) is public. Applying and account pages need sign-in.
-const PROTECTED_PREFIXES = ["/cuenta", "/pro/registro", "/pro/estado"];
+const PROTECTED_PREFIXES = ["/cuenta", "/pro/registro", "/pro/estado", "/pro/solicitudes", "/pedir", "/trabajos"];
 
 /**
  * Refreshes the Supabase session cookie and redirects anonymous visitors

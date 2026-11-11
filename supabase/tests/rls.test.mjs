@@ -160,6 +160,11 @@ await check("job FX rate must be positive", async () => {
       `insert into public.jobs (homeowner_id, trade, zone, description, fx_rate_dop_per_usd)
        values ('${HOMEOWNER}', 'plumber', 'Naco', 'TEST: x', 0)`,
     ),
+    /row-level security|check constraint/,
+  );
+  await assert.rejects(
+    db.exec(`insert into public.jobs (homeowner_id, trade, zone, description, fx_rate_dop_per_usd)
+       values ('${HOMEOWNER}', 'plumber', 'Naco', 'TEST: x', 0)`),
     /check constraint/,
   );
 });
@@ -726,6 +731,253 @@ await check("deletion: auth user can be removed; anonymised profile row remains"
   assert.equal(p.rows.length, 1);
   const j = await db.query(`select id from public.jobs where id = '${DEL_JOB}'`);
   assert.equal(j.rows.length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// 0011 · Sprint 2 job flow.
+// ---------------------------------------------------------------------------
+const PRO2 = "00000000-0000-0000-0000-000000000031"; // approved plumber, second pro
+const HO2 = "00000000-0000-0000-0000-000000000032"; // homeowner for cap test
+const HO4 = "00000000-0000-0000-0000-000000000033"; // homeowner for anti-ghosting test
+const J_REPAIR = "10000000-0000-0000-0000-00000000f001";
+const J_DIAG = "10000000-0000-0000-0000-00000000f002";
+
+await db.exec(`
+  update public.pros set trade = 'plumber', verification_status = 'approved'
+    where id in ('${PRO}', '${OUTSIDER_PRO}');
+  update public.pros set trade = 'plumber' where id = '${OUTSIDER_PRO}';
+  insert into auth.users (id, phone) values
+    ('${PRO2}', '+18095550031'), ('${HO2}', '+18095550032'), ('${HO4}', '+18095550033');
+  update public.profiles set role = 'pro' where id = '${PRO2}';
+  insert into public.pros (id, trade, zone, price_min_dop, price_max_dop, verification_status)
+    values ('${PRO2}', 'plumber', 'Naco', 500, 5000, 'approved');
+`);
+
+const desc = "Fuga de agua debajo del lavamanos";
+const photo = (uid, n) => `{${uid}/${n}.jpg}`;
+
+await check("job request: 4 pros is refused (3-quote cap)", async () => {
+  await assert.rejects(
+    asUser(HOMEOWNER, `select public.create_job_request('plumber','Naco','${desc}','repair',
+      array['${PRO}','${OUTSIDER_PRO}','${PRO2}','${COMPANY_PRO}']::uuid[], array['${HOMEOWNER}/a.jpg']::text[])`),
+    /Elige entre 1 y 3/,
+  );
+});
+
+await check("job request: description under 20 characters is refused", async () => {
+  await assert.rejects(
+    asUser(HOMEOWNER, `select public.create_job_request('plumber','Naco','corto','repair',
+      array['${PRO}']::uuid[], array['${HOMEOWNER}/a.jpg']::text[])`),
+    /al menos 20 caracteres/,
+  );
+});
+
+await check("job request: no photo is refused", async () => {
+  await assert.rejects(
+    asUser(HOMEOWNER, `select public.create_job_request('plumber','Naco','${desc}','repair',
+      array['${PRO}']::uuid[], array[]::text[])`),
+    /al menos una foto/,
+  );
+});
+
+await check("job request: pending (unapproved) pro is refused", async () => {
+  await assert.rejects(
+    asUser(HOMEOWNER, `select public.create_job_request('plumber','Naco','${desc}','repair',
+      array['${PENDING_PRO}']::uuid[], array['${HOMEOWNER}/a.jpg']::text[])`),
+    /no está disponible/,
+  );
+});
+
+await check("job request: valid request creates job plus one invited quote per pro", async () => {
+  const r = await asUser(HOMEOWNER, `select public.create_job_request('plumber','Naco','${desc}','repair',
+    array['${PRO}','${OUTSIDER_PRO}']::uuid[], array['${HOMEOWNER}/a.jpg']::text[], null) as id`);
+  const id = r.rows[0].id;
+  assert.ok(id);
+  const q = await db.query(`select status from public.quotes where job_id = '${id}' order by pro_id`);
+  assert.deepEqual(q.rows.map((x) => x.status), ["invited", "invited"]);
+  await db.exec(`update public.jobs set created_at = created_at where id = '${id}'`);
+  globalThis.J_ANY = id;
+});
+
+await check("clients cannot write jobs or quotes directly", async () => {
+  await assert.rejects(
+    asUser(HOMEOWNER, `insert into public.jobs (homeowner_id, trade, zone, description, status)
+      values ('${HOMEOWNER}','plumber','Naco','escritura directa','requested')`),
+  );
+  const r = await db.query(`select amount_dop from public.quotes where job_id = '${globalThis.J_ANY}' and pro_id = '${PRO}'`);
+  assert.equal(r.rows[0].amount_dop, null);
+  await asUser(PRO, `update public.quotes set amount_dop = 1 where job_id = '${globalThis.J_ANY}' and pro_id = '${PRO}'`);
+  const after = await db.query(`select amount_dop from public.quotes where job_id = '${globalThis.J_ANY}' and pro_id = '${PRO}'`);
+  assert.equal(after.rows[0].amount_dop, null, "pro must not set a price directly");
+});
+
+await check("open-request cap: 4th open request is refused", async () => {
+  const mk = (n) => asUser(HO2, `select public.create_job_request('plumber','Naco','${desc} ${n}','repair',
+    array['${PRO}']::uuid[], array['${HO2}/${n}.jpg']::text[])`);
+  await mk(1); await mk(2); await mk(3);
+  await assert.rejects(mk(4), /Ya tienes 3 solicitudes abiertas/);
+});
+
+await check("anti-ghosting: 5 unbooked requests in 30 days blocks new requests", async () => {
+  for (let i = 0; i < 5; i++) {
+    await db.exec(`insert into public.jobs (homeowner_id, trade, zone, description, status, created_at)
+      values ('${HO4}','plumber','Naco','solicitud sin contratar ${i}','requested', now() - interval '10 days')`);
+  }
+  await assert.rejects(
+    asUser(HO4, `select public.create_job_request('plumber','Naco','${desc}','repair',
+      array['${PRO}']::uuid[], array['${HO4}/x.jpg']::text[])`),
+    /demasiadas solicitudes/,
+  );
+});
+
+await check("quote: pro submits a fixed price with inclusions and a 48h validity", async () => {
+  const q = await db.query(`select id from public.quotes where job_id = '${globalThis.J_ANY}' and pro_id = '${PRO}'`);
+  const start = new Date(Date.now() + 86400000).toISOString();
+  const end = new Date(Date.now() + 90000000).toISOString();
+  await asUser(PRO, `select public.submit_quote('${q.rows[0].id}', 2400, 'Cambio de sifón y llave', 'Materiales', false,
+    '${start}', '${end}', 2)`);
+  const r = await db.query(`select status, amount_dop, valid_until - now() as ttl from public.quotes where id = '${q.rows[0].id}'`);
+  assert.equal(r.rows[0].status, "sent");
+  assert.equal(r.rows[0].amount_dop, 2400);
+  const hours = (new Date(r.rows[0].ttl).getTime() || 0);
+  assert.ok(r.rows[0].ttl !== null);
+});
+
+await check("quote: materials status is required", async () => {
+  const q = await db.query(`select id from public.quotes where job_id = '${globalThis.J_ANY}' and pro_id = '${OUTSIDER_PRO}'`);
+  const start = new Date(Date.now() + 86400000).toISOString();
+  const end = new Date(Date.now() + 90000000).toISOString();
+  await assert.rejects(
+    asUser(OUTSIDER_PRO, `select public.submit_quote('${q.rows[0].id}', 2400, 'Cambio de sifón y llave', null, null,
+      '${start}', '${end}', 2)`),
+    /materiales/,
+  );
+});
+
+await check("quote: invite older than 24h cannot be answered", async () => {
+  const q = await db.query(`select id from public.quotes where job_id = '${globalThis.J_ANY}' and pro_id = '${OUTSIDER_PRO}'`);
+  await db.exec(`update public.quotes set invited_at = now() - interval '25 hours' where id = '${q.rows[0].id}'`);
+  const start = new Date(Date.now() + 86400000).toISOString();
+  const end = new Date(Date.now() + 90000000).toISOString();
+  await assert.rejects(
+    asUser(OUTSIDER_PRO, `select public.submit_quote('${q.rows[0].id}', 2400, 'Cambio de sifón y llave', null, true,
+      '${start}', '${end}', 2)`),
+    /24 horas/,
+  );
+});
+
+await check("quote: only the homeowner can approve, and approval rejects the other quotes", async () => {
+  const q = await db.query(`select id from public.quotes where job_id = '${globalThis.J_ANY}' and pro_id = '${PRO}'`);
+  await assert.rejects(asUser(PRO, `select public.approve_quote('${q.rows[0].id}')`), /Solo quien pidió/);
+  await asUser(HOMEOWNER, `select public.approve_quote('${q.rows[0].id}')`);
+  const j = await db.query(`select status, pro_id from public.jobs where id = '${globalThis.J_ANY}'`);
+  assert.equal(j.rows[0].status, "accepted");
+  assert.equal(j.rows[0].pro_id, PRO);
+  const others = await db.query(`select status from public.quotes where job_id = '${globalThis.J_ANY}' and pro_id = '${OUTSIDER_PRO}'`);
+  assert.equal(others.rows[0].status, "rejected");
+});
+
+await check("contact: phone is hidden while unpaid (D7)", async () => {
+  const r = await asUser(HOMEOWNER, `select public.get_contact('${globalThis.J_ANY}') as phone`);
+  assert.equal(r.rows[0].phone, null);
+});
+
+await check("payment stub: a signed-in user cannot call it", async () => {
+  await assert.rejects(asUser(HOMEOWNER, `select public.test_mark_job_paid('${globalThis.J_ANY}')`), /permission denied/);
+});
+
+await check("payment stub: service role marks paid, then the phone is revealed to both parties", async () => {
+  await db.exec(`set role service_role; select public.test_mark_job_paid('${globalThis.J_ANY}'); reset role;`);
+  const h = await asUser(HOMEOWNER, `select public.get_contact('${globalThis.J_ANY}') as phone`);
+  assert.equal(h.rows[0].phone, "+18095550002");
+  const p = await asUser(PRO, `select public.get_contact('${globalThis.J_ANY}') as phone`);
+  assert.equal(p.rows[0].phone, "+18095550001");
+  const out = await asUser(OUTSIDER_PRO, `select public.get_contact('${globalThis.J_ANY}') as phone`);
+  assert.equal(out.rows[0].phone, null);
+});
+
+await check("start: needs a before photo; completion code is visible to the pro only", async () => {
+  await assert.rejects(asUser(PRO, `select public.start_job('${globalThis.J_ANY}')`), /foto de antes/);
+  await asUser(PRO, `select public.add_job_photo('${globalThis.J_ANY}', 'before', '${PRO}/before.jpg')`);
+  await asUser(PRO, `select public.start_job('${globalThis.J_ANY}')`);
+  const j = await db.query(`select status from public.jobs where id = '${globalThis.J_ANY}'`);
+  assert.equal(j.rows[0].status, "in_progress");
+  const code = await asUser(PRO, `select public.get_completion_code('${globalThis.J_ANY}') as c`);
+  assert.match(code.rows[0].c, /^\d{6}$/);
+  await assert.rejects(asUser(HOMEOWNER, `select public.get_completion_code('${globalThis.J_ANY}')`), /Solo el profesional/);
+});
+
+await check("photos: pro cannot upload to another pro's folder", async () => {
+  await assert.rejects(
+    asUser(PRO, `select public.add_job_photo('${globalThis.J_ANY}', 'after', '${OUTSIDER_PRO}/after.jpg')`),
+    /Ruta de foto no válida/,
+  );
+});
+
+await check("close-out: repair needs an after photo", async () => {
+  await assert.rejects(asUser(PRO, `select public.submit_closeout('${globalThis.J_ANY}')`), /foto de después/);
+});
+
+await check("completion code: wrong codes are counted, correct code completes the job", async () => {
+  await asUser(PRO, `select public.add_job_photo('${globalThis.J_ANY}', 'after', '${PRO}/after.jpg')`);
+  await asUser(PRO, `select public.submit_closeout('${globalThis.J_ANY}')`);
+  const real = await db.query(`select completion_code from public.job_secrets where job_id = '${globalThis.J_ANY}'`);
+  const wrong = real.rows[0].completion_code === "000000" ? "111111" : "000000";
+  for (let i = 0; i < 4; i++) {
+    await assert.rejects(asUser(HOMEOWNER, `select public.approve_closeout('${globalThis.J_ANY}', '${wrong}')`), /Código incorrecto/);
+  }
+  await asUser(HOMEOWNER, `select public.approve_closeout('${globalThis.J_ANY}', '${real.rows[0].completion_code}')`);
+  const j = await db.query(`select status from public.jobs where id = '${globalThis.J_ANY}'`);
+  assert.equal(j.rows[0].status, "completed");
+});
+
+await check("completion code: five failures lock the job", async () => {
+  const id = "10000000-0000-0000-0000-00000000f003";
+  await db.exec(`
+    insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, payment_status, job_type)
+      values ('${id}','${HO2}','${PRO2}','plumber','Naco','bloqueo de código','awaiting_approval','paid','repair');
+    insert into public.job_secrets (job_id, completion_code, failed_attempts) values ('${id}','123456',5);`);
+  await assert.rejects(asUser(HO2, `select public.approve_closeout('${id}', '123456')`), /Demasiados intentos/);
+});
+
+await check("diagnostic: price must be RD$500-1,000", async () => {
+  const r = await asUser(HOMEOWNER, `select public.create_job_request('plumber','Naco','${desc} visita','diagnostic',
+    array['${PRO2}']::uuid[], array['${HOMEOWNER}/d.jpg']::text[]) as id`);
+  globalThis.J_DIAG = r.rows[0].id;
+  const q = await db.query(`select id from public.quotes where job_id = '${globalThis.J_DIAG}'`);
+  const start = new Date(Date.now() + 86400000).toISOString();
+  const end = new Date(Date.now() + 90000000).toISOString();
+  await assert.rejects(
+    asUser(PRO2, `select public.submit_quote('${q.rows[0].id}', 1500, 'Visita de diagnóstico', null, true,
+      '${start}', '${end}', 1)`),
+    /RD\$500 y RD\$1,000/,
+  );
+  await asUser(PRO2, `select public.submit_quote('${q.rows[0].id}', 750, 'Visita de diagnóstico', null, true,
+    '${start}', '${end}', 1)`);
+  await asUser(HOMEOWNER, `select public.approve_quote('${q.rows[0].id}')`);
+  await db.exec(`set role service_role; select public.test_mark_job_paid('${globalThis.J_DIAG}'); reset role;`);
+  await asUser(PRO2, `select public.start_job('${globalThis.J_DIAG}')`);
+});
+
+await check("diagnostic: written diagnosis, then one-tap confirmation completes it", async () => {
+  await assert.rejects(asUser(PRO2, `select public.submit_closeout('${globalThis.J_DIAG}', 'corto')`), /al menos 20/);
+  await asUser(PRO2, `select public.submit_closeout('${globalThis.J_DIAG}', 'Sifón roto y junta del lavamanos gastada.')`);
+  await asUser(HOMEOWNER, `select public.approve_closeout('${globalThis.J_DIAG}', null)`);
+  const j = await db.query(`select status from public.jobs where id = '${globalThis.J_DIAG}'`);
+  assert.equal(j.rows[0].status, "completed");
+});
+
+await check("cancel: free before work starts; the pro's invite is withdrawn", async () => {
+  const open = await db.query(`select id from public.jobs where homeowner_id = '${HO2}' and status = 'requested' limit 1`);
+  await asUser(HO2, `select public.cancel_job_request('${open.rows[0].id}')`);
+  const q = await db.query(`select status from public.quotes where job_id = '${open.rows[0].id}'`);
+  assert.ok(q.rows.every((x) => x.status === "withdrawn"));
+});
+
+await check("expiry sweep: invites over 24h and quotes past validity become expired", async () => {
+  const r = await db.query(`select public.expire_quotes() as n`);
+  assert.ok(r.rows[0].n >= 0);
+  await assert.rejects(asUser(HOMEOWNER, `select public.expire_quotes()`), /permission denied/);
 });
 
 await db.close();

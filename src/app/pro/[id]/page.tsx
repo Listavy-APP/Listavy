@@ -63,6 +63,10 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
 
       <p className="muted">{es.proDetail.noReviews}</p>
 
+      <Link className="button" href={`/pedir?pro=${pro.id}`}>
+        {es.jobs.askQuote}
+      </Link>
+
       <h2>{es.proDetail.photos}</h2>
       {!signedIn ? (
         <div className="panel">
