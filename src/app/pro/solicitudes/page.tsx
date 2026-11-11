@@ -3,11 +3,14 @@ import { redirect } from "next/navigation";
 import { InviteCard, type Quote } from "./InviteCard";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { connection } from "next/server";
 
 export const metadata = { title: es.jobs.inboxTitle };
 export const instant = false;
 
 export default async function InboxPage() {
+    // Per-request render: the session is read at request time.
+  await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) redirect("/login");
@@ -16,7 +19,7 @@ export default async function InboxPage() {
   const { data, error } = await supabase
     .from("quotes")
     .select(
-      "id, status, amount_dop, includes, excludes, materials_included, window_start, window_end, duration_hours, invited_at, valid_until, job:jobs(id, trade, zone, description, status, job_type, voice_path)",
+      "id, status, amount_dop, includes, excludes, materials_included, window_start, window_end, duration_hours, invited_at, valid_until, job:jobs!quotes_job_id_fkey(id, trade, zone, description, status, job_type, voice_path)",
     )
     .eq("pro_id", userData.user.id)
     .order("invited_at", { ascending: false })

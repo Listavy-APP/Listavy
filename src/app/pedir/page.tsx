@@ -4,6 +4,7 @@ import { RequestForm } from "./RequestForm";
 import { getProCard } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { connection } from "next/server";
 
 export const metadata = { title: es.jobs.requestTitle };
 export const instant = false;
@@ -14,6 +15,8 @@ export default async function RequestPage({
 }: {
   searchParams: Promise<{ pro?: string }>;
 }) {
+    // Per-request render: the session is read at request time.
+  await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) redirect("/login");

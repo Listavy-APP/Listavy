@@ -4,12 +4,15 @@ import { JobActions } from "./JobActions";
 import { getCompletionCode, getContactPhone, jobFileUrl, type JobPhotoRow, type JobRow, type QuoteRow } from "@/lib/data/jobs";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { connection } from "next/server";
 
 export const metadata = { title: es.jobs.jobTitle };
 export const instant = false;
 
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+    // Per-request render: the session is read at request time.
+  await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) redirect("/login");
