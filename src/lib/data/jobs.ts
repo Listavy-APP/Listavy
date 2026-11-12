@@ -20,6 +20,7 @@ export interface JobRow {
   job_type: JobType;
   payment_status: string;
   voice_path: string | null;
+  location_consent: boolean;
   diagnosis_text: string | null;
   pending_difference_dop: number;
   approved_quote_id: string | null;
@@ -208,4 +209,9 @@ export async function proposeRevision(
 
 export async function approveRevision(supabase: SupabaseClient, quoteId: string): Promise<void> {
   fail((await supabase.rpc("approve_revision", { p_quote: quoteId })).error);
+}
+
+/** Homeowner's location choice. Stores the flag only, never a location. */
+export async function setLocationConsent(supabase: SupabaseClient, jobId: string, allowed: boolean): Promise<void> {
+  fail((await supabase.rpc("set_location_consent", { p_job: jobId, p_allowed: allowed })).error);
 }

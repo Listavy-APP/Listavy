@@ -100,6 +100,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       </p>
 
       {j.voice_path ? <VoiceNote url={voiceUrl} /> : null}
+      {role === "pro" && j.location_consent && j.payment_status === "paid" ? (
+        <p className="notice">{es.location.sharedWithPro}</p>
+      ) : null}
 
       <JobTimeline
         status={j.status}

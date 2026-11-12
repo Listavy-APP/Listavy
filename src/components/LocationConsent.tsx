@@ -9,7 +9,7 @@ import { es } from "@/lib/i18n/es";
 export function LocationConsent({
   onChoose,
 }: {
-  onChoose: (allowed: boolean) => void;
+  onChoose: (allowed: boolean) => void | Promise<void>;
 }) {
   return (
     <section className="stack">

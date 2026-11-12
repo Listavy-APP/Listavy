@@ -6,7 +6,7 @@ import { LocationConsent } from "@/components/LocationConsent";
 import { Choice } from "@/components/ui/Choice";
 import { FilePick } from "@/components/ui/FilePick";
 import { TextArea } from "@/components/ui/TextArea";
-import { createJobRequest, uploadJobFile, type JobType } from "@/lib/data/jobs";
+import { createJobRequest, setLocationConsent, uploadJobFile, type JobType } from "@/lib/data/jobs";
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
 import { SD_ZONES } from "@/lib/domain/catalog";
@@ -66,14 +66,23 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
   }
 
   if (createdJobId) {
-    // Location is off unless the homeowner allows it. The choice is not stored yet (no column).
+    // Location is off unless the homeowner allows it. The choice is saved before the job opens.
     return (
-      <LocationConsent
-        onChoose={() => {
-          router.push(`/trabajos/${createdJobId}`);
-          router.refresh();
-        }}
-      />
+      <>
+        {error ? <p className="error">{error}</p> : null}
+        <LocationConsent
+          onChoose={async (allowed) => {
+            setError(null);
+            try {
+              await setLocationConsent(createSupabaseBrowserClient(), createdJobId, allowed);
+              router.push(`/trabajos/${createdJobId}`);
+              router.refresh();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : es.jobs.genericError);
+            }
+          }}
+        />
+      </>
     );
   }
 

@@ -379,6 +379,7 @@ export const es = {
       "El profesional asignado solo ve tu ubicación después de que el pago se confirme.",
     allow: "Permitir",
     decline: "No compartir",
+    sharedWithPro: "El cliente permitió compartir su ubicación aproximada.",
   },
   legal: {
     operator: "Listavy es operado por Bianx-log LLC.",
