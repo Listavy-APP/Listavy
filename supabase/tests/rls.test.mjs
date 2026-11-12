@@ -100,6 +100,11 @@ async function asUser(uid, sql) {
 }
 
 const results = [];
+async function closeWindows() {
+  // Test helper: the evidence window is 48h. Close it so the admin decision is allowed.
+  await db.exec("update public.disputes set evidence_due_at = now() - interval '1 minute' where stage = 'evidence'");
+}
+
 async function check(name, fn) {
   try {
     await fn();
@@ -1517,7 +1522,8 @@ await check("0019 outcome: release_full returns a frozen payment to held", async
   const d = await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente') as r`);
   assert.equal(d.rows[0].r, "open");
   const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
-  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'release_full', null)`);
+  await closeWindows();
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'release_full', null, 'Motivo de la decisión de prueba')`);
   const p = await db.query(`select status from public.payments where id = '${payment}'`);
   assert.equal(p.rows[0].status, "held");
 });
@@ -1526,14 +1532,16 @@ await check("0019 outcome: release_full sets the legacy status and redo keeps th
   const a = await seedJobPayment({ approvedHoursAgo: 1 });
   await asUser(HOMEOWNER, `select public.open_dispute('${a.job}', false, 'La fuga regresó al día siguiente')`);
   const da = await db.query(`select id from public.disputes where job_id = '${a.job}' and status = 'open'`);
-  await db.query(`select public.resolve_dispute('${da.rows[0].id}', 'release_full', null)`);
+  await closeWindows();
+  await db.query(`select public.resolve_dispute('${da.rows[0].id}', 'release_full', null, 'Motivo de la decisión de prueba')`);
   const sa = await db.query(`select status, resolved_at is not null as done from public.disputes where id = '${da.rows[0].id}'`);
   assert.deepEqual(sa.rows[0], { status: "resolved_pro", done: true });
 
   const b = await seedJobPayment({ approvedHoursAgo: 1 });
   await asUser(HOMEOWNER, `select public.open_dispute('${b.job}', false, 'El trabajo quedó mal hecho')`);
   const db2 = await db.query(`select id from public.disputes where job_id = '${b.job}' and status = 'open'`);
-  const r = await db.query(`select public.resolve_dispute('${db2.rows[0].id}', 'redo', null) as r`);
+  await closeWindows();
+  const r = await db.query(`select public.resolve_dispute('${db2.rows[0].id}', 'redo', null, 'Motivo de la decisión de prueba') as r`);
   assert.equal(r.rows[0].r, "redo_pending");
   const sb = await db.query(`select status, outcome, resolved_at from public.disputes where id = '${db2.rows[0].id}'`);
   assert.deepEqual(sb.rows[0], { status: "open", outcome: "redo", resolved_at: null });
@@ -1545,7 +1553,8 @@ await check("0019 outcome: full_refund queues a dispute refund and marks the pay
   const { job, payment } = await seedJobPayment({ approvedHoursAgo: 1 });
   await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
   const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
-  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'full_refund', null)`);
+  await closeWindows();
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'full_refund', null, 'Motivo de la decisión de prueba')`);
   const rf = await db.query(`select id, reason, amount_minor, status from public.refunds where payment_id = '${payment}'`);
   assert.equal(rf.rows[0].reason, "dispute_full");
   assert.equal(rf.rows[0].status, "pending");
@@ -1558,11 +1567,14 @@ await check("0019 outcome: partial refund splits the payment, commission on the 
   const { job, payment } = await seedJobPayment({ approvedHoursAgo: 1 });
   await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
   const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
-  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 0)`), /mayor que cero/);
-  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 6000)`), /menor que el monto/);
-  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 4000)`);
+  await closeWindows();
+  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 0, 'Motivo de la decisión de prueba')`), /mayor que cero/);
+  await closeWindows();
+  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 6000, 'Motivo de la decisión de prueba')`), /menor que el monto/);
+  await closeWindows();
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 4000, 'Motivo de la decisión de prueba')`);
   const p = await db.query(`select keep_dop, keep_minor, keep_pro_payout_dop, keep_commission_dop, status from public.payments where id = '${payment}'`);
-  assert.deepEqual(p.rows[0], { keep_dop: 2000, keep_minor: 3333, keep_pro_payout_dop: 1760, keep_commission_dop: 240, status: "disputed" });
+  assert.deepEqual(p.rows[0], { keep_dop: 2000, keep_minor: 3333, keep_pro_payout_dop: 1600, keep_commission_dop: 400, status: "disputed" });
   const rf = await db.query(`select id, amount_minor, amount_dop from public.refunds where payment_id = '${payment}'`);
   assert.equal(rf.rows[0].amount_dop, 4000);
   assert.equal(Number(rf.rows[0].amount_minor), 6667);
@@ -1571,14 +1583,15 @@ await check("0019 outcome: partial refund splits the payment, commission on the 
   assert.equal(after.rows[0].status, "held");
   await db.exec(`update public.payments set release_after = now() - interval '1 minute' where id = '${payment}'`);
   const due = await db.query(`select amount_minor, amount_dop, pro_payout_dop from public.claim_due_payments(200) where payment_id = '${payment}'`);
-  assert.deepEqual(due.rows[0], { amount_minor: 3333, amount_dop: 2000, pro_payout_dop: 1760 });
+  assert.deepEqual(due.rows[0], { amount_minor: 3333, amount_dop: 2000, pro_payout_dop: 1600 });
 });
 
 await check("0019 guarantee: a post-release refund is refused while the reserve is empty", async () => {
   const { job } = await seedJobPayment({ status: "released", approvedHoursAgo: 30 });
   await asUser(PRO, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente')`);
   const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
-  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'full_refund', null)`), /Reserva de garantía insuficiente/);
+  await closeWindows();
+  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'full_refund', null, 'Motivo de la decisión de prueba')`), /Reserva de garantía insuficiente/);
 });
 
 await check("0019 guarantee: a funded reserve pays the refund and records the recovery", async () => {
@@ -1589,7 +1602,8 @@ await check("0019 guarantee: a funded reserve pays the refund and records the re
   const { job, payment } = await seedJobPayment({ status: "released", approvedHoursAgo: 30 });
   await asUser(HOMEOWNER, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente')`);
   const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
-  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'full_refund', null)`);
+  await closeWindows();
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'full_refund', null, 'Motivo de la decisión de prueba')`);
   const rf = await db.query(`select id, reason, amount_dop from public.refunds where payment_id = '${payment}'`);
   assert.equal(rf.rows[0].reason, "guarantee_refund");
   assert.equal(rf.rows[0].amount_dop, 6000);
@@ -1606,11 +1620,12 @@ await check("0019 guarantee: a post-release refund cannot exceed the job amount"
   const { job } = await seedJobPayment({ status: "released", approvedHoursAgo: 30 });
   await asUser(PRO, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente')`);
   const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
-  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 7000)`), /excede el monto/);
+  await closeWindows();
+  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 7000, 'Motivo de la decisión de prueba')`), /excede el monto/);
 });
 
 await check("0019 access: signed-in users cannot resolve disputes or fund the reserve", async () => {
-  await assert.rejects(asUser(HOMEOWNER, `select public.resolve_dispute('${randomUUID()}', 'redo', null)`), /permission denied/);
+  await assert.rejects(asUser(HOMEOWNER, `select public.resolve_dispute('${randomUUID()}', 'redo', null, 'Motivo de la decisión de prueba')`), /permission denied|Solo el administrador/);
   await assert.rejects(asUser(HOMEOWNER, `select public.record_reserve_funding(1)`), /permission denied/);
 });
 
@@ -1671,12 +1686,37 @@ await check("0021 release: a partial split funds 10% of the kept commission only
   const { job, payment } = await seedJobPayment({ status: "held", approvedHoursAgo: 1 });
   await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
   const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
-  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 4000)`);
+  await closeWindows();
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 4000, 'Motivo de la decisión de prueba')`);
   const rf = await db.query(`select id from public.refunds where payment_id = '${payment}'`);
   await db.query(`select public.mark_refund_succeeded('${rf.rows[0].id}', 're_0021_partial')`);
   await db.query(`select public.mark_payment_released('${payment}', 'tr_0021c')`);
   const g = await db.query(`select amount_dop from public.guarantee_reserve where payment_id = '${payment}' and entry_kind = 'funding'`);
-  assert.equal(g.rows[0].amount_dop, 24); // 10% of the 240 kept commission
+  assert.equal(g.rows[0].amount_dop, 40); // 10% of the 400 kept commission (RD$400 minimum on the kept portion)
+});
+
+await check("0027 window: an admin decision before the evidence window closes is refused", async () => {
+  const { job } = await seedJobPayment({ status: "held", approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
+  const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+  await assert.rejects(
+    db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'release_full', null, 'Motivo de la decisión de prueba')`),
+    /aún no vence/,
+  );
+  const st = await db.query(`select stage from public.disputes where id = '${disp.rows[0].id}'`);
+  assert.equal(st.rows[0].stage, "evidence");
+});
+
+await check("0027 evidence: a party can submit a statement; an outsider cannot", async () => {
+  const { job } = await seedJobPayment({ status: "held", approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
+  await asUser(HOMEOWNER, `select public.submit_dispute_evidence((select id from public.disputes where job_id = '${job}'), 'Hice la reparación y adjunto las fotos.')`);
+  await assert.rejects(
+    asUser(OUTSIDER_PRO, `select public.submit_dispute_evidence((select id from public.disputes where job_id = '${job}'), 'Yo no soy parte de este trabajo.')`),
+    /Solo las partes|no encontrada|ventana/,
+  );
+  const n = await db.query(`select count(*)::int as n from public.dispute_evidence de join public.disputes d on d.id = de.dispute_id where d.job_id = '${job}'`);
+  assert.equal(n.rows[0].n, 1);
 });
 
 await check("0021 release: a zero commission adds no funding row", async () => {
@@ -1699,7 +1739,8 @@ async function makeDebt(refundDop) {
   const { job } = await seedJobPayment({ status: "released", approvedHoursAgo: 30 });
   await asUser(HOMEOWNER, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente')`);
   const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
-  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', ${refundDop})`);
+  await closeWindows();
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', ${refundDop}, 'Motivo de la decisión de prueba')`);
   const rec = await db.query(`select id from public.pro_recoveries where dispute_id = '${disp.rows[0].id}'`);
   return rec.rows[0].id;
 }
