@@ -1156,6 +1156,137 @@ await check("0013 split: diagnostic RD$750 at 15% (commission 113) is accepted",
   }
 });
 
+// 0014 · Diagnostic credit link and webhook apply.
+const { randomUUID } = await import("node:crypto");
+
+async function withRollback(fn) {
+  await db.exec("begin;");
+  try {
+    await fn();
+  } finally {
+    await db.exec("rollback;");
+  }
+}
+
+// Paid diagnostic (RD$750, 113 commission, 637 payout) and accepted repair (RD$6,000 quote).
+async function seedCreditPair() {
+  const { trade } = (await db.query(`select trade from public.pros where id = '${PRO}'`)).rows[0];
+  const diag = randomUUID();
+  const repair = randomUUID();
+  const quote = randomUUID();
+  await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status)
+                 values ('${diag}', '${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Diagnóstico de prueba.', 'accepted', 'diagnostic', 'paid')`);
+  await db.exec(`insert into public.payments (job_id, provider, currency, amount_minor, fx_rate_dop_per_usd,
+                   amount_dop, commission_dop, pro_payout_dop, purpose, status)
+                 values ('${diag}', 'stripe', 'USD', 1250, 60, 750, 113, 637, 'diagnostic', 'held')`);
+  await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, credit_from_job_id)
+                 values ('${repair}', '${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Reparación de prueba.', 'accepted', 'repair', 'unpaid', '${diag}')`);
+  await db.exec(`insert into public.quotes (id, job_id, pro_id, amount_dop, status)
+                 values ('${quote}', '${repair}', '${PRO}', 6000, 'accepted')`);
+  await db.exec(`update public.jobs set approved_quote_id = '${quote}' where id = '${repair}'`);
+  return { diag, repair, trade };
+}
+
+const applyCall = (job, { event = "evt_t1", amountDop = 5250, commission = 630, payout = 4620, sessionId = "cs_t1" } = {}) =>
+  `select public.apply_stripe_checkout('${event}', 'checkout.session.completed', false, '${job}', '${sessionId}', 'pi_t1',
+     'job', 8750, 60, ${amountDop}, ${commission}, ${payout}, 0) as r`;
+
+await check("0014 link: a credit may only come from a diagnostic job", async () => {
+  await withRollback(async () => {
+    const { repair, trade } = await seedCreditPair();
+    const other = randomUUID();
+    await assert.rejects(
+      db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, credit_from_job_id)
+               values ('${other}', '${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Otra reparación.', 'accepted', 'repair', 'unpaid', '${repair}')`),
+      /debe venir de un diagnóstico/,
+    );
+  });
+});
+
+await check("0014 link: an unpaid diagnostic cannot be credited", async () => {
+  await withRollback(async () => {
+    const { trade } = (await db.query(`select trade from public.pros where id = '${PRO}'`)).rows[0];
+    const diag = randomUUID();
+    await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status)
+                   values ('${diag}', '${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Diagnóstico sin pagar.', 'accepted', 'diagnostic', 'unpaid')`);
+    await assert.rejects(
+      db.exec(`insert into public.jobs (homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, credit_from_job_id)
+               values ('${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Reparación nueva.', 'accepted', 'repair', 'unpaid', '${diag}')`),
+      /no está pagado/,
+    );
+  });
+});
+
+await check("0014 link: only one repair per diagnostic", async () => {
+  await withRollback(async () => {
+    const { diag, trade } = await seedCreditPair();
+    await assert.rejects(
+      db.exec(`insert into public.jobs (homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, credit_from_job_id)
+               values ('${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Segunda reparación.', 'accepted', 'repair', 'unpaid', '${diag}')`),
+      /jobs_one_repair_per_diagnostic/,
+    );
+  });
+});
+
+await check("0014 apply: credited repair charges RD$5,250, marks the job paid", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    const r = await db.query(applyCall(repair));
+    assert.equal(r.rows[0].r, "applied");
+    const j = await db.query(`select payment_status from public.jobs where id = '${repair}'`);
+    assert.equal(j.rows[0].payment_status, "paid");
+  });
+});
+
+await check("0014 apply: a repeated Stripe event id is a no-op", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    await db.query(applyCall(repair));
+    const again = await db.query(applyCall(repair));
+    assert.equal(again.rows[0].r, "duplicate");
+  });
+});
+
+await check("0014 apply: charging the full quote (RD$6,000) with a credit is refused", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    await assert.rejects(
+      db.query(applyCall(repair, { amountDop: 6000, commission: 720, payout: 5280, event: "evt_t2", sessionId: "cs_t2" })),
+      /no coincide/,
+    );
+  });
+});
+
+await check("0014 apply: a split that does not add up is refused by the table", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    await assert.rejects(
+      db.query(applyCall(repair, { commission: 600, event: "evt_t3", sessionId: "cs_t3" })),
+      /payments_split_consistent/,
+    );
+  });
+});
+
+await check("0014 apply: a failed apply leaves no event row, so Stripe can retry", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    // Each webhook call is its own transaction. A savepoint stands in for that here.
+    await db.exec("savepoint apply_attempt;");
+    await assert.rejects(db.query(applyCall(repair, { amountDop: 6000, commission: 720, payout: 5280, event: "evt_t4", sessionId: "cs_t4" })), /no coincide/);
+    await db.exec("rollback to savepoint apply_attempt;");
+    const left = await db.query(`select id from public.stripe_events where id = 'evt_t4'`);
+    assert.equal(left.rows.length, 0);
+  });
+});
+
+await check("0014 apply: signed-in users and anon have no EXECUTE on it", async () => {
+  const sig = "public.apply_stripe_checkout(text,text,boolean,uuid,text,text,text,bigint,numeric,integer,integer,integer,integer)";
+  const r = await db.query(`select has_function_privilege('authenticated', '${sig}', 'EXECUTE') as auth,
+                                   has_function_privilege('anon', '${sig}', 'EXECUTE') as anon,
+                                   has_function_privilege('service_role', '${sig}', 'EXECUTE') as svc`);
+  assert.deepEqual(r.rows[0], { auth: false, anon: false, svc: true });
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);
