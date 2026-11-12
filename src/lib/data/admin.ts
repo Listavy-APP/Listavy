@@ -32,6 +32,7 @@ export type AdminDeduction = {
   recovery_id: string;
   amount_dop: number;
   created_at: string;
+  reversed_at: string | null;
 };
 
 export type OwedRecovery = {
@@ -100,7 +101,7 @@ export async function listOwedRecoveries(supabase: SupabaseClient): Promise<Owed
 export async function listDeductions(supabase: SupabaseClient, limit = 100): Promise<AdminDeduction[]> {
   const { data, error } = await supabase
     .from("recovery_deductions")
-    .select("id, payment_id, recovery_id, amount_dop, created_at")
+    .select("id, payment_id, recovery_id, amount_dop, created_at, reversed_at")
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(`No se pudieron leer las deducciones: ${error.message}`);

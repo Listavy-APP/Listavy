@@ -19,14 +19,19 @@ alter table public.payments
   add column if not exists recovery_netted_dop integer not null default 0 check (recovery_netted_dop >= 0);
 
 -- 3. Deduction ledger. One row per debt touched by a payment. Admins read it. Service role writes it.
+-- A reversal sets reversed_at and keeps the row for the audit trail. A reversed row no longer counts.
 create table if not exists public.recovery_deductions (
   id uuid primary key default gen_random_uuid(),
   payment_id uuid not null references public.payments (id),
   recovery_id uuid not null references public.pro_recoveries (id),
   amount_dop integer not null check (amount_dop > 0),
   created_at timestamptz not null default now(),
-  unique (payment_id, recovery_id)
+  reversed_at timestamptz
 );
+
+create unique index if not exists recovery_deductions_one_active
+  on public.recovery_deductions (payment_id, recovery_id)
+  where reversed_at is null;
 
 alter table public.recovery_deductions enable row level security;
 revoke all on public.recovery_deductions from public, anon, authenticated;
@@ -35,6 +40,63 @@ grant select on public.recovery_deductions to authenticated;
 drop policy if exists recovery_deductions_admin_select on public.recovery_deductions;
 create policy recovery_deductions_admin_select on public.recovery_deductions
   for select using (public.is_admin());
+
+-- 4a. Reverse a payment's active deductions. The debt goes back to owed. Runs when the payout basis
+-- changes: a full refund before release, or a partial pre-release split. Returns the total reversed.
+create or replace function public.reverse_recovery_netting(p_payment uuid)
+returns integer
+language plpgsql
+security definer
+set search_path to ''
+as $$
+declare
+  d record;
+  v_total integer := 0;
+begin
+  for d in
+    select id, recovery_id, amount_dop
+      from public.recovery_deductions
+     where payment_id = p_payment and reversed_at is null
+       for update
+  loop
+    update public.pro_recoveries
+       set settled_dop = settled_dop - d.amount_dop, status = 'owed'
+     where id = d.recovery_id;
+    update public.recovery_deductions set reversed_at = now() where id = d.id;
+    v_total := v_total + d.amount_dop;
+  end loop;
+
+  update public.payments
+     set netted_at = null, recovery_netted_dop = 0
+   where id = p_payment and netted_at is not null;
+  return v_total;
+end;
+$$;
+
+revoke execute on function public.reverse_recovery_netting(uuid) from public, anon, authenticated;
+grant execute on function public.reverse_recovery_netting(uuid) to service_role;
+
+create or replace function public.reverse_netting_on_payout_change()
+returns trigger
+language plpgsql
+security definer
+set search_path to ''
+as $$
+begin
+  if (new.status = 'refunded' and old.status is distinct from new.status)
+     or (new.keep_dop is distinct from old.keep_dop) then
+    perform public.reverse_recovery_netting(new.id);
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.reverse_netting_on_payout_change() from public, anon, authenticated;
+
+drop trigger if exists payments_reverse_netting on public.payments;
+create trigger payments_reverse_netting
+  after update of status, keep_dop on public.payments
+  for each row execute function public.reverse_netting_on_payout_change();
 
 -- 4. Netting for one payment. Returns the total deducted in RD$. Locks the pro's debts while it works.
 create or replace function public.net_pro_recoveries(p_payment uuid)

@@ -142,6 +142,7 @@ export default async function AdminPayoutsPage() {
                 <th>{es.admin.colDebt}</th>
                 <th>{es.admin.colAmount}</th>
                 <th>{es.admin.colDate}</th>
+                <th>{es.admin.colState}</th>
               </tr>
             </thead>
             <tbody>
@@ -151,6 +152,7 @@ export default async function AdminPayoutsPage() {
                   <td>{short(d.recovery_id)}</td>
                   <td>{es.money.dop(d.amount_dop)}</td>
                   <td>{dateOnly(d.created_at)}</td>
+                  <td>{d.reversed_at ? es.admin.deductionReversed : es.admin.deductionApplied}</td>
                 </tr>
               ))}
             </tbody>

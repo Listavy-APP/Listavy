@@ -1778,6 +1778,53 @@ await check("0022 netting: a repeat claim reuses the stored netting and deducts 
   });
 });
 
+await check("0022 reversal: a full refund before release returns the debt to owed", async () => {
+  await withRollback(async () => {
+    await isolateNetting();
+    await db.query(`select public.record_reserve_funding(20000)`);
+    const debt = await makeDebt(1000);
+    const payment = await seedHeldDue();
+    await db.query(`select * from public.claim_due_payments(200) where payment_id = '${payment}'`);
+    await db.exec(`update public.payments set status = 'refunded' where id = '${payment}'`);
+    const rec = await db.query(`select settled_dop, status from public.pro_recoveries where id = '${debt}'`);
+    assert.deepEqual(rec.rows[0], { settled_dop: 0, status: "owed" });
+    const d = await db.query(`select count(*)::int as active from public.recovery_deductions where payment_id = '${payment}' and reversed_at is null`);
+    assert.equal(d.rows[0].active, 0);
+    const p = await db.query(`select netted_at, recovery_netted_dop from public.payments where id = '${payment}'`);
+    assert.deepEqual(p.rows[0], { netted_at: null, recovery_netted_dop: 0 });
+  });
+});
+
+await check("0022 reversal: a partial pre-release split re-nets on the next claim, on the kept payout", async () => {
+  await withRollback(async () => {
+    await isolateNetting();
+    await db.query(`select public.record_reserve_funding(20000)`);
+    const debt = await makeDebt(1000);
+    const payment = await seedHeldDue();
+    await db.query(`select * from public.claim_due_payments(200) where payment_id = '${payment}'`);
+    await db.exec(`update public.payments set keep_dop = 2000, keep_minor = 3333, keep_pro_payout_dop = 1760, keep_commission_dop = 240 where id = '${payment}'`);
+    const rec = await db.query(`select settled_dop, status from public.pro_recoveries where id = '${debt}'`);
+    assert.deepEqual(rec.rows[0], { settled_dop: 0, status: "owed" });
+    const due = await db.query(`select pro_payout_dop, net_payout_dop, recovery_dop from public.claim_due_payments(200) where payment_id = '${payment}'`);
+    assert.deepEqual(due.rows[0], { pro_payout_dop: 1760, net_payout_dop: 760, recovery_dop: 1000 });
+  });
+});
+
+await check("0022 reversal: a release keeps its deduction", async () => {
+  await withRollback(async () => {
+    await isolateNetting();
+    await db.query(`select public.record_reserve_funding(20000)`);
+    const debt = await makeDebt(1000);
+    const payment = await seedHeldDue();
+    await db.query(`select * from public.claim_due_payments(200) where payment_id = '${payment}'`);
+    assert.equal((await db.query(`select public.mark_payment_released('${payment}', null) as r`)).rows[0].r, "released");
+    const d = await db.query(`select count(*)::int as active from public.recovery_deductions where payment_id = '${payment}' and reversed_at is null`);
+    assert.equal(d.rows[0].active, 1);
+    const rec = await db.query(`select settled_dop from public.pro_recoveries where id = '${debt}'`);
+    assert.equal(rec.rows[0].settled_dop, 1000);
+  });
+});
+
 await check("0022 access: signed-in users cannot read the deduction ledger; admins can", async () => {
   const mine = await asUser(HOMEOWNER, `select id from public.recovery_deductions`);
   assert.equal(mine.rows.length, 0);

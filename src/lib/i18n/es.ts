@@ -322,6 +322,9 @@ export const es = {
     colDebt: "Deuda",
     deductionsTitle: "Deducciones de deudas",
     deductionsEmpty: "Todavía no hay deducciones.",
+    colState: "Estado de la deducción",
+    deductionApplied: "Aplicada",
+    deductionReversed: "Revertida",
     statuses: {
       pending: "Pendiente",
       held: "Retenido",
