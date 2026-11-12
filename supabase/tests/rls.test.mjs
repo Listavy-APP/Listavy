@@ -883,12 +883,13 @@ await check("contact: phone is hidden while unpaid (D7)", async () => {
   assert.equal(r.rows[0].phone, null);
 });
 
-await check("payment stub: a signed-in user cannot call it", async () => {
-  await assert.rejects(asUser(HOMEOWNER, `select public.test_mark_job_paid('${globalThis.J_ANY}')`), /permission denied/);
+await check("payment stub removed: test_mark_job_paid no longer exists", async () => {
+  const r = await db.query(`select to_regprocedure('public.test_mark_job_paid(uuid)') as fn`);
+  assert.equal(r.rows[0].fn, null);
 });
 
-await check("payment stub: service role marks paid, then the phone is revealed to both parties", async () => {
-  await db.exec(`set role service_role; select public.test_mark_job_paid('${globalThis.J_ANY}'); reset role;`);
+await check("payment set by fixture: phone is revealed to both parties once paid", async () => {
+  await db.exec(`update public.jobs set payment_status = 'paid' where id = '${globalThis.J_ANY}';`);
   const h = await asUser(HOMEOWNER, `select public.get_contact('${globalThis.J_ANY}') as phone`);
   assert.equal(h.rows[0].phone, "+18095550002");
   const p = await asUser(PRO, `select public.get_contact('${globalThis.J_ANY}') as phone`);
@@ -956,7 +957,7 @@ await check("diagnostic: price must be RD$500-1,000", async () => {
   await asUser(PRO2, `select public.submit_quote('${q.rows[0].id}', 750, 'Visita de diagnóstico', null, true,
     '${start}', '${end}', 1)`);
   await asUser(HOMEOWNER, `select public.approve_quote('${q.rows[0].id}')`);
-  await db.exec(`set role service_role; select public.test_mark_job_paid('${globalThis.J_DIAG}'); reset role;`);
+  await db.exec(`update public.jobs set payment_status = 'paid' where id = '${globalThis.J_DIAG}';`);
   await asUser(PRO2, `select public.start_job('${globalThis.J_DIAG}')`);
 });
 
