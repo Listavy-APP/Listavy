@@ -91,6 +91,7 @@ export default async function AdminPayoutsPage() {
                 <th>{es.admin.colRefunded}</th>
                 <th>{es.admin.colStripe}</th>
                 <th>{es.admin.colDate}</th>
+                <th>{es.admin.colRelease}</th>
               </tr>
             </thead>
             <tbody>
@@ -113,6 +114,7 @@ export default async function AdminPayoutsPage() {
                     <div>PI: {short(p.stripe_payment_intent_id)}</div>
                     <div>TR: {short(p.stripe_transfer_id)}</div>
                   </td>
+                  <td>{dateOnly(p.created_at)}</td>
                   <td>{dateOnly(p.released_at ?? p.release_after)}</td>
                 </tr>
               ))}

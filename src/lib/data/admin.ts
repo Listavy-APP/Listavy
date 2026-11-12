@@ -22,6 +22,7 @@ export type AdminPayment = {
   stripe_transfer_id: string | null;
   release_after: string | null;
   released_at: string | null;
+  created_at: string;
 };
 
 export type OwedRecovery = {
@@ -34,7 +35,7 @@ export type OwedRecovery = {
 };
 
 const PAYMENT_COLUMNS =
-  "id, job_id, purpose, status, amount_minor, amount_dop, commission_dop, pro_payout_dop, keep_dop, keep_commission_dop, keep_pro_payout_dop, refunded_minor, stripe_payment_intent_id, stripe_transfer_id, release_after, released_at";
+  "id, job_id, purpose, status, amount_minor, amount_dop, commission_dop, pro_payout_dop, keep_dop, keep_commission_dop, keep_pro_payout_dop, refunded_minor, stripe_payment_intent_id, stripe_transfer_id, release_after, released_at, created_at";
 
 export async function listAdminPayments(supabase: SupabaseClient, limit = 100): Promise<AdminPayment[]> {
   const { data, error } = await supabase

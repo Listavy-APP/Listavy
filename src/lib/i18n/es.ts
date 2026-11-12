@@ -313,6 +313,7 @@ export const es = {
     colStripe: "Stripe",
     colPro: "Profesional",
     colDate: "Fecha",
+    colRelease: "Liberación",
     colOwed: "Monto debido",
     statuses: {
       pending: "Pendiente",
