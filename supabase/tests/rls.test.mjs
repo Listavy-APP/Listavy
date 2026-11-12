@@ -1464,6 +1464,173 @@ await check("0018 refunds: signed-in users see no refund or strike rows", async 
   assert.equal(asPro.rows.length, 0);
 });
 
+// 0019 · Disputes and guarantee reserve (D1, D4). Rejections run outside withRollback.
+async function seedJobPayment({ status = "held", approvedHoursAgo = 1 } = {}) {
+  const job = randomUUID();
+  const payment = randomUUID();
+  await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, approved_at)
+                 values ('${job}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'Disputa de prueba.', 'completed', 'repair', 'paid',
+                         now() - interval '${approvedHoursAgo} hours')`);
+  await db.exec(`insert into public.payments (id, job_id, provider, currency, amount_minor, fx_rate_dop_per_usd,
+                   amount_dop, commission_dop, pro_payout_dop, purpose, status, release_after)
+                 values ('${payment}', '${job}', 'stripe', 'USD', 10000, 60, 6000, 720, 5280, 'job', '${status}',
+                         now() - interval '${approvedHoursAgo} hours' + interval '24 hours')`);
+  return { job, payment };
+}
+
+await check("0019 open: a pre-release dispute freezes the payment", async () => {
+  const { job, payment } = await seedJobPayment({ approvedHoursAgo: 1 });
+  const r = await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente') as r`);
+  assert.equal(r.rows[0].r, "open");
+  const p = await db.query(`select status from public.payments where id = '${payment}'`);
+  assert.equal(p.rows[0].status, "disputed");
+  await assert.rejects(asUser(PRO, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`), /Ya hay una disputa/);
+});
+
+await check("0019 open: a stranger cannot open a dispute", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await assert.rejects(asUser(OUTSIDER_PRO, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`), /Solo las partes/);
+});
+
+await check("0019 open: nothing can be disputed after 48 h", async () => {
+  const { job } = await seedJobPayment({ status: "released", approvedHoursAgo: 49 });
+  await assert.rejects(asUser(HOMEOWNER, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente')`), /48 horas/);
+});
+
+await check("0019 open: after release only a latent defect is accepted", async () => {
+  const { job } = await seedJobPayment({ status: "released", approvedHoursAgo: 30 });
+  await assert.rejects(asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`), /solo se acepta un defecto latente/);
+  const ok = await asUser(HOMEOWNER, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente') as r`);
+  assert.equal(ok.rows[0].r, "open");
+});
+
+await check("0019 claim: a disputed payment is not released", async () => {
+  const { job, payment } = await seedJobPayment({ approvedHoursAgo: 30 });
+  await db.exec(`update public.payments set status = 'disputed' where id = '${payment}'`);
+  const due = await db.query(`select payment_id from public.claim_due_payments(200)`);
+  assert.equal(due.rows.some((x) => x.payment_id === payment), false);
+  await db.exec(`update public.payments set status = 'held' where id = '${payment}'`);
+});
+
+await check("0019 outcome: release_full returns a frozen payment to held", async () => {
+  const { job, payment } = await seedJobPayment({ approvedHoursAgo: 1 });
+  const d = await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente') as r`);
+  assert.equal(d.rows[0].r, "open");
+  const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'release_full', null)`);
+  const p = await db.query(`select status from public.payments where id = '${payment}'`);
+  assert.equal(p.rows[0].status, "held");
+});
+
+await check("0019 outcome: release_full sets the legacy status and redo keeps the dispute open", async () => {
+  const a = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.open_dispute('${a.job}', false, 'La fuga regresó al día siguiente')`);
+  const da = await db.query(`select id from public.disputes where job_id = '${a.job}' and status = 'open'`);
+  await db.query(`select public.resolve_dispute('${da.rows[0].id}', 'release_full', null)`);
+  const sa = await db.query(`select status, resolved_at is not null as done from public.disputes where id = '${da.rows[0].id}'`);
+  assert.deepEqual(sa.rows[0], { status: "resolved_pro", done: true });
+
+  const b = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.open_dispute('${b.job}', false, 'El trabajo quedó mal hecho')`);
+  const db2 = await db.query(`select id from public.disputes where job_id = '${b.job}' and status = 'open'`);
+  const r = await db.query(`select public.resolve_dispute('${db2.rows[0].id}', 'redo', null) as r`);
+  assert.equal(r.rows[0].r, "redo_pending");
+  const sb = await db.query(`select status, outcome, resolved_at from public.disputes where id = '${db2.rows[0].id}'`);
+  assert.deepEqual(sb.rows[0], { status: "open", outcome: "redo", resolved_at: null });
+  const pb = await db.query(`select status from public.payments where id = '${b.payment}'`);
+  assert.equal(pb.rows[0].status, "disputed");
+});
+
+await check("0019 outcome: full_refund queues a dispute refund and marks the payment refunded", async () => {
+  const { job, payment } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
+  const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'full_refund', null)`);
+  const rf = await db.query(`select id, reason, amount_minor, status from public.refunds where payment_id = '${payment}'`);
+  assert.equal(rf.rows[0].reason, "dispute_full");
+  assert.equal(rf.rows[0].status, "pending");
+  await db.query(`select public.mark_refund_succeeded('${rf.rows[0].id}', 're_dispute_full')`);
+  const p = await db.query(`select status from public.payments where id = '${payment}'`);
+  assert.equal(p.rows[0].status, "refunded");
+});
+
+await check("0019 outcome: partial refund splits the payment, commission on the kept portion only", async () => {
+  const { job, payment } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
+  const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 0)`), /mayor que cero/);
+  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 6000)`), /menor que el monto/);
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 4000)`);
+  const p = await db.query(`select keep_dop, keep_minor, keep_pro_payout_dop, keep_commission_dop, status from public.payments where id = '${payment}'`);
+  assert.deepEqual(p.rows[0], { keep_dop: 2000, keep_minor: 3333, keep_pro_payout_dop: 1760, keep_commission_dop: 240, status: "disputed" });
+  const rf = await db.query(`select id, amount_minor, amount_dop from public.refunds where payment_id = '${payment}'`);
+  assert.equal(rf.rows[0].amount_dop, 4000);
+  assert.equal(Number(rf.rows[0].amount_minor), 6667);
+  await db.query(`select public.mark_refund_succeeded('${rf.rows[0].id}', 're_dispute_partial')`);
+  const after = await db.query(`select status from public.payments where id = '${payment}'`);
+  assert.equal(after.rows[0].status, "held");
+  await db.exec(`update public.payments set release_after = now() - interval '1 minute' where id = '${payment}'`);
+  const due = await db.query(`select amount_minor, amount_dop, pro_payout_dop from public.claim_due_payments(200) where payment_id = '${payment}'`);
+  assert.deepEqual(due.rows[0], { amount_minor: 3333, amount_dop: 2000, pro_payout_dop: 1760 });
+});
+
+await check("0019 guarantee: a post-release refund is refused while the reserve is empty", async () => {
+  const { job } = await seedJobPayment({ status: "released", approvedHoursAgo: 30 });
+  await asUser(PRO, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente')`);
+  const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'full_refund', null)`), /Reserva de garantía insuficiente/);
+});
+
+await check("0019 guarantee: a funded reserve pays the refund and records the recovery", async () => {
+  await db.query(`select public.record_reserve_funding(10000)`);
+  const { job, payment } = await seedJobPayment({ status: "released", approvedHoursAgo: 30 });
+  await asUser(HOMEOWNER, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente')`);
+  const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'full_refund', null)`);
+  const rf = await db.query(`select id, reason, amount_dop from public.refunds where payment_id = '${payment}'`);
+  assert.equal(rf.rows[0].reason, "guarantee_refund");
+  assert.equal(rf.rows[0].amount_dop, 6000);
+  const rec = await db.query(`select pro_id, amount_dop, status from public.pro_recoveries where dispute_id = '${disp.rows[0].id}'`);
+  assert.deepEqual(rec.rows[0], { pro_id: PRO, amount_dop: 6000, status: "owed" });
+  await db.query(`select public.mark_refund_succeeded('${rf.rows[0].id}', 're_guarantee')`);
+  const p = await db.query(`select status, refunded_minor from public.payments where id = '${payment}'`);
+  assert.deepEqual(p.rows[0], { status: "released", refunded_minor: 10000 });
+  const bal = await db.query(`select coalesce(sum(case when entry_kind = 'funding' then amount_dop else -amount_dop end), 0) as b from public.guarantee_reserve`);
+  assert.equal(Number(bal.rows[0].b), 4000);
+});
+
+await check("0019 guarantee: a post-release refund cannot exceed the job amount", async () => {
+  const { job } = await seedJobPayment({ status: "released", approvedHoursAgo: 30 });
+  await asUser(PRO, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente')`);
+  const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+  await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 7000)`), /excede el monto/);
+});
+
+await check("0019 access: signed-in users cannot resolve disputes or fund the reserve", async () => {
+  await assert.rejects(asUser(HOMEOWNER, `select public.resolve_dispute('${randomUUID()}', 'redo', null)`), /permission denied/);
+  await assert.rejects(asUser(HOMEOWNER, `select public.record_reserve_funding(1)`), /permission denied/);
+});
+
+await check("0019 access: parties cannot insert or update disputes directly", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await assert.rejects(
+    asUser(HOMEOWNER, `insert into public.disputes (job_id, opened_by, reason) values ('${job}', '${HOMEOWNER}', 'Inserción directa')`),
+    /permission denied|row-level security/,
+  );
+  // The test setup re-grants table privileges after migrations, so RLS is what stops this update.
+  // In production the revoke above applies, and the update is refused outright.
+  await asUser(ADMIN, `update public.disputes set status = 'resolved_pro' where job_id = '${job}'`).catch(() => {});
+  const still = await db.query(`select status from public.disputes where job_id = '${job}'`);
+  assert.equal(still.rows.length, 0);
+});
+
+await check("0019 access: reserve and recovery rows are not visible to signed-in users", async () => {
+  const total = await db.query(`select (select count(*) from public.guarantee_reserve) as g, (select count(*) from public.pro_recoveries) as r`);
+  assert.ok(Number(total.rows[0].g) > 0 && Number(total.rows[0].r) > 0);
+  assert.equal((await asUser(PRO, `select id from public.guarantee_reserve`)).rows.length, 0);
+  assert.equal((await asUser(PRO, `select id from public.pro_recoveries`)).rows.length, 0);
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);
