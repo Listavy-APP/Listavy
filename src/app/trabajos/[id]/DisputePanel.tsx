@@ -90,7 +90,12 @@ export function DisputePanel({
 
       {current.stage === "evidence" && stillOpen ? (
         mine ? (
-          <p className="muted">{es.disputes.evidenceSent}</p>
+          <div className="stack">
+            <p className="muted">{es.disputes.evidenceSent}</p>
+            <blockquote>
+              <strong>{role === "homeowner" ? "Cliente" : "Profesional"}:</strong> {mine.statement}
+            </blockquote>
+          </div>
         ) : (
           <div className="stack">
             <h3>{es.disputes.evidenceTitle}</h3>
