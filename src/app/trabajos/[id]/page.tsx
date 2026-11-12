@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { JobActions } from "./JobActions";
 import { JobTimeline } from "./JobTimeline";
 import { VoiceNote } from "./VoiceNote";
+import { DisputePanel } from "./DisputePanel";
+import { listEvidence, listJobDisputes } from "@/lib/data/disputes";
 import { getCompletionCode, getContactPhone, jobFileUrl, type JobPhotoRow, type JobRow, type QuoteRow } from "@/lib/data/jobs";
 import { getProCard } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
@@ -74,6 +76,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   }
 
   const voiceUrl = j.voice_path ? await jobFileUrl(supabase, j.voice_path) : null;
+  const disputes = await listJobDisputes(supabase, id);
+  const disputeEvidence = await listEvidence(supabase, disputes.map((d) => d.id));
 
   const contactPhone = await getContactPhone(supabase, id);
   const completionCode =
@@ -121,6 +125,14 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         photos={photoUrls}
         contactPhone={contactPhone}
         completionCode={completionCode}
+      />
+      <DisputePanel
+        jobId={id}
+        role={role}
+        approvedAt={j.approved_at}
+        jobStatus={j.status}
+        disputes={disputes}
+        evidence={disputeEvidence}
       />
     </section>
   );

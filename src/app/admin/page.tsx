@@ -42,6 +42,7 @@ export default async function AdminPayoutsPage() {
   return (
     <section className="stack">
       <h1>{es.admin.title}</h1>
+      <p><a href="/admin/disputas">Mediación de disputas</a></p>
       <p>{es.admin.subtitle}</p>
 
       <h2>{es.admin.reserveTitle}</h2>

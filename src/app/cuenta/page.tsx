@@ -33,6 +33,7 @@ export default async function ProfilePage() {
     return (
       <section className="stack">
         <h1>{es.profile.title}</h1>
+        <p><a href="/avisos">{es.notifications.title}</a></p>
         <p className="error">{es.account.noProfile}</p>
       </section>
     );
@@ -47,6 +48,7 @@ export default async function ProfilePage() {
   return (
     <section className="stack">
       <h1>{es.profile.title}</h1>
+      <p><a href="/avisos">{es.notifications.title}</a></p>
 
       <h2>{es.profile.photoLabel}</h2>
       <PhotoPicker

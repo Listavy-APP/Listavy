@@ -21,6 +21,7 @@ export interface JobRow {
   payment_status: string;
   voice_path: string | null;
   location_consent: boolean;
+  approved_at: string | null;
   diagnosis_text: string | null;
   pending_difference_dop: number;
   approved_quote_id: string | null;

@@ -371,6 +371,27 @@ export const es = {
   money: {
     dop: (amount: number) => `RD$${amount.toLocaleString("es-DO")}`,
   },
+  disputes: {
+    title: "Disputa",
+    openTitle: "Abrir una disputa",
+    openHelp: "Solo puedes disputar dentro de 48 horas después de cerrar el trabajo.",
+    latent: "Es un defecto que no se veía al cerrar el trabajo",
+    reasonLabel: "Qué pasó",
+    open: "Abrir disputa",
+    evidenceTitle: "Tu versión",
+    evidenceHelp: "Describe lo que pasó y adjunta fotos si las tienes. La otra parte tiene el mismo plazo.",
+    evidenceSend: "Enviar mi versión",
+    evidenceSent: "Ya enviaste tu versión.",
+    windowOpen: "Tienes hasta",
+    windowClosed: "La ventana de evidencia venció. El administrador revisará el caso.",
+    decisionTitle: "Decisión",
+    stage: { filed: "Presentada", evidence: "Ventana de evidencia", decided: "Decidida", executed: "Ejecutada", closed: "Cerrada" },
+  },
+  notifications: {
+    title: "Avisos",
+    empty: "No tienes avisos.",
+    kinds: { notice: "Disputa", reminder: "Recordatorio", decision: "Decisión", recovery_request: "Pago pendiente" },
+  },
   location: {
     consentTitle: "Compartir tu ubicación",
     consentBody:

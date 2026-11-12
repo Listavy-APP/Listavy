@@ -73,3 +73,41 @@ export async function closeDispute(supabase: SupabaseClient, disputeId: string):
 export async function finishRedo(supabase: SupabaseClient, disputeId: string): Promise<void> {
   fail((await supabase.rpc("finish_redo_dispute", { p_dispute: disputeId })).error);
 }
+
+export async function openDispute(
+  supabase: SupabaseClient,
+  input: { jobId: string; latent: boolean; reason: string },
+): Promise<void> {
+  fail((await supabase.rpc("open_dispute", { p_job: input.jobId, p_latent: input.latent, p_reason: input.reason })).error);
+}
+
+export async function submitEvidence(supabase: SupabaseClient, disputeId: string, statement: string): Promise<void> {
+  fail((await supabase.rpc("submit_dispute_evidence", { p_dispute: disputeId, p_statement: statement })).error);
+}
+
+export interface NotificationRow {
+  id: string;
+  kind: "notice" | "reminder" | "decision" | "recovery_request";
+  body: string;
+  created_at: string;
+}
+
+export async function listMyNotifications(supabase: SupabaseClient): Promise<NotificationRow[]> {
+  const { data, error } = await supabase
+    .from("dispute_notifications")
+    .select("id, kind, body, created_at")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as NotificationRow[];
+}
+
+export async function listJobDisputes(supabase: SupabaseClient, jobId: string): Promise<DisputeRow[]> {
+  const { data, error } = await supabase
+    .from("disputes")
+    .select("id, job_id, opened_side, phase, latent_defect, reason, stage, status, outcome, refund_dop, opened_at, evidence_due_at, decided_at, decision_reason, payments(amount_dop, status)")
+    .eq("job_id", jobId)
+    .order("opened_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as DisputeRow[];
+}
