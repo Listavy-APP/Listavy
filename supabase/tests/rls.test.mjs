@@ -105,7 +105,7 @@ async function check(name, fn) {
     await fn();
     results.push(["PASS", name]);
   } catch (e) {
-    results.push(["FAIL", `${name}: ${e.message.split("\n")[0]}`]);
+    results.push(["FAIL", `${name}: ${e.message.split("\n").join(" | ")}`]);
   }
 }
 
@@ -1347,6 +1347,121 @@ await check("0014 apply: signed-in users and anon have no EXECUTE on it", async 
                                    has_function_privilege('anon', '${sig}', 'EXECUTE') as anon,
                                    has_function_privilege('service_role', '${sig}', 'EXECUTE') as svc`);
   assert.deepEqual(r.rows[0], { auth: false, anon: false, svc: true });
+});
+
+// 0018 · Refunds slice 1: cancellation, automatic refund rows, processor functions.
+// Rejections run outside withRollback: a failed statement aborts the whole transaction.
+async function seedHeldJob({ status = "accepted", held = true } = {}) {
+  const job = randomUUID();
+  await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status)
+                 values ('${job}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'Reembolso de prueba.', '${status}', 'repair', '${held ? "paid" : "unpaid"}')`);
+  let payment = null;
+  if (held) {
+    payment = randomUUID();
+    await db.exec(`insert into public.payments (id, job_id, provider, currency, amount_minor, fx_rate_dop_per_usd,
+                     amount_dop, commission_dop, pro_payout_dop, purpose, status)
+                   values ('${payment}', '${job}', 'stripe', 'USD', 10000, 60, 6000, 720, 5280, 'job', 'held')`);
+  }
+  return { job, payment };
+}
+
+await check("0018 cancel: client cancels an accepted unpaid job with no refund", async () => {
+  await withRollback(async () => {
+    const { job } = await seedHeldJob({ held: false });
+    const r = await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner') as r`);
+    assert.equal(r.rows[0].r, "cancelled");
+    const rf = await db.query(`select id from public.refunds where job_id = '${job}'`);
+    assert.equal(rf.rows.length, 0);
+  });
+});
+
+await check("0018 cancel: client cancels a held job and a full refund is queued", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    const r = await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner') as r`);
+    assert.equal(r.rows[0].r, "refund_pending");
+    const rf = await db.query(`select payment_id, amount_minor, amount_dop, reason, status from public.refunds where job_id = '${job}'`);
+    assert.deepEqual(rf.rows[0], { payment_id: payment, amount_minor: 10000, amount_dop: 6000, reason: "client_cancel_pre_work", status: "pending" });
+    const j = await db.query(`select status from public.jobs where id = '${job}'`);
+    assert.equal(j.rows[0].status, "cancelled");
+  });
+});
+
+await check("0018 cancel: pro cancel queues a refund and records a strike", async () => {
+  await withRollback(async () => {
+    const { job } = await seedHeldJob();
+    const r = await asUser(PRO, `select public.cancel_job_with_refund('${job}', 'pro') as r`);
+    assert.equal(r.rows[0].r, "refund_pending");
+    const rf = await db.query(`select reason from public.refunds where job_id = '${job}'`);
+    assert.equal(rf.rows[0].reason, "pro_cancel");
+    const s = await db.query(`select reason from public.pro_strikes where job_id = '${job}' and pro_id = '${PRO}'`);
+    assert.equal(s.rows[0].reason, "pro_cancel");
+  });
+});
+
+await check("0018 cancel: the wrong party cannot cancel", async () => {
+  const { job } = await seedHeldJob();
+  await assert.rejects(asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'pro')`), /Solo el profesional/);
+  await assert.rejects(asUser(OUTSIDER_PRO, `select public.cancel_job_with_refund('${job}', 'pro')`), /Solo el profesional/);
+  await assert.rejects(asUser(PRO, `select public.cancel_job_with_refund('${job}', 'homeowner')`), /Solo el cliente/);
+});
+
+await check("0018 cancel: a cancelled job cannot be cancelled again", async () => {
+  const { job } = await seedHeldJob();
+  await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+  await assert.rejects(asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`), /no se puede cancelar/);
+});
+
+await check("0018 cancel: a job in progress cannot be cancelled here", async () => {
+  const { job } = await seedHeldJob({ status: "in_progress" });
+  await assert.rejects(asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`), /no se puede cancelar/);
+});
+
+await check("0018 refunds: only one open or succeeded refund per payment", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    await assert.rejects(
+      db.exec(`insert into public.refunds (payment_id, job_id, amount_dop, amount_minor, reason)
+               values ('${payment}', '${job}', 6000, 10000, 'pro_cancel')`),
+      /refunds_one_per_payment/,
+    );
+  });
+});
+
+await check("0018 processor: claim, then mark succeeded moves payment and job to refunded", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    const claimed = await db.query(`select * from public.claim_pending_refunds(50)`);
+    const mine = claimed.rows.find((c) => c.payment_id === payment);
+    assert.ok(mine, "refund should be claimable");
+    const first = await db.query(`select public.mark_refund_succeeded('${mine.refund_id}', 're_test_1') as r`);
+    assert.equal(first.rows[0].r, "succeeded");
+    const p = await db.query(`select status, refunded_minor from public.payments where id = '${payment}'`);
+    assert.deepEqual(p.rows[0], { status: "refunded", refunded_minor: 10000 });
+    const j = await db.query(`select payment_status from public.jobs where id = '${job}'`);
+    assert.equal(j.rows[0].payment_status, "refunded");
+    const again = await db.query(`select public.mark_refund_succeeded('${mine.refund_id}', 're_test_1') as r`);
+    assert.equal(again.rows[0].r, "skipped");
+  });
+});
+
+await check("0018 processor: service-only access to claim and mark", async () => {
+  await assert.rejects(asUser(HOMEOWNER, `select * from public.claim_pending_refunds(5)`), /permission denied/);
+  await assert.rejects(asUser(PRO, `select public.mark_refund_succeeded('${randomUUID()}', 're_x')`), /permission denied/);
+});
+
+await check("0018 refunds: signed-in users see no refund or strike rows", async () => {
+  const { job: strikeJob } = await seedHeldJob();
+  await db.exec(`insert into public.pro_strikes (pro_id, job_id, reason) values ('${PRO}', '${strikeJob}', 'pro_cancel')`);
+  await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${strikeJob}', 'homeowner')`);
+  const total = await db.query(`select (select count(*) from public.refunds) as r, (select count(*) from public.pro_strikes) as s`);
+  assert.ok(Number(total.rows[0].r) > 0 && Number(total.rows[0].s) > 0, "fixtures should exist");
+  const asHomeowner = await asUser(HOMEOWNER, `select id from public.refunds`);
+  assert.equal(asHomeowner.rows.length, 0);
+  const asPro = await asUser(PRO, `select id from public.pro_strikes`);
+  assert.equal(asPro.rows.length, 0);
 });
 
 await db.close();
