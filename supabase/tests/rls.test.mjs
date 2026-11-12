@@ -1832,6 +1832,35 @@ await check("0022 access: signed-in users cannot read the deduction ledger; admi
   await assert.rejects(asUser(ADMIN, `insert into public.recovery_deductions (payment_id, recovery_id, amount_dop) values (gen_random_uuid(), gen_random_uuid(), 1)`), /permission denied|row-level security/);
 });
 
+await check("0023 provider: jobs default to stripe and refuse an unknown provider", async () => {
+  await withRollback(async () => {
+    const job = randomUUID();
+    await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, payment_status)
+                   values ('${job}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'Proveedor de prueba.', 'accepted', 'unpaid')`);
+    const p = await db.query(`select payment_provider from public.jobs where id = '${job}'`);
+    assert.equal(p.rows[0].payment_provider, "stripe");
+    await assert.rejects(db.exec(`update public.jobs set payment_provider = 'azul' where id = '${job}'`), /jobs_payment_provider_known/);
+  });
+});
+
+await check("0023 provider: payments refuse an unknown provider", async () => {
+  await withRollback(async () => {
+    const { payment } = await seedJobPayment({ approvedHoursAgo: 1 });
+    const p = await db.query(`select provider from public.payments where id = '${payment}'`);
+    assert.equal(p.rows[0].provider, "stripe");
+    await assert.rejects(db.exec(`update public.payments set provider = 'azul' where id = '${payment}'`), /payments_provider_known/);
+  });
+});
+
+await check("0023 provider: a job's provider cannot change once it has a payment", async () => {
+  await withRollback(async () => {
+    const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+    // Only 'stripe' is valid today. Drop the check inside this rollback to exercise the lock with a second value.
+    await db.exec(`alter table public.jobs drop constraint jobs_payment_provider_known`);
+    await assert.rejects(db.exec(`update public.jobs set payment_provider = 'azul' where id = '${job}'`), /proveedor de pago no puede cambiar/);
+  });
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);

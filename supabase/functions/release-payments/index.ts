@@ -1,23 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { findTransferForPayment } from "./transfer-lookup.ts";
+import { providerFor } from "../_shared/payments/provider.ts";
 
 // Pays pros 24 h after approval. Called every 15 min by pg_cron through pg_net.
-// Each payment gets one Stripe transfer. The idempotency key is the payment id, so a retry
+// Each payment gets one provider transfer. The idempotency key is the payment id, so a retry
 // after a timeout returns the same transfer and cannot pay twice.
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-async function stripe(key: string, method: "GET" | "POST", path: string, body?: URLSearchParams, extra: Record<string, string> = {}) {
-  const res = await fetch("https://api.stripe.com" + path, {
-    method,
-    headers: { Authorization: "Bearer " + key, "Content-Type": "application/x-www-form-urlencoded", ...extra },
-    body: body?.toString(),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message ?? "Error de Stripe.");
-  return data;
 }
 
 Deno.serve(async (req: Request) => {
@@ -59,33 +48,29 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      // The transfer is tied to the original charge, so it does not wait on the platform balance.
-      const pi = await stripe(stripeKey, "GET", `/v1/payment_intents/${p.payment_intent_id}`);
-      const chargeId = typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id;
-      if (!chargeId) throw new Error("El pago no tiene cargo.");
+      // The payment records its provider. The flow calls only the interface.
+      const { data: payRow, error: payErr } = await admin.from("payments").select("provider").eq("id", p.payment_id).single();
+      if (payErr) throw new Error(payErr.message);
+      const provider = providerFor(payRow.provider, { stripeSecretKey: stripeKey, stripeWebhookSecret: "" });
 
-      // Look for a transfer already made for this payment before creating one. This works after
-      // Stripe has expired the idempotency key, and after a failed mark on an earlier run.
-      const listed = await stripe(stripeKey, "GET", `/v1/transfers?transfer_group=${encodeURIComponent(p.job_id)}&limit=100`);
-      let transferId: string;
-      const existing = findTransferForPayment(listed.data ?? [], p.payment_id);
-      if (existing) {
-        transferId = existing.id;
-      } else {
-        // Pro's net share of the USD charge, in cents, after recovery netting. Commission is what is left.
+      // The transfer is tied to the original charge, so it does not wait on the platform balance.
+      const chargeId = await provider.chargeIdFor(p.payment_intent_id);
+
+      // Look for a transfer already made for this payment before creating one. This works after the
+      // provider has expired the idempotency key, and after a failed mark on an earlier run.
+      let transferId = await provider.findTransfer(p.job_id, p.payment_id);
+      if (!transferId) {
+        // Pro's net share of the charge, in minor units, after recovery netting. Commission is what is left.
         const payoutMinor = Math.round((Number(p.amount_minor) * p.net_payout_dop) / p.amount_dop);
-        const params = new URLSearchParams({
-          amount: String(payoutMinor),
-          currency: "usd",
+        transferId = await provider.createTransfer({
+          paymentId: p.payment_id,
+          jobId: p.job_id,
+          chargeId,
           destination: p.pro_account_id,
-          source_transaction: chargeId,
-          transfer_group: p.job_id,
-          "metadata[payment_id]": p.payment_id,
+          amountMinor: payoutMinor,
+          currency: provider.currency,
+          idempotencyKey: "release_" + p.payment_id,
         });
-        const created = await stripe(stripeKey, "POST", "/v1/transfers", params, {
-          "Idempotency-Key": "release_" + p.payment_id,
-        });
-        transferId = created.id;
       }
 
       const { data: marked, error: markErr } = await admin.rpc("mark_payment_released", {

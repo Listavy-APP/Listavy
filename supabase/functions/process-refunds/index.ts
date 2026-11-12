@@ -1,22 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { providerFor } from "../_shared/payments/provider.ts";
 
 // Sends full refunds for cancelled jobs with a held payment. Called every 15 min by pg_cron through pg_net.
-// Each refund gets one Stripe refund. The idempotency key and the refund_id metadata tie a retry to the same
-// refund, so a retry after a timeout cannot refund twice.
+// Each refund gets one provider refund. The idempotency key and the refund_id metadata tie a retry
+// to the same refund, so a retry after a timeout cannot refund twice.
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
-async function stripe(key: string, method: "GET" | "POST", path: string, body?: URLSearchParams, extra: Record<string, string> = {}) {
-  const res = await fetch("https://api.stripe.com" + path, {
-    method,
-    headers: { Authorization: "Bearer " + key, "Content-Type": "application/x-www-form-urlencoded", ...extra },
-    body: body?.toString(),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message ?? "Error de Stripe.");
-  return data;
 }
 
 Deno.serve(async (req: Request) => {
@@ -39,32 +29,27 @@ Deno.serve(async (req: Request) => {
   const { data: pending, error } = await admin.rpc("claim_pending_refunds", { p_limit: 20 });
   if (error) return json({ error: error.message }, 500);
 
-  const results: Array<{ refund_id: string; result: string; stripe_refund_id?: string; detail?: string }> = [];
+  const results: Array<{ refund_id: string; result: string; provider_refund_id?: string; detail?: string }> = [];
   for (const r of pending ?? []) {
     try {
-      if (!r.payment_intent_id) throw new Error("El pago no tiene intención de pago.");
+      if (!r.payment_intent_id) throw new Error("El pago no tiene referencia de proveedor.");
 
-      // Look for a refund already made for this refund row before creating one. This covers a
-      // failed mark on an earlier run, and an idempotency key that Stripe has already expired.
-      const listed = await stripe(stripeKey, "GET", `/v1/refunds?payment_intent=${encodeURIComponent(r.payment_intent_id)}&limit=100`);
-      const existing = (listed.data ?? []).find(
-        (x: { metadata?: Record<string, string>; status?: string }) =>
-          x.metadata?.refund_id === r.refund_id && x.status !== "failed" && x.status !== "canceled",
-      );
+      // The payment records its provider. The flow calls only the interface.
+      const { data: payRow, error: payErr } = await admin.from("payments").select("provider").eq("id", r.payment_id).single();
+      if (payErr) throw new Error(payErr.message);
+      const provider = providerFor(payRow.provider, { stripeSecretKey: stripeKey, stripeWebhookSecret: "" });
 
-      let refundId: string;
-      if (existing) {
-        refundId = existing.id;
-      } else {
-        const params = new URLSearchParams({
-          payment_intent: r.payment_intent_id,
-          amount: String(r.amount_minor),
-          "metadata[refund_id]": r.refund_id,
+      // Look for a refund already made for this refund row before creating one. This covers a failed
+      // mark on an earlier run, and an idempotency key that the provider has already expired.
+      let refundId = await provider.findRefund(r.payment_intent_id, r.refund_id);
+      if (!refundId) {
+        refundId = await provider.createRefund({
+          refundId: r.refund_id,
+          paymentRef: r.payment_intent_id,
+          amountMinor: Number(r.amount_minor),
+          currency: provider.currency,
+          idempotencyKey: "refund_" + r.refund_id,
         });
-        const created = await stripe(stripeKey, "POST", "/v1/refunds", params, {
-          "Idempotency-Key": "refund_" + r.refund_id,
-        });
-        refundId = created.id;
       }
 
       const { data: marked, error: markErr } = await admin.rpc("mark_refund_succeeded", {
@@ -72,7 +57,7 @@ Deno.serve(async (req: Request) => {
         p_stripe_refund: refundId,
       });
       if (markErr) throw new Error(markErr.message);
-      results.push({ refund_id: r.refund_id, result: String(marked), stripe_refund_id: refundId });
+      results.push({ refund_id: r.refund_id, result: String(marked), provider_refund_id: refundId });
     } catch (e) {
       // The refund stays pending and is retried on the next run.
       results.push({ refund_id: r.refund_id, result: "error", detail: e instanceof Error ? e.message : String(e) });

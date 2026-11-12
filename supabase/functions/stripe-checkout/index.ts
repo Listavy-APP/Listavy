@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { computeCommission } from "./commission.ts";
+import { providerFor } from "../_shared/payments/provider.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -42,7 +43,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: job } = await admin
     .from("jobs")
-    .select("id, homeowner_id, pro_id, trade, status, payment_status, job_type, approved_quote_id, credit_from_job_id, fx_rate_dop_per_usd")
+    .select("id, homeowner_id, pro_id, trade, status, payment_status, job_type, approved_quote_id, credit_from_job_id, fx_rate_dop_per_usd, payment_provider")
     .eq("id", jobId)
     .maybeSingle();
   if (!job) return json({ error: "Trabajo no encontrado." }, 404);
@@ -82,40 +83,27 @@ Deno.serve(async (req: Request) => {
   });
 
   const fx = Number(job.fx_rate_dop_per_usd);
+  const provider = providerFor(job.payment_provider, { stripeSecretKey: stripeKey, stripeWebhookSecret: "" });
   const amountMinor = Math.round((chargedDop * 100) / fx);
 
-  const params = new URLSearchParams({
-    mode: "payment",
-    currency: "usd",
-    success_url: appUrl + "/trabajos/" + job.id + "?pago=ok",
-    cancel_url: appUrl + "/trabajos/" + job.id + "?pago=cancelado",
-    client_reference_id: job.id,
-    "line_items[0][quantity]": "1",
-    "line_items[0][price_data][currency]": "usd",
-    "line_items[0][price_data][unit_amount]": String(amountMinor),
-    "line_items[0][price_data][product_data][name]": isDiagnostic
-      ? "Diagnóstico Listavy (prueba)"
-      : "Reparación Listavy (prueba)",
-    "metadata[job_id]": job.id,
-    "metadata[purpose]": isDiagnostic ? "diagnostic" : "job",
-    "metadata[amount_dop]": String(chargedDop),
-    "metadata[commission_dop]": String(commission.commissionDop),
-    "metadata[pro_payout_dop]": String(commission.proPayoutDop),
-    "metadata[fx]": String(fx),
-    "metadata[amount_minor]": String(amountMinor),
-    "payment_intent_data[metadata][job_id]": job.id,
-  });
-
-  const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + stripeKey,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: params.toString(),
-  });
-  const session = await res.json();
-  if (!res.ok) return json({ error: "No se pudo iniciar el pago.", detail: session?.error?.message ?? null }, 502);
+  let session;
+  try {
+    session = await provider.createCheckout({
+      jobId: job.id,
+      purpose: isDiagnostic ? "diagnostic" : "job",
+      productName: isDiagnostic ? "Diagnóstico Listavy (prueba)" : "Reparación Listavy (prueba)",
+      amountMinor,
+      currency: provider.currency,
+      fx,
+      amountDop: chargedDop,
+      commissionDop: commission.commissionDop,
+      proPayoutDop: commission.proPayoutDop,
+      successUrl: appUrl + "/trabajos/" + job.id + "?pago=ok",
+      cancelUrl: appUrl + "/trabajos/" + job.id + "?pago=cancelado",
+    });
+  } catch (e) {
+    return json({ error: "No se pudo iniciar el pago.", detail: e instanceof Error ? e.message : null }, 502);
+  }
 
   return json({ url: session.url, charged_dop: chargedDop, commission_dop: commission.commissionDop });
 });

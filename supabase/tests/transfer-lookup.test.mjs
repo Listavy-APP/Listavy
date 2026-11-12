@@ -1,6 +1,6 @@
 // Run: node --experimental-strip-types supabase/tests/transfer-lookup.test.mjs
 import assert from "node:assert/strict";
-import { findTransferForPayment } from "../functions/release-payments/transfer-lookup.ts";
+import { findTransferForPayment } from "../functions/_shared/payments/transfer-lookup.ts";
 
 const transfers = [
   { id: "tr_a", metadata: { payment_id: "pay-1" } },

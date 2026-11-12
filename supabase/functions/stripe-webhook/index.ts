@@ -1,81 +1,42 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const TOLERANCE_SECONDS = 300;
-const enc = new TextEncoder();
+import { providerFor } from "../_shared/payments/provider.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
-// Stripe-Signature: t=<unix>,v1=<hex>[,v1=<hex>]. Signed payload is "<t>.<raw body>".
-async function signatureValid(raw: string, header: string, secret: string): Promise<boolean> {
-  let t = "";
-  const sigs: string[] = [];
-  for (const part of header.split(",")) {
-    const [k, v] = part.split("=");
-    if (k === "t") t = v ?? "";
-    if (k === "v1" && v) sigs.push(v);
-  }
-  if (!t || sigs.length === 0) return false;
-  const age = Math.abs(Math.floor(Date.now() / 1000) - Number(t));
-  if (!Number.isFinite(age) || age > TOLERANCE_SECONDS) return false;
-
-  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(t + "." + raw));
-  const expected = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return sigs.some((s) => constantTimeEqual(s, expected));
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
 
-  const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
-  if (!secret.startsWith("whsec_")) return new Response("webhook not configured", { status: 503 });
+  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
+  if (!webhookSecret.startsWith("whsec_")) return new Response("webhook not configured", { status: 503 });
 
+  // The provider verifies the signature and normalizes the event. This function never parses provider payloads.
+  const provider = providerFor("stripe", { stripeSecretKey: "", stripeWebhookSecret: webhookSecret });
   const raw = await req.text();
-  const header = req.headers.get("stripe-signature") ?? "";
-  if (!(await signatureValid(raw, header, secret))) {
-    return new Response("invalid signature", { status: 400 });
-  }
+  const result = await provider.verifyWebhook(raw, req.headers);
 
-  const event = JSON.parse(raw);
-  if (event.type !== "checkout.session.completed") {
-    // Other event types are acknowledged and ignored in this slice.
-    return json({ received: true, ignored: event.type });
-  }
+  if (result.kind === "invalid") return new Response("invalid signature", { status: 400 });
+  if (result.kind === "ignored") return json({ received: true, ignored: result.reason });
+  if (result.kind === "pending") return json({ received: true, pending: true });
 
-  const session = event.data.object;
-  if (session.payment_status !== "paid") {
-    return json({ received: true, pending: true });
-  }
-  const m = session.metadata ?? {};
-  if (!m.job_id || !m.purpose) {
-    return json({ received: true, ignored: "no job metadata" });
-  }
-
+  const e = result.event;
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
   const { data, error } = await admin.rpc("apply_stripe_checkout", {
-    p_event_id: event.id,
-    p_event_type: event.type,
-    p_livemode: event.livemode,
-    p_job: m.job_id,
-    p_session_id: session.id,
-    p_payment_intent_id: session.payment_intent ?? null,
-    p_purpose: m.purpose,
-    p_amount_minor: Number(m.amount_minor),
-    p_fx: Number(m.fx),
-    p_amount_dop: Number(m.amount_dop),
-    p_commission_dop: Number(m.commission_dop),
-    p_pro_payout_dop: Number(m.pro_payout_dop),
+    p_event_id: e.eventId,
+    p_event_type: e.eventType,
+    p_livemode: e.livemode,
+    p_job: e.jobId,
+    p_session_id: e.providerRef,
+    p_payment_intent_id: e.paymentRef,
+    p_purpose: e.purpose,
+    p_amount_minor: e.amountMinor,
+    p_fx: e.fx,
+    p_amount_dop: e.amountDop,
+    p_commission_dop: e.commissionDop,
+    p_pro_payout_dop: e.proPayoutDop,
     p_tip_dop: 0,
   });
   // A 500 makes Stripe retry. The apply function rolls back on any failure, so a retry is safe.
