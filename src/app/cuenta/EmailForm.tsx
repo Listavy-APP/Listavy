@@ -23,7 +23,7 @@ export function EmailForm(props: { current: string | null; verified: boolean }) 
     const { data, error: fnError } = await supabase.functions.invoke("email-verification", { body });
     if (fnError) {
       // Edge Function errors return a JSON body; surface its message when present.
-      let msg = "No pudimos completar la acción. Intenta de nuevo.";
+      let msg: string = es.profile.actionFailed;
       try {
         const ctx = (fnError as { context?: Response }).context;
         if (ctx) msg = ((await ctx.json()) as { error?: string }).error ?? msg;

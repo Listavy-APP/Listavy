@@ -11,7 +11,7 @@ type Step = "phone" | "code";
 export function PhoneLoginForm() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("phone");
-  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState("+1 ");
   const [phone, setPhone] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);

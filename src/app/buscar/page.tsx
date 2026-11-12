@@ -24,6 +24,15 @@ export default async function SearchPage({
   const supabase = await createSupabaseServerClient();
   const pros = await listProCards(supabase, { trade, zone });
 
+  // Trade chips keep the chosen zone, so changing the trade never clears it.
+  const chipHref = (t: string | null) => {
+    const q = new URLSearchParams();
+    if (t) q.set("trade", t);
+    if (zone) q.set("zone", zone);
+    const qs = q.toString();
+    return qs ? `/buscar?${qs}` : "/buscar";
+  };
+
   return (
     <section className="stack">
       <div className="backbar">
@@ -34,11 +43,11 @@ export default async function SearchPage({
       </div>
 
       <div className="chip-row">
-        <Link className={`chip${trade === null ? " on" : ""}`} href="/buscar">
+        <Link className={`chip${trade === null ? " on" : ""}`} href={chipHref(null)}>
           {es.search.all}
         </Link>
         {TRADES.map((t) => (
-          <Link key={t} className={`chip${trade === t ? " on" : ""}`} href={`/buscar?trade=${t}`}>
+          <Link key={t} className={`chip${trade === t ? " on" : ""}`} href={chipHref(t)}>
             {es.trades[t]}
           </Link>
         ))}

@@ -40,7 +40,6 @@ export default function HomePage() {
         </Link>
       </div>
 
-      <p className="note">{es.home.comingSoon}</p>
     </section>
   );
 }

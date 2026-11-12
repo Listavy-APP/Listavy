@@ -20,7 +20,7 @@ export function ProfileForm(props: { userId: string; fullName: string | null; zo
     setError(null);
     setMessage(null);
     if (!name.trim() || !zone) {
-      setError("Escribe tu nombre y elige tu zona.");
+      setError(es.profile.needNameZone);
       return;
     }
     setBusy(true);

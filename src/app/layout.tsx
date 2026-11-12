@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
+import { LegalFooter } from "@/components/LegalFooter";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { es } from "@/lib/i18n/es";
 import "./globals.css";
@@ -32,7 +33,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="es-DO" className={manrope.variable}>
       <body>
         <RegisterServiceWorker />
-        <main className="page">{children}</main>
+        <main className="page">
+          {children}
+          <LegalFooter />
+        </main>
       </body>
     </html>
   );

@@ -44,7 +44,7 @@ export function DeleteAccount() {
     return (
       <div className="stack">
         <p className="muted">{es.profile.deleteInfo}</p>
-        <button type="button" className="secondary" onClick={() => setConfirming(true)}>
+        <button type="button" className="button danger" onClick={() => setConfirming(true)}>
           {es.profile.deleteStart}
         </button>
       </div>
@@ -55,10 +55,10 @@ export function DeleteAccount() {
     <div className="stack">
       <p>{es.profile.deleteConfirm}</p>
       {error ? <p className="error">{error}</p> : null}
-      <button type="button" onClick={onDelete} disabled={busy}>
+      <button type="button" className="button danger" onClick={onDelete} disabled={busy}>
         {busy ? es.profile.deleteBusy : es.profile.deleteConfirmButton}
       </button>
-      <button type="button" className="secondary" onClick={() => setConfirming(false)} disabled={busy}>
+      <button type="button" className="button secondary" onClick={() => setConfirming(false)} disabled={busy}>
         {es.profile.deleteCancel}
       </button>
     </div>

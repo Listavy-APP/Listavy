@@ -7,6 +7,7 @@ export interface CustomerJob {
   trade: string;
   zone: string;
   status: string;
+  payment_status: string;
   created_at: string;
 }
 
@@ -21,7 +22,7 @@ export interface CustomerReview {
 export async function listMyJobs(supabase: SupabaseClient, homeownerId: string): Promise<CustomerJob[]> {
   const { data, error } = await supabase
     .from("jobs")
-    .select("id, trade, zone, status, created_at")
+    .select("id, trade, zone, status, payment_status, created_at")
     .eq("homeowner_id", homeownerId)
     .order("created_at", { ascending: false })
     .limit(50);

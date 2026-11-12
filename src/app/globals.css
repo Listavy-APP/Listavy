@@ -17,6 +17,11 @@
   --accent: #0e7490;
   --accent-tint: #ecfeff;
 
+  /* Semantic colors. Text steps are dark enough for AA contrast on their tint. */
+  --danger: #b91c1c;
+  --danger-tint: #fef2f2;
+  --success: #15803d;
+  --success-tint: #f0fdf4;
 
   /* Spacing scale (8px base) */
   --s1: 8px;
@@ -73,7 +78,15 @@ h2 {
 .ok { color: var(--primary); margin: 0; font-weight: 700; }
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
 .list li { padding: var(--s2) 0; border-bottom: 1px solid var(--line, #e2e8f0); }
-.error { color: var(--ink); margin: 0; font-weight: 800; }
+.error {
+  margin: 0;
+  padding: 12px var(--s2);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-control);
+  background: var(--danger-tint);
+  color: var(--danger);
+  font-weight: 700;
+}
 
 /* Home hero */
 .hero { gap: var(--s2); padding-top: var(--s2); }
@@ -97,6 +110,7 @@ h2 {
 /* Forms */
 .field { display: flex; flex-direction: column; gap: var(--s1); font-weight: 600; font-size: 0.95rem; color: var(--ink-2); }
 .field input,
+.field textarea,
 select {
   font: inherit;
   font-size: 1.05rem;
@@ -108,7 +122,14 @@ select {
   background: var(--paper);
   width: 100%;
 }
+.field textarea {
+  min-height: 112px;
+  padding: 14px var(--s2);
+  resize: vertical;
+  line-height: 1.45;
+}
 .field input:focus,
+.field textarea:focus,
 select:focus {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
@@ -139,6 +160,11 @@ select:focus {
   color: var(--primary);
   background: var(--paper);
   border-color: var(--line);
+}
+.button.danger {
+  color: #ffffff;
+  background: var(--danger);
+  border-color: var(--danger);
 }
 
 /* Detail rows */
@@ -236,6 +262,19 @@ a.button,
 a.button:hover { color: var(--primary-ink); text-decoration: none; }
 a.button.secondary,
 a.button.secondary:hover { color: var(--primary); }
+a.button.danger,
+a.button.danger:hover { color: #ffffff; }
+
+/* Legal links at the foot of every page */
+.legal-footer {
+  display: flex;
+  justify-content: center;
+  gap: var(--s3);
+  margin-top: var(--s4);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line);
+}
+.legal-footer a { font-size: 0.9rem; font-weight: 600; color: var(--muted); }
 
 /* Home: header, search bar, service tiles */
 .app-top { display: flex; align-items: center; justify-content: space-between; }

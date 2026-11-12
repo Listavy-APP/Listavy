@@ -26,6 +26,8 @@ export function JobActions(props: {
   role: "homeowner" | "pro";
   job: JobRow;
   quotes: QuoteRow[];
+  pros: Record<string, { name: string | null; avatarUrl: string | null }>;
+  pay: { quoteDop: number; creditDop: number; fx: number } | null;
   photos: Photo[];
   contactPhone: string | null;
   completionCode: string | null;
@@ -120,6 +122,7 @@ export function JobActions(props: {
           {quotes.length === 0 ? <p className="muted">{es.jobs.noQuotes}</p> : null}
           {quotes.map((q) => (
             <article key={q.id} className="card stack">
+              <span className="muted">{props.pros[q.pro_id]?.name ?? es.jobs.proFallback}</span>
               <strong>{q.status === "sent" ? es.money.dop(q.amount_dop ?? 0) : es.jobs.quoteStatus[q.status as keyof typeof es.jobs.quoteStatus] ?? q.status}</strong>
               {q.status === "sent" ? (
                 <>
@@ -150,7 +153,7 @@ export function JobActions(props: {
         <div className="stack">
           <p className="muted">{es.jobs.payHint}</p>
           <button className="button" type="button" disabled={busy} onClick={() => payNow()}>
-            {es.jobs.pay}
+            {props.pay ? es.jobs.payAmount(Math.max(0, props.pay.quoteDop - props.pay.creditDop)) : es.jobs.pay}
           </button>
         </div>
       ) : null}

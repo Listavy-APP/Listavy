@@ -23,6 +23,8 @@ export interface JobRow {
   diagnosis_text: string | null;
   pending_difference_dop: number;
   approved_quote_id: string | null;
+  credit_from_job_id: string | null;
+  fx_rate_dop_per_usd: number | string;
   created_at: string;
 }
 

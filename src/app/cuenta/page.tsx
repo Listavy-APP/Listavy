@@ -76,10 +76,12 @@ export default async function ProfilePage() {
           {jobs.map((j) => (
             <li key={j.id}>
               <Link href={`/trabajos/${j.id}`}>
-                <strong>{j.trade}</strong> · {j.zone} · {formatDate(j.created_at)}
+                <strong>{es.trades[j.trade as keyof typeof es.trades] ?? j.trade}</strong> · {j.zone} · {formatDate(j.created_at)}
               </Link>
               <div className="muted">
-                {es.profile.jobStatus[j.status as keyof typeof es.profile.jobStatus] ?? j.status}
+                {j.status === "accepted" && j.payment_status === "unpaid"
+                  ? es.profile.jobStatusUnpaid
+                  : (es.profile.jobStatus[j.status as keyof typeof es.profile.jobStatus] ?? j.status)}
               </div>
             </li>
           ))}
@@ -99,9 +101,6 @@ export default async function ProfilePage() {
           ))}
         </ul>
       )}
-
-      <h2>{es.profile.paymentsTitle}</h2>
-      <p className="muted">{es.profile.paymentsSoon}</p>
 
       {profile.role === "pro" ? (
         <Link className="button secondary" href="/pro/solicitudes">

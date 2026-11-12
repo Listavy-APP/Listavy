@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { JobActions } from "./JobActions";
 import { getCompletionCode, getContactPhone, jobFileUrl, type JobPhotoRow, type JobRow, type QuoteRow } from "@/lib/data/jobs";
+import { getProCard } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
+import { avatarUrl } from "@/lib/storage/proFiles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
 
@@ -39,6 +41,36 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
     photos.map(async (p) => ({ kind: p.kind, url: await jobFileUrl(supabase, p.storage_path) })),
   );
 
+  // Who sent each quote. Public pro cards only (approved pros), so no private data is read.
+  const proIds = [...new Set(quotes.map((q) => q.pro_id))];
+  const proCards = await Promise.all(proIds.map((pid) => getProCard(supabase, pid)));
+  const pros: Record<string, { name: string | null; avatarUrl: string | null }> = {};
+  proIds.forEach((pid, i) => {
+    const card = proCards[i];
+    pros[pid] = { name: card?.full_name ?? null, avatarUrl: card ? avatarUrl(supabase, card.avatar_path) : null };
+  });
+
+  // What the homeowner will pay: the approved quote minus any paid diagnostic (D13).
+  let pay: { quoteDop: number; creditDop: number; fx: number } | null = null;
+  if (role === "homeowner" && j.status === "accepted" && j.payment_status === "unpaid") {
+    const approved = quotes.find((q) => q.id === j.approved_quote_id);
+    if (approved?.amount_dop != null) {
+      let creditDop = 0;
+      if (j.credit_from_job_id) {
+        const { data: credit } = await supabase
+          .from("payments")
+          .select("amount_dop")
+          .eq("job_id", j.credit_from_job_id)
+          .eq("purpose", "diagnostic")
+          .in("status", ["held", "released"])
+          .limit(1)
+          .maybeSingle();
+        creditDop = credit?.amount_dop ?? 0;
+      }
+      pay = { quoteDop: approved.amount_dop, creditDop, fx: Number(j.fx_rate_dop_per_usd) };
+    }
+  }
+
   const contactPhone = await getContactPhone(supabase, id);
   const completionCode =
     role === "pro" && j.status === "in_progress" ? await getCompletionCode(supabase, id) : null;
@@ -58,7 +90,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       <p>{j.description}</p>
       <p className="muted">
         {j.job_type === "diagnostic" ? es.jobs.typeDiagnostic : es.jobs.typeRepair} ·{" "}
-        {es.jobs.statusLabel[j.status as keyof typeof es.jobs.statusLabel] ?? j.status}
+        {j.status === "accepted" && j.payment_status === "unpaid"
+          ? es.jobs.statusAcceptedUnpaid
+          : (es.jobs.statusLabel[j.status as keyof typeof es.jobs.statusLabel] ?? j.status)}
       </p>
 
       <JobActions
@@ -66,6 +100,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         role={role}
         job={j}
         quotes={quotes}
+        pros={pros}
+        pay={pay}
         photos={photoUrls}
         contactPhone={contactPhone}
         completionCode={completionCode}
