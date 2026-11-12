@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
+import { Analytics } from "@/components/Analytics";
 import { LegalFooter } from "@/components/LegalFooter";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { es } from "@/lib/i18n/es";

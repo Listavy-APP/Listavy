@@ -371,6 +371,15 @@ export const es = {
   money: {
     dop: (amount: number) => `RD$${amount.toLocaleString("es-DO")}`,
   },
+  location: {
+    consentTitle: "Compartir tu ubicación",
+    consentBody:
+      "Si lo permites, guardamos la ubicación aproximada de tu trabajo para que el profesional llegue con menos dudas. Tú decides. Puedes cambiar esta decisión después.",
+    consentPayment:
+      "El profesional asignado solo ve tu ubicación después de que el pago se confirme.",
+    allow: "Permitir",
+    decline: "No compartir",
+  },
   legal: {
     operator: "Listavy es operado por Bianx-log LLC.",
     aboutTitle: "Acerca de Listavy",

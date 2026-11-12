@@ -33,5 +33,12 @@ export const PRIVACY_POLICY: PrivacyPolicy = {
         "Usamos tu número de teléfono solo para iniciar sesión y enviarte códigos de verificación. No compartimos tu número en la búsqueda pública. Las fotos de cédula se guardan en un almacenamiento privado y solo las revisan administradores.",
       ],
     },
+    {
+      title: "Analítica de uso (borrador, pendiente de revisión legal)",
+      paragraphs: [
+        "Categoría: datos de uso de la app. Incluye páginas vistas (sin números de trabajo), idioma, tipo de dispositivo y versión de la app. Procesador: PostHog (nube, plan gratuito). Sin nombres, teléfonos, direcciones, descripciones, fotos ni notas de voz. Sin datos de pago. Sin grabación de sesión. Sin captura de dirección IP.",
+        "Categoría: ubicación. Desactivada por defecto. Solo se guarda si la permites en una pantalla aparte. El profesional asignado la ve después de que el pago se confirme. Procesador: Supabase (base de datos de Listavy).",
+      ],
+    },
   ],
 };

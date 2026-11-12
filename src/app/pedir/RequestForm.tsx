@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { LocationConsent } from "@/components/LocationConsent";
 import { Choice } from "@/components/ui/Choice";
 import { FilePick } from "@/components/ui/FilePick";
 import { TextArea } from "@/components/ui/TextArea";
@@ -25,6 +26,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
   const [voice, setVoice] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdJobId, setCreatedJobId] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -55,12 +57,24 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
         photoPaths,
         voicePath,
       });
-      router.push(`/trabajos/${jobId}`);
-      router.refresh();
+      setCreatedJobId(jobId);
+      setBusy(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : es.jobs.genericError);
       setBusy(false);
     }
+  }
+
+  if (createdJobId) {
+    // Location is off unless the homeowner allows it. The choice is not stored yet (no column).
+    return (
+      <LocationConsent
+        onChoose={() => {
+          router.push(`/trabajos/${createdJobId}`);
+          router.refresh();
+        }}
+      />
+    );
   }
 
   return (
