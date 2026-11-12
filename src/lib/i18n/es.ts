@@ -250,6 +250,8 @@ export const es = {
     contactLabel: "Teléfono",
     contactHidden: "El teléfono se muestra cuando el trabajo está reservado y pagado.",
     photosTitle: "Fotos",
+    voiceTitle: "Nota de voz",
+    voiceUnavailable: "No se pudo cargar la nota de voz.",
     noPhotos: "Sin fotos todavía.",
     photoKind: { request: "Problema", before: "Antes", after: "Después" },
     openPhoto: "Ver foto",

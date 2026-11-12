@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { JobActions } from "./JobActions";
 import { JobTimeline } from "./JobTimeline";
+import { VoiceNote } from "./VoiceNote";
 import { getCompletionCode, getContactPhone, jobFileUrl, type JobPhotoRow, type JobRow, type QuoteRow } from "@/lib/data/jobs";
 import { getProCard } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
@@ -72,6 +73,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
     }
   }
 
+  const voiceUrl = j.voice_path ? await jobFileUrl(supabase, j.voice_path) : null;
+
   const contactPhone = await getContactPhone(supabase, id);
   const completionCode =
     role === "pro" && j.status === "in_progress" ? await getCompletionCode(supabase, id) : null;
@@ -95,6 +98,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           ? es.jobs.statusAcceptedUnpaid
           : (es.jobs.statusLabel[j.status as keyof typeof es.jobs.statusLabel] ?? j.status)}
       </p>
+
+      {j.voice_path ? <VoiceNote url={voiceUrl} /> : null}
 
       <JobTimeline
         status={j.status}
