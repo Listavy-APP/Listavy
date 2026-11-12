@@ -487,3 +487,46 @@ img.avatar { object-fit: cover; padding: 0; }
 .table-scroll { overflow-x: auto; }
 .table-scroll table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
 .table-scroll th, .table-scroll td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--ink-2); vertical-align: top; white-space: nowrap; }
+
+
+/* Quote comparison card */
+.quote-head { display: flex; align-items: center; gap: var(--s2); }
+.quote-price { margin-left: auto; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; }
+.quote-facts { display: grid; grid-template-columns: auto 1fr; gap: 6px var(--s2); margin: 0; font-size: 0.95rem; }
+.quote-facts dt { color: var(--muted); }
+.quote-facts dd { margin: 0; font-weight: 600; text-align: right; }
+
+/* Pay summary */
+.pay-lines { list-style: none; margin: 0; padding: 0; }
+.pay-lines li { display: flex; justify-content: space-between; gap: var(--s2); padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pay-lines li.total { border-bottom: 0; padding-top: var(--s2); font-size: 1.2rem; font-weight: 800; }
+.pay-lines .credit { color: var(--success); }
+.chip-wrap { display: flex; flex-wrap: wrap; gap: var(--s1); }
+button.chip { font: inherit; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+button.chip:disabled { opacity: 0.5; cursor: default; }
+
+/* Job progress */
+.timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.tl-step { position: relative; display: flex; align-items: flex-start; gap: 12px; padding-bottom: var(--s2); }
+.tl-step:last-child { padding-bottom: 0; }
+.tl-step::before { content: ""; position: absolute; left: 11px; top: 26px; bottom: 2px; width: 2px; background: var(--line); }
+.tl-step:last-child::before { display: none; }
+.tl-step.done::before { background: var(--primary); }
+.tl-mark {
+  flex: none; width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid var(--line); background: var(--paper);
+  display: grid; place-items: center; font-size: 0.8rem; font-weight: 800; line-height: 1;
+}
+.tl-step.done .tl-mark { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.tl-step.current .tl-mark { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-tint); }
+.tl-label { font-weight: 600; color: var(--muted); }
+.tl-step.done .tl-label, .tl-step.current .tl-label { color: var(--ink); }
+.tl-step.current .tl-label { font-weight: 800; }
+.tl-sub { display: block; font-size: 0.9rem; font-weight: 500; color: var(--muted); }
+
+/* Legal text pages */
+.notice {
+  margin: 0; padding: 12px var(--s2);
+  border: 1px solid var(--accent); border-radius: var(--radius-control);
+  background: var(--accent-tint); color: var(--accent); font-weight: 700;
+}

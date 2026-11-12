@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { JobActions } from "./JobActions";
+import { JobTimeline } from "./JobTimeline";
 import { getCompletionCode, getContactPhone, jobFileUrl, type JobPhotoRow, type JobRow, type QuoteRow } from "@/lib/data/jobs";
 import { getProCard } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
@@ -94,6 +95,13 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           ? es.jobs.statusAcceptedUnpaid
           : (es.jobs.statusLabel[j.status as keyof typeof es.jobs.statusLabel] ?? j.status)}
       </p>
+
+      <JobTimeline
+        status={j.status}
+        paymentStatus={j.payment_status}
+        quotesResponded={quotes.filter((q) => !q.revision_of && ["sent", "accepted", "rejected", "withdrawn"].includes(q.status)).length}
+        quotesTotal={quotes.filter((q) => !q.revision_of).length}
+      />
 
       <JobActions
         userId={uid}

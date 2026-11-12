@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { Choice } from "@/components/ui/Choice";
+import { TextArea } from "@/components/ui/TextArea";
 import { declineInvite, submitQuote } from "@/lib/data/jobs";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -100,25 +102,18 @@ export function InviteCard({ quote }: { quote: Quote }) {
             <span>{isDiagnostic ? es.jobs.diagnosticPriceLabel : es.jobs.amountLabel}</span>
             <input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} required />
           </label>
-          <label className="field">
-            <span>{es.jobs.includesLabel}</span>
-            <textarea rows={3} value={includes} onChange={(e) => setIncludes(e.target.value)} required />
-          </label>
-          <label className="field">
-            <span>{es.jobs.excludesLabel}</span>
-            <textarea rows={2} value={excludes} onChange={(e) => setExcludes(e.target.value)} />
-          </label>
-          <fieldset className="field">
-            <legend>{es.jobs.materialsLabel}</legend>
-            <label>
-              <input type="radio" name={`mat-${quote.id}`} checked={materials === "yes"} onChange={() => setMaterials("yes")} />{" "}
-              {es.jobs.materialsYes}
-            </label>
-            <label>
-              <input type="radio" name={`mat-${quote.id}`} checked={materials === "no"} onChange={() => setMaterials("no")} />{" "}
-              {es.jobs.materialsNo}
-            </label>
-          </fieldset>
+          <TextArea label={es.jobs.includesLabel} rows={3} value={includes} onChange={(e) => setIncludes(e.target.value)} required />
+          <TextArea label={es.jobs.excludesLabel} rows={2} value={excludes} onChange={(e) => setExcludes(e.target.value)} />
+          <Choice
+            legend={es.jobs.materialsLabel}
+            name={`mat-${quote.id}`}
+            value={materials}
+            options={[
+              { value: "yes", label: es.jobs.materialsYes },
+              { value: "no", label: es.jobs.materialsNo },
+            ]}
+            onChange={setMaterials}
+          />
           <label className="field">
             <span>{es.jobs.startLabel}</span>
             <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} required />

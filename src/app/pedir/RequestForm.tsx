@@ -2,6 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { Choice } from "@/components/ui/Choice";
+import { FilePick } from "@/components/ui/FilePick";
+import { TextArea } from "@/components/ui/TextArea";
 import { createJobRequest, uploadJobFile, type JobType } from "@/lib/data/jobs";
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
@@ -83,44 +86,44 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
         </select>
       </label>
 
-      <fieldset className="field">
-        <legend>{es.jobs.typeLabel}</legend>
-        <label>
-          <input type="radio" name="jobType" checked={jobType === "repair"} onChange={() => setJobType("repair")} />{" "}
-          {es.jobs.typeRepair}
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="jobType"
-            checked={jobType === "diagnostic"}
-            onChange={() => setJobType("diagnostic")}
-          />{" "}
-          {es.jobs.typeDiagnostic}
-        </label>
-        <p className="muted">{jobType === "diagnostic" ? es.jobs.diagnosticHint : es.jobs.repairHint}</p>
-      </fieldset>
+      <Choice
+        legend={es.jobs.typeLabel}
+        name="jobType"
+        value={jobType}
+        options={[
+          { value: "repair", label: es.jobs.typeRepair },
+          { value: "diagnostic", label: es.jobs.typeDiagnostic },
+        ]}
+        onChange={setJobType}
+      />
+      <p className="muted">{jobType === "diagnostic" ? es.jobs.diagnosticHint : es.jobs.repairHint}</p>
 
-      <label className="field">
-        <span>{es.jobs.descriptionLabel}</span>
-        <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} required />
-      </label>
+      <TextArea
+        label={es.jobs.descriptionLabel}
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        required
+      />
 
-      <label className="field">
-        <span>{es.jobs.photosLabel}</span>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, 6))}
-        />
-        <span className="muted">{photos.length > 0 ? es.jobs.photosChosen(photos.length) : es.jobs.photosHint}</span>
-      </label>
+      <FilePick
+        label={es.jobs.photosLabel}
+        hint={photos.length > 0 ? es.jobs.photosChosen(photos.length) : es.jobs.photosHint}
+        buttonLabel={es.common.chooseMany}
+        accept="image/*"
+        multiple
+        disabled={busy}
+        files={photos}
+        onFiles={(files) => setPhotos(files.slice(0, 6))}
+      />
 
-      <label className="field">
-        <span>{es.jobs.voiceLabel}</span>
-        <input type="file" accept="audio/*" onChange={(e) => setVoice(e.target.files?.[0] ?? null)} />
-      </label>
+      <FilePick
+        label={es.jobs.voiceLabel}
+        buttonLabel={es.common.chooseAudio}
+        accept="audio/*"
+        disabled={busy}
+        files={voice ? [voice] : []}
+        onFiles={(files) => setVoice(files[0] ?? null)}
+      />
 
       {error && <p className="error" role="alert">{error}</p>}
       <button className="button" type="submit" disabled={busy}>

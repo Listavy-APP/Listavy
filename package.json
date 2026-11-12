@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "test:domain": "node --experimental-strip-types src/lib/domain/commission.test.ts && node --experimental-strip-types src/lib/domain/timeline.test.ts && node --experimental-strip-types src/lib/domain/window.test.ts",
     "test:rls": "node supabase/tests/rls.test.mjs",
     "test:payments": "node --experimental-strip-types --test supabase/tests/payment-provider.test.mjs supabase/tests/tip-split.test.mjs && node --experimental-strip-types supabase/tests/transfer-lookup.test.mjs"
   },

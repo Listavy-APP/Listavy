@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { Choice } from "@/components/ui/Choice";
+import { FilePick } from "@/components/ui/FilePick";
 import { createProApplication, type CompanyInput } from "@/lib/data/pros";
 import { SD_ZONES, TRADES, isTrade, isZone } from "@/lib/domain/catalog";
 import { es } from "@/lib/i18n/es";
@@ -11,38 +13,6 @@ import type { ProType } from "@/lib/types/database";
 
 const MAX_WORK_PHOTOS = 3;
 const RNC_PATTERN = /^[0-9]{9}$/;
-
-/** Styled file picker: a navy-outline button, the chosen file names below it. */
-function FilePick(props: {
-  label: string;
-  hint: string;
-  buttonLabel: string;
-  accept: string;
-  capture?: "environment";
-  multiple?: boolean;
-  files: File[];
-  onFiles: (files: File[]) => void;
-}) {
-  const names = props.files.map((f) => f.name).join(", ");
-  return (
-    <div className="file">
-      <span className="field-label">{props.label}</span>
-      <label className="file-pick">
-        <input
-          className="sr-only"
-          type="file"
-          accept={props.accept}
-          capture={props.capture}
-          multiple={props.multiple}
-          onChange={(e) => props.onFiles(Array.from(e.target.files ?? []))}
-        />
-        <span>{props.buttonLabel}</span>
-      </label>
-      <span className="file-name">{names || es.registration.noFile}</span>
-      <p className="muted">{props.hint}</p>
-    </div>
-  );
-}
 
 export function RegistrationForm() {
   const router = useRouter();
@@ -127,25 +97,16 @@ export function RegistrationForm() {
       <h1>{es.registration.title}</h1>
       <p className="lead">{es.registration.intro}</p>
 
-      <fieldset>
-        <legend>{es.registration.proTypeLabel}</legend>
-        <div className="choice-group">
-          {(["individual", "company"] as const).map((value) => (
-            <label key={value} className={`choice${proType === value ? " on" : ""}`}>
-              <input
-                className="sr-only"
-                type="radio"
-                name="proType"
-                value={value}
-                checked={proType === value}
-                onChange={() => setProType(value)}
-              />
-              <span className="choice-mark" aria-hidden="true" />
-              <span>{value === "individual" ? es.registration.individual : es.registration.company}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <Choice
+        legend={es.registration.proTypeLabel}
+        name="proType"
+        value={proType}
+        options={[
+          { value: "individual", label: es.registration.individual },
+          { value: "company", label: es.registration.company },
+        ]}
+        onChange={setProType}
+      />
 
       <label className="field">
         <span>{es.registration.name}</span>
@@ -191,7 +152,7 @@ export function RegistrationForm() {
       <FilePick
         label={es.registration.idLabel}
         hint={es.registration.idHint}
-        buttonLabel={es.registration.chooseOne}
+        buttonLabel={es.common.chooseOne}
         accept="image/*"
         capture="environment"
         files={idFile ? [idFile] : []}
@@ -201,7 +162,7 @@ export function RegistrationForm() {
       <FilePick
         label={es.registration.photosLabel}
         hint={es.registration.photosHint}
-        buttonLabel={es.registration.chooseMany}
+        buttonLabel={es.common.chooseMany}
         accept="image/*"
         capture="environment"
         multiple
@@ -212,7 +173,7 @@ export function RegistrationForm() {
       <FilePick
         label={es.registration.avatarLabel}
         hint={es.registration.avatarHint}
-        buttonLabel={es.registration.chooseOne}
+        buttonLabel={es.common.chooseOne}
         accept="image/*"
         capture="environment"
         files={avatarFile ? [avatarFile] : []}

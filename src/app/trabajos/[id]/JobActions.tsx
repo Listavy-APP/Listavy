@@ -15,9 +15,14 @@ import {
   type JobRow,
   type QuoteRow,
 } from "@/lib/data/jobs";
+import { Choice } from "@/components/ui/Choice";
+import { FilePick } from "@/components/ui/FilePick";
+import { TextArea } from "@/components/ui/TextArea";
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { PaySheet } from "./PaySheet";
+import { QuoteCard } from "./QuoteCard";
 
 type Photo = { kind: "request" | "before" | "after"; url: string | null };
 
@@ -42,22 +47,6 @@ export function JobActions(props: {
   const [afterFiles, setAfterFiles] = useState<File[]>([]);
 
   const supabase = () => createSupabaseBrowserClient();
-
-  // Starts Stripe Checkout for the approved quote. Stays busy while the browser redirects.
-  async function payNow() {
-    setError(null);
-    setBusy(true);
-    try {
-      const { data, error: fnError } = await supabase().functions.invoke("stripe-checkout", {
-        body: { job_id: job.id },
-      });
-      if (fnError || !data?.url) throw new Error(es.jobs.payFailed);
-      window.location.href = data.url as string;
-    } catch {
-      setError(es.jobs.payFailed);
-      setBusy(false);
-    }
-  }
 
   async function run(fn: () => Promise<void>) {
     setError(null);
@@ -121,24 +110,13 @@ export function JobActions(props: {
           <h2>{es.jobs.quotesTitle}</h2>
           {quotes.length === 0 ? <p className="muted">{es.jobs.noQuotes}</p> : null}
           {quotes.map((q) => (
-            <article key={q.id} className="card stack">
-              <span className="muted">{props.pros[q.pro_id]?.name ?? es.jobs.proFallback}</span>
-              <strong>{q.status === "sent" ? es.money.dop(q.amount_dop ?? 0) : es.jobs.quoteStatus[q.status as keyof typeof es.jobs.quoteStatus] ?? q.status}</strong>
-              {q.status === "sent" ? (
-                <>
-                  <p>{q.includes}</p>
-                  {q.excludes ? <p className="muted">{es.jobs.excludesLabel}: {q.excludes}</p> : null}
-                  <p className="muted">
-                    {q.materials_included ? es.jobs.materialsYes : es.jobs.materialsNo} · {q.duration_hours} h
-                  </p>
-                </>
-              ) : null}
-              {role === "homeowner" && q.status === "sent" ? (
-                <button className="button" type="button" disabled={busy} onClick={() => run(() => approveQuote(supabase(), q.id))}>
-                  {es.jobs.approve}
-                </button>
-              ) : null}
-            </article>
+            <QuoteCard
+              key={q.id}
+              quote={q}
+              pro={props.pros[q.pro_id]}
+              busy={busy}
+              onApprove={role === "homeowner" ? () => run(() => approveQuote(supabase(), q.id)) : undefined}
+            />
           ))}
           {role === "homeowner" ? (
             <button className="button secondary" type="button" disabled={busy}
@@ -150,21 +128,25 @@ export function JobActions(props: {
       ) : null}
 
       {role === "homeowner" && job.status === "accepted" && !paid ? (
-        <div className="stack">
+        props.pay ? (
+          <PaySheet jobId={job.id} quoteDop={props.pay.quoteDop} creditDop={props.pay.creditDop} fx={props.pay.fx} />
+        ) : (
           <p className="muted">{es.jobs.payHint}</p>
-          <button className="button" type="button" disabled={busy} onClick={() => payNow()}>
-            {props.pay ? es.jobs.payAmount(Math.max(0, props.pay.quoteDop - props.pay.creditDop)) : es.jobs.pay}
-          </button>
-        </div>
+        )
       ) : null}
 
       {role === "pro" && job.status === "accepted" ? (
         <>
           {!paid ? <p className="muted">{es.jobs.awaitingPayment}</p> : null}
-          <label className="field">
-            <span>{es.jobs.beforePhotos}</span>
-            <input type="file" accept="image/*" multiple onChange={(e) => setBeforeFiles(Array.from(e.target.files ?? []))} />
-          </label>
+          <FilePick
+            label={es.jobs.beforePhotos}
+            buttonLabel={es.common.chooseMany}
+            accept="image/*"
+            multiple
+            disabled={busy}
+            files={beforeFiles}
+            onFiles={setBeforeFiles}
+          />
           <button className="button" type="button" disabled={busy || !paid}
             onClick={() =>
               run(async () => {
@@ -183,15 +165,17 @@ export function JobActions(props: {
             <p className="ok">{es.jobs.completionCodeForClient(props.completionCode)}</p>
           ) : null}
           {isDiagnostic ? (
-            <label className="field">
-              <span>{es.jobs.diagnosisLabel}</span>
-              <textarea rows={4} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} />
-            </label>
+            <TextArea label={es.jobs.diagnosisLabel} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} />
           ) : (
-            <label className="field">
-              <span>{es.jobs.afterPhotos}</span>
-              <input type="file" accept="image/*" multiple onChange={(e) => setAfterFiles(Array.from(e.target.files ?? []))} />
-            </label>
+            <FilePick
+              label={es.jobs.afterPhotos}
+              buttonLabel={es.common.chooseMany}
+              accept="image/*"
+              multiple
+              disabled={busy}
+              files={afterFiles}
+              onFiles={setAfterFiles}
+            />
           )}
           <button className="button" type="button" disabled={busy}
             onClick={() =>
@@ -255,23 +239,25 @@ export function JobActions(props: {
             <div className="stack">
               <label className="field"><span>{es.jobs.amountLabel}</span>
                 <input inputMode="numeric" value={revAmount} onChange={(e) => setRevAmount(e.target.value.replace(/\D/g, ""))} /></label>
-              <label className="field"><span>{es.jobs.includesLabel}</span>
-                <textarea rows={3} value={revIncludes} onChange={(e) => setRevIncludes(e.target.value)} /></label>
-              <label className="field"><span>{es.jobs.excludesLabel}</span>
-                <textarea rows={2} value={revExcludes} onChange={(e) => setRevExcludes(e.target.value)} /></label>
-              <fieldset className="field">
-                <legend>{es.jobs.materialsLabel}</legend>
-                <label><input type="radio" name="rev-mat" checked={revMaterials === "yes"} onChange={() => setRevMaterials("yes")} />{" "}{es.jobs.materialsYes}</label>
-                <label><input type="radio" name="rev-mat" checked={revMaterials === "no"} onChange={() => setRevMaterials("no")} />{" "}{es.jobs.materialsNo}</label>
-              </fieldset>
+              <TextArea label={es.jobs.includesLabel} rows={3} value={revIncludes} onChange={(e) => setRevIncludes(e.target.value)} />
+              <TextArea label={es.jobs.excludesLabel} rows={2} value={revExcludes} onChange={(e) => setRevExcludes(e.target.value)} />
+              <Choice
+                legend={es.jobs.materialsLabel}
+                name="rev-mat"
+                value={revMaterials}
+                options={[
+                  { value: "yes", label: es.jobs.materialsYes },
+                  { value: "no", label: es.jobs.materialsNo },
+                ]}
+                onChange={setRevMaterials}
+              />
               <label className="field"><span>{es.jobs.startLabel}</span>
                 <input type="datetime-local" value={revStart} onChange={(e) => setRevStart(e.target.value)} /></label>
               <label className="field"><span>{es.jobs.endLabel}</span>
                 <input type="datetime-local" value={revEnd} onChange={(e) => setRevEnd(e.target.value)} /></label>
               <label className="field"><span>{es.jobs.durationLabel}</span>
                 <input inputMode="decimal" value={revDuration} onChange={(e) => setRevDuration(e.target.value)} /></label>
-              <label className="field"><span>{es.jobs.revisionReason}</span>
-                <textarea rows={3} value={revReason} onChange={(e) => setRevReason(e.target.value)} /></label>
+              <TextArea label={es.jobs.revisionReason} rows={3} value={revReason} onChange={(e) => setRevReason(e.target.value)} />
               <button className="button" type="button" disabled={busy || revMaterials === ""}
                 onClick={() =>
                   run(async () => {

@@ -107,12 +107,22 @@ export function revisionDifferenceDop(paidAmountDop: number, revisedAmountDop: n
   return revisedAmountDop - paidAmountDop;
 }
 
+/** Tip for a quick-pick percentage of the agreed job price, half up to the peso. */
+export function tipForPercentDop(jobAmountDop: number, percent: number): number {
+  return roundDiv(jobAmountDop * percent, 100);
+}
+
+/** Highest tip allowed: 20% of the agreed job price, half up to the peso (D2). */
+export function tipCapDop(jobAmountDop: number): number {
+  return roundDiv(jobAmountDop * 20, 100);
+}
+
 /** Tips go 100% to the pro, with no commission. Cap is 20% of the job amount (D2). */
 export function validateTip(tipDop: number, jobAmountDop: number): number {
   if (!Number.isInteger(tipDop) || tipDop < 0) {
     throw new Error("tipDop must be a non-negative whole number.");
   }
-  const cap = roundDiv(jobAmountDop * 20, 100);
+  const cap = tipCapDop(jobAmountDop);
   if (tipDop > cap) {
     throw new Error(`La propina no puede superar RD$${cap} (20% del trabajo).`);
   }

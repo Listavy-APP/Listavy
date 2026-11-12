@@ -5,6 +5,8 @@ import {
   computeCommission,
   repairBalanceAfterDiagnosticCredit,
   revisionDifferenceDop,
+  tipCapDop,
+  tipForPercentDop,
   validateTip,
 } from "./commission.ts";
 
@@ -111,6 +113,20 @@ check("rejects non-integer amount", () => {
 });
 check("rejects zero amount", () => {
   assert.throws(() => repair(0), /positive/);
+});
+
+check("tip cap is 20% of the job price, half up", () => {
+  assert.equal(tipCapDop(6_000), 1_200);
+  assert.equal(tipCapDop(1_002), 200); // 200.4
+  assert.equal(tipCapDop(1_003), 201); // 200.6
+});
+
+check("quick-pick tips are a percentage of the job price, half up, never above the cap", () => {
+  assert.equal(tipForPercentDop(6_000, 5), 300);
+  assert.equal(tipForPercentDop(6_000, 15), 900);
+  assert.equal(tipForPercentDop(1_003, 10), 100); // 100.3
+  assert.equal(tipForPercentDop(1_005, 10), 101); // 100.5 rounds up
+  for (const pct of [5, 10, 15]) assert.ok(tipForPercentDop(777, pct) <= tipCapDop(777));
 });
 
 console.log(`\n${passed} commission checks passed.`);
