@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { normalizePhone, sendWhatsAppCode, verifyWhatsAppCode } from "@/lib/data/auth";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -16,15 +16,19 @@ export function PhoneLoginForm() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Ref, not state: a second submit in the same tick must see the lock at once.
+  const inFlight = useRef(false);
 
   async function onSendCode(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (inFlight.current) return;
     setError(null);
     const normalized = normalizePhone(phoneInput);
     if (!normalized) {
       setError(es.login.invalidPhone);
       return;
     }
+    inFlight.current = true;
     setBusy(true);
     try {
       await sendWhatsAppCode(createSupabaseBrowserClient(), normalized);
@@ -33,26 +37,32 @@ export function PhoneLoginForm() {
     } catch {
       setError(es.login.sendFailed);
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
 
   async function onVerify(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (inFlight.current) return;
     setError(null);
     if (!/^\d{6}$/.test(code)) {
       setError(es.login.invalidCode);
       return;
     }
     if (!phone) return;
+    // One OTP can be verified only once. The lock stays closed after success,
+    // because the page is leaving; a second verify would fail with otp_expired.
+    inFlight.current = true;
     setBusy(true);
     try {
       await verifyWhatsAppCode(createSupabaseBrowserClient(), phone, code);
+      setError(null);
       router.push("/cuenta");
       router.refresh();
     } catch {
+      inFlight.current = false;
       setError(es.login.verifyFailed);
-    } finally {
       setBusy(false);
     }
   }
