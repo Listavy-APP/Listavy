@@ -16,9 +16,10 @@ export type CheckoutInput = {
   amountMinor: number; // in the provider's currency, minor units
   currency: Currency;
   fx: number;
-  amountDop: number;
+  amountDop: number; // charged total in DOP, including any tip
   commissionDop: number;
-  proPayoutDop: number;
+  proPayoutDop: number; // includes any tip
+  tipDop: number; // 0 when there is no tip; sent to the webhook as metadata
   successUrl: string;
   cancelUrl: string;
 };
@@ -39,6 +40,7 @@ export type CheckoutEvent = {
   amountDop: number;
   commissionDop: number;
   proPayoutDop: number;
+  tipDop: number;
 };
 
 export type WebhookResult =

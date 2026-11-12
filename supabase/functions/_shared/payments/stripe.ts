@@ -67,6 +67,7 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
     currency: "USD",
 
     async createCheckout(input: CheckoutInput): Promise<CheckoutCreated> {
+      const tipMetadata: Record<string, string> = input.tipDop > 0 ? { "metadata[tip_dop]": String(input.tipDop) } : {};
       const params = new URLSearchParams({
         mode: "payment",
         currency: input.currency.toLowerCase(),
@@ -85,6 +86,7 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
         "metadata[fx]": String(input.fx),
         "metadata[amount_minor]": String(input.amountMinor),
         "payment_intent_data[metadata][job_id]": input.jobId,
+        ...tipMetadata,
       });
       const session = await api("POST", "/v1/checkout/sessions", params);
       return { url: session.url, sessionId: session.id };
@@ -117,6 +119,7 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
         amountDop: Number(m.amount_dop),
         commissionDop: Number(m.commission_dop),
         proPayoutDop: Number(m.pro_payout_dop),
+        tipDop: Number(m.tip_dop ?? 0),
       };
       return { kind: "checkout", event: normalized };
     },

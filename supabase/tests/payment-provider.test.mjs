@@ -43,6 +43,7 @@ const checkoutInput = {
   amountDop: 1200,
   commissionDop: 400,
   proPayoutDop: 800,
+  tipDop: 0,
   successUrl: "https://app.test/trabajos/job-1?pago=ok",
   cancelUrl: "https://app.test/trabajos/job-1?pago=cancelado",
 };
@@ -118,7 +119,43 @@ test("webhook: a valid paid checkout normalizes to the fields the RPC expects", 
     amountDop: 1200,
     commissionDop: 400,
     proPayoutDop: 800,
+    tipDop: 0,
   });
+});
+
+test("checkout: a tip is sent as metadata and nothing else changes", async () => {
+  const { p, calls } = provider([{ data: { id: "cs_t", url: "https://checkout.stripe.test/cs_t" } }]);
+  await p.createCheckout({ ...checkoutInput, amountMinor: 2500, amountDop: 1500, proPayoutDop: 1100, tipDop: 300 });
+  const body = new URLSearchParams(calls[0].body);
+  assert.equal(body.get("metadata[tip_dop]"), "300");
+  assert.equal(body.get("metadata[amount_dop]"), "1500");
+  assert.equal(body.get("metadata[commission_dop]"), "400");
+  assert.equal(body.get("metadata[pro_payout_dop]"), "1100");
+  assert.equal(body.get("line_items[0][price_data][unit_amount]"), "2500");
+});
+
+test("webhook: a tip in metadata normalizes to tipDop", async () => {
+  const { p } = provider();
+  const session = {
+    id: "cs_1",
+    payment_status: "paid",
+    payment_intent: "pi_1",
+    metadata: {
+      job_id: "job-1",
+      purpose: "job",
+      amount_minor: "2500",
+      fx: "60",
+      amount_dop: "1500",
+      commission_dop: "400",
+      pro_payout_dop: "1100",
+      tip_dop: "300",
+    },
+  };
+  const raw = JSON.stringify({ id: "evt_2", type: "checkout.session.completed", livemode: false, data: { object: session } });
+  const r = await verify(p, raw, signed(raw));
+  assert.equal(r.kind, "checkout");
+  assert.equal(r.event.tipDop, 300);
+  assert.equal(r.event.amountDop, 1500);
 });
 
 test("webhook: a wrong secret is invalid", async () => {

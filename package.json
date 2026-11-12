@@ -8,7 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:rls": "node supabase/tests/rls.test.mjs",
-    "test:payments": "node --experimental-strip-types --test supabase/tests/payment-provider.test.mjs && node --experimental-strip-types supabase/tests/transfer-lookup.test.mjs"
+    "test:payments": "node --experimental-strip-types --test supabase/tests/payment-provider.test.mjs supabase/tests/tip-split.test.mjs && node --experimental-strip-types supabase/tests/transfer-lookup.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

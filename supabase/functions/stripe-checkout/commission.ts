@@ -118,3 +118,43 @@ export function validateTip(tipDop: number, jobAmountDop: number): number {
   }
   return tipDop;
 }
+
+/**
+ * Full split for one Checkout charge. The commission is computed on the job amount only
+ * (quote minus diagnostic credit). The tip goes 100% to the pro and carries no commission.
+ * The tip cap is 20% of the agreed job price (the quote, before the diagnostic credit).
+ *
+ * amountDop = chargedDop + tipDop            (what the homeowner pays)
+ * proPayoutDop = chargedDop - commission + tipDop
+ * proPayoutDop + commissionDop = amountDop   (payments_split_consistent)
+ */
+export type PaymentSplit = {
+  chargedDop: number;
+  commissionDop: number;
+  tipDop: number;
+  amountDop: number;
+  proPayoutDop: number;
+  ratePct: number;
+};
+
+export function splitPayment(input: {
+  quoteDop: number;
+  creditDop: number;
+  tipDop: number;
+  kind: JobKind;
+  plan: PlanTier;
+}): PaymentSplit {
+  const { quoteDop, creditDop, tipDop, kind, plan } = input;
+  const tip = validateTip(tipDop, quoteDop);
+  const chargedDop = kind === "diagnostic" ? quoteDop : Math.max(0, quoteDop - creditDop);
+  if (chargedDop <= 0) throw new Error("No hay monto que cobrar.");
+  const commission = computeCommission({ amountDop: chargedDop, kind, plan });
+  return {
+    chargedDop,
+    commissionDop: commission.commissionDop,
+    tipDop: tip,
+    amountDop: chargedDop + tip,
+    proPayoutDop: commission.proPayoutDop + tip,
+    ratePct: commission.ratePct,
+  };
+}

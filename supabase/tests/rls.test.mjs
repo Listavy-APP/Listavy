@@ -1861,6 +1861,35 @@ await check("0023 provider: a job's provider cannot change once it has a payment
   });
 });
 
+// 0024 · Tips on Checkout. The RPC takes the tip, stores it, and enforces the 20% cap.
+const applyWithTip = (job, { event, amount, commission, payout, tip }) =>
+  `select public.apply_stripe_checkout('${event}', 'checkout.session.completed', false, '${job}', 'cs_${event}', 'pi_${event}',
+     'job', 8750, 60, ${amount}, ${commission}, ${payout}, ${tip}) as r`;
+
+await check("0024 tip: a tip is stored; the charge is quote minus credit plus tip; payout includes the tip", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    const r = await db.query(applyWithTip(repair, { event: "evt_tip_ok", amount: 5750, commission: 630, payout: 5120, tip: 500 }));
+    assert.equal(r.rows[0].r, "applied");
+    const p = await db.query(`select amount_dop, commission_dop, pro_payout_dop, tip_dop, status from public.payments where job_id = '${repair}'`);
+    assert.deepEqual(p.rows[0], { amount_dop: 5750, commission_dop: 630, pro_payout_dop: 5120, tip_dop: 500, status: "held" });
+  });
+});
+
+await check("0024 tip: a tip over 20% of the quote is refused", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    await assert.rejects(db.query(applyWithTip(repair, { event: "evt_tip_cap", amount: 7300, commission: 630, payout: 6670, tip: 1300 })), /20 por ciento/);
+  });
+});
+
+await check("0024 tip: an amount that leaves out the tip is refused", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    await assert.rejects(db.query(applyWithTip(repair, { event: "evt_tip_mis", amount: 5250, commission: 630, payout: 4620, tip: 500 })), /no coincide/);
+  });
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);

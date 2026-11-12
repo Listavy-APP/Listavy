@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { computeCommission } from "./commission.ts";
+import { splitPayment } from "./commission.ts";
 import { providerFor } from "../_shared/payments/provider.ts";
 
 const CORS = {
@@ -38,6 +38,11 @@ Deno.serve(async (req: Request) => {
   const body = await req.json().catch(() => null);
   const jobId = body?.job_id;
   if (typeof jobId !== "string") return json({ error: "Falta el trabajo." }, 400);
+  // Optional tip in whole pesos. Absent means no tip. Validated against the job amount below.
+  const tipRaw = body?.tip_dop ?? 0;
+  if (typeof tipRaw !== "number" || !Number.isInteger(tipRaw) || tipRaw < 0) {
+    return json({ error: "La propina debe ser un número entero de pesos." }, 400);
+  }
 
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
@@ -72,19 +77,24 @@ Deno.serve(async (req: Request) => {
   }
 
   const isDiagnostic = job.job_type === "diagnostic";
-  const chargedDop = isDiagnostic ? quoteDop : Math.max(0, quoteDop - creditDop);
-  if (chargedDop <= 0) return json({ error: "No hay monto que cobrar." }, 409);
 
   const { data: pro } = await admin.from("pros").select("plan").eq("id", job.pro_id).single();
-  const commission = computeCommission({
-    amountDop: chargedDop,
-    kind: isDiagnostic ? "diagnostic" : "repair",
-    plan: pro.plan,
-  });
+  let split;
+  try {
+    split = splitPayment({
+      quoteDop,
+      creditDop,
+      tipDop: tipRaw,
+      kind: isDiagnostic ? "diagnostic" : "repair",
+      plan: pro.plan,
+    });
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "No se pudo calcular el pago." }, 400);
+  }
 
   const fx = Number(job.fx_rate_dop_per_usd);
   const provider = providerFor(job.payment_provider, { stripeSecretKey: stripeKey, stripeWebhookSecret: "" });
-  const amountMinor = Math.round((chargedDop * 100) / fx);
+  const amountMinor = Math.round((split.amountDop * 100) / fx);
 
   let session;
   try {
@@ -95,9 +105,10 @@ Deno.serve(async (req: Request) => {
       amountMinor,
       currency: provider.currency,
       fx,
-      amountDop: chargedDop,
-      commissionDop: commission.commissionDop,
-      proPayoutDop: commission.proPayoutDop,
+      amountDop: split.amountDop,
+      commissionDop: split.commissionDop,
+      proPayoutDop: split.proPayoutDop,
+      tipDop: split.tipDop,
       successUrl: appUrl + "/trabajos/" + job.id + "?pago=ok",
       cancelUrl: appUrl + "/trabajos/" + job.id + "?pago=cancelado",
     });
@@ -105,5 +116,11 @@ Deno.serve(async (req: Request) => {
     return json({ error: "No se pudo iniciar el pago.", detail: e instanceof Error ? e.message : null }, 502);
   }
 
-  return json({ url: session.url, charged_dop: chargedDop, commission_dop: commission.commissionDop });
+  return json({
+    url: session.url,
+    charged_dop: split.chargedDop,
+    tip_dop: split.tipDop,
+    amount_dop: split.amountDop,
+    commission_dop: split.commissionDop,
+  });
 });

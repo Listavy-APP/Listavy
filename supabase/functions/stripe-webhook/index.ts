@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
     p_amount_dop: e.amountDop,
     p_commission_dop: e.commissionDop,
     p_pro_payout_dop: e.proPayoutDop,
-    p_tip_dop: 0,
+    p_tip_dop: e.tipDop,
   });
   // A 500 makes Stripe retry. The apply function rolls back on any failure, so a retry is safe.
   if (error) return new Response(error.message, { status: 500 });
