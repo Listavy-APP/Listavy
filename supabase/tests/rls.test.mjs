@@ -1687,6 +1687,104 @@ await check("0021 release: a zero commission adds no funding row", async () => {
   assert.equal(Number(g.rows[0].n), 0);
 });
 
+// 0022 netting checks run inside rollbacks. Other fixtures in this file leave held payments and
+// owed recoveries for PRO behind, so each check first clears them, then sets up only what it needs.
+async function isolateNetting() {
+  await db.exec(`update public.pro_recoveries set settled_dop = amount_dop, status = 'settled' where pro_id = '${PRO}' and status = 'owed'`);
+  await db.exec(`update public.payments set status = 'refunded' where status = 'held'`);
+}
+
+// A post-release partial refund creates a recovery owed by PRO of exactly refundDop.
+async function makeDebt(refundDop) {
+  const { job } = await seedJobPayment({ status: "released", approvedHoursAgo: 30 });
+  await asUser(HOMEOWNER, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente')`);
+  const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', ${refundDop})`);
+  const rec = await db.query(`select id from public.pro_recoveries where dispute_id = '${disp.rows[0].id}'`);
+  return rec.rows[0].id;
+}
+
+async function seedHeldDue() {
+  const { payment } = await seedJobPayment({ status: "held", approvedHoursAgo: 1 });
+  await db.exec(`update public.payments set release_after = now() - interval '1 minute' where id = '${payment}'`);
+  return payment;
+}
+
+await check("0022 netting: a debt larger than the payout takes the whole payout, and release is recorded", async () => {
+  await withRollback(async () => {
+    await isolateNetting();
+    await db.query(`select public.record_reserve_funding(20000)`);
+    const debt = await makeDebt(6000);
+    const payment = await seedHeldDue();
+    const due = await db.query(`select pro_payout_dop, net_payout_dop, recovery_dop from public.claim_due_payments(200) where payment_id = '${payment}'`);
+    assert.deepEqual(due.rows[0], { pro_payout_dop: 5280, net_payout_dop: 0, recovery_dop: 5280 });
+    const rec = await db.query(`select settled_dop, status from public.pro_recoveries where id = '${debt}'`);
+    assert.deepEqual(rec.rows[0], { settled_dop: 5280, status: "owed" });
+    assert.equal((await db.query(`select public.mark_payment_released('${payment}', null) as r`)).rows[0].r, "released");
+    const p = await db.query(`select status, stripe_transfer_id from public.payments where id = '${payment}'`);
+    assert.deepEqual(p.rows[0], { status: "released", stripe_transfer_id: null });
+    const g = await db.query(`select amount_dop from public.guarantee_reserve where payment_id = '${payment}' and entry_kind = 'funding'`);
+    assert.equal(g.rows[0].amount_dop, 72);
+  });
+});
+
+await check("0022 netting: a smaller debt is cleared and the pro keeps the rest", async () => {
+  await withRollback(async () => {
+    await isolateNetting();
+    await db.query(`select public.record_reserve_funding(20000)`);
+    const debt = await makeDebt(1000);
+    const payment = await seedHeldDue();
+    const due = await db.query(`select net_payout_dop, recovery_dop from public.claim_due_payments(200) where payment_id = '${payment}'`);
+    assert.deepEqual(due.rows[0], { net_payout_dop: 4280, recovery_dop: 1000 });
+    const rec = await db.query(`select settled_dop, status from public.pro_recoveries where id = '${debt}'`);
+    assert.deepEqual(rec.rows[0], { settled_dop: 1000, status: "settled" });
+    const p = await db.query(`select recovery_netted_dop from public.payments where id = '${payment}'`);
+    assert.equal(p.rows[0].recovery_netted_dop, 1000);
+  });
+});
+
+await check("0022 netting: debts are cleared oldest first, and the remainder stays owed", async () => {
+  await withRollback(async () => {
+    await isolateNetting();
+    await db.query(`select public.record_reserve_funding(20000)`);
+    const older = await makeDebt(1000);
+    const newer = await makeDebt(6000);
+    await db.exec(`update public.pro_recoveries set created_at = now() - interval '2 days' where id = '${older}'`);
+    const payment = await seedHeldDue();
+    const due = await db.query(`select net_payout_dop, recovery_dop from public.claim_due_payments(200) where payment_id = '${payment}'`);
+    assert.deepEqual(due.rows[0], { net_payout_dop: 0, recovery_dop: 5280 });
+    const recs = await db.query(`select id, settled_dop, status from public.pro_recoveries where id in ('${older}', '${newer}')`);
+    const byId = Object.fromEntries(recs.rows.map((r) => [r.id, r]));
+    assert.deepEqual(byId[older], { id: older, settled_dop: 1000, status: "settled" });
+    assert.deepEqual(byId[newer], { id: newer, settled_dop: 4280, status: "owed" });
+    const d = await db.query(`select recovery_id, amount_dop from public.recovery_deductions where payment_id = '${payment}' order by amount_dop`);
+    assert.deepEqual(d.rows.map((r) => [r.recovery_id, r.amount_dop]).sort(), [[older, 1000], [newer, 4280]].sort());
+  });
+});
+
+await check("0022 netting: a repeat claim reuses the stored netting and deducts nothing twice", async () => {
+  await withRollback(async () => {
+    await isolateNetting();
+    await db.query(`select public.record_reserve_funding(20000)`);
+    const debt = await makeDebt(1000);
+    const payment = await seedHeldDue();
+    await db.query(`select * from public.claim_due_payments(200) where payment_id = '${payment}'`);
+    const again = await db.query(`select net_payout_dop, recovery_dop from public.claim_due_payments(200) where payment_id = '${payment}'`);
+    assert.deepEqual(again.rows[0], { net_payout_dop: 4280, recovery_dop: 1000 });
+    const d = await db.query(`select count(*)::int as n from public.recovery_deductions where payment_id = '${payment}'`);
+    assert.equal(d.rows[0].n, 1);
+    const rec = await db.query(`select settled_dop from public.pro_recoveries where id = '${debt}'`);
+    assert.equal(rec.rows[0].settled_dop, 1000);
+  });
+});
+
+await check("0022 access: signed-in users cannot read the deduction ledger; admins can", async () => {
+  const mine = await asUser(HOMEOWNER, `select id from public.recovery_deductions`);
+  assert.equal(mine.rows.length, 0);
+  await asUser(ADMIN, `select id from public.recovery_deductions`);
+  await assert.rejects(asUser(ADMIN, `insert into public.recovery_deductions (payment_id, recovery_id, amount_dop) values (gen_random_uuid(), gen_random_uuid(), 1)`), /permission denied|row-level security/);
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);

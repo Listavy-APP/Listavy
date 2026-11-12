@@ -315,6 +315,13 @@ export const es = {
     colDate: "Fecha",
     colRelease: "Liberación",
     colOwed: "Monto debido",
+    colSettled: "Liquidado",
+    colPending: "Pendiente",
+    colRecovery: "Deducido de la liberación",
+    colPayment: "Pago",
+    colDebt: "Deuda",
+    deductionsTitle: "Deducciones de deudas",
+    deductionsEmpty: "Todavía no hay deducciones.",
     statuses: {
       pending: "Pendiente",
       held: "Retenido",

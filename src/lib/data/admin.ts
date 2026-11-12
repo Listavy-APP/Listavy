@@ -23,6 +23,15 @@ export type AdminPayment = {
   release_after: string | null;
   released_at: string | null;
   created_at: string;
+  recovery_netted_dop: number;
+};
+
+export type AdminDeduction = {
+  id: string;
+  payment_id: string;
+  recovery_id: string;
+  amount_dop: number;
+  created_at: string;
 };
 
 export type OwedRecovery = {
@@ -31,11 +40,12 @@ export type OwedRecovery = {
   pro_name: string | null;
   dispute_id: string;
   amount_dop: number;
+  settled_dop: number;
   created_at: string;
 };
 
 const PAYMENT_COLUMNS =
-  "id, job_id, purpose, status, amount_minor, amount_dop, commission_dop, pro_payout_dop, keep_dop, keep_commission_dop, keep_pro_payout_dop, refunded_minor, stripe_payment_intent_id, stripe_transfer_id, release_after, released_at, created_at";
+  "id, job_id, purpose, status, amount_minor, amount_dop, commission_dop, pro_payout_dop, keep_dop, keep_commission_dop, keep_pro_payout_dop, refunded_minor, stripe_payment_intent_id, stripe_transfer_id, release_after, released_at, created_at, recovery_netted_dop";
 
 export async function listAdminPayments(supabase: SupabaseClient, limit = 100): Promise<AdminPayment[]> {
   const { data, error } = await supabase
@@ -60,7 +70,7 @@ export async function getReserveBalance(supabase: SupabaseClient): Promise<numbe
 export async function listOwedRecoveries(supabase: SupabaseClient): Promise<OwedRecovery[]> {
   const { data, error } = await supabase
     .from("pro_recoveries")
-    .select("id, pro_id, dispute_id, amount_dop, created_at")
+    .select("id, pro_id, dispute_id, amount_dop, settled_dop, created_at")
     .eq("status", "owed")
     .order("created_at", { ascending: true });
   if (error) throw new Error(`No se pudieron leer las deudas: ${error.message}`);
@@ -81,6 +91,18 @@ export async function listOwedRecoveries(supabase: SupabaseClient): Promise<Owed
     pro_name: names.get(r.pro_id) ?? null,
     dispute_id: r.dispute_id,
     amount_dop: r.amount_dop,
+    settled_dop: r.settled_dop,
     created_at: r.created_at,
   }));
+}
+
+/** Every debt deduction from a payout, newest first. Each row records one debt touched by one payment. */
+export async function listDeductions(supabase: SupabaseClient, limit = 100): Promise<AdminDeduction[]> {
+  const { data, error } = await supabase
+    .from("recovery_deductions")
+    .select("id, payment_id, recovery_id, amount_dop, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`No se pudieron leer las deducciones: ${error.message}`);
+  return (data ?? []) as AdminDeduction[];
 }

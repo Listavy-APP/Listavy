@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { getCurrentProfile } from "@/lib/data/profiles";
-import { getReserveBalance, listAdminPayments, listOwedRecoveries } from "@/lib/data/admin";
+import { getReserveBalance, listAdminPayments, listDeductions, listOwedRecoveries } from "@/lib/data/admin";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -32,10 +32,11 @@ export default async function AdminPayoutsPage() {
   const profile = await getCurrentProfile(supabase);
   if (!profile || profile.role !== "admin") notFound();
 
-  const [payments, reserve, owed] = await Promise.all([
+  const [payments, reserve, owed, deductions] = await Promise.all([
     listAdminPayments(supabase),
     getReserveBalance(supabase),
     listOwedRecoveries(supabase),
+    listDeductions(supabase),
   ]);
 
   return (
@@ -58,6 +59,8 @@ export default async function AdminPayoutsPage() {
               <tr>
                 <th>{es.admin.colPro}</th>
                 <th>{es.admin.colOwed}</th>
+                <th>{es.admin.colSettled}</th>
+                <th>{es.admin.colPending}</th>
                 <th>{es.admin.colDate}</th>
               </tr>
             </thead>
@@ -66,6 +69,8 @@ export default async function AdminPayoutsPage() {
                 <tr key={r.id}>
                   <td>{r.pro_name ?? short(r.pro_id)}</td>
                   <td>{es.money.dop(r.amount_dop)}</td>
+                  <td>{es.money.dop(r.settled_dop)}</td>
+                  <td>{es.money.dop(r.amount_dop - r.settled_dop)}</td>
                   <td>{dateOnly(r.created_at)}</td>
                 </tr>
               ))}
@@ -87,6 +92,7 @@ export default async function AdminPayoutsPage() {
                 <th>{es.admin.colAmount}</th>
                 <th>{es.admin.colCommission}</th>
                 <th>{es.admin.colPayout}</th>
+                <th>{es.admin.colRecovery}</th>
                 <th>{es.admin.colKept}</th>
                 <th>{es.admin.colRefunded}</th>
                 <th>{es.admin.colStripe}</th>
@@ -104,6 +110,7 @@ export default async function AdminPayoutsPage() {
                   </td>
                   <td>{es.money.dop(p.commission_dop)}</td>
                   <td>{es.money.dop(p.pro_payout_dop)}</td>
+                  <td>{p.recovery_netted_dop > 0 ? es.money.dop(p.recovery_netted_dop) : "—"}</td>
                   <td>
                     {p.keep_dop === null
                       ? "—"
@@ -116,6 +123,34 @@ export default async function AdminPayoutsPage() {
                   </td>
                   <td>{dateOnly(p.created_at)}</td>
                   <td>{dateOnly(p.released_at ?? p.release_after)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h2>{es.admin.deductionsTitle}</h2>
+      {deductions.length === 0 ? (
+        <p>{es.admin.deductionsEmpty}</p>
+      ) : (
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>{es.admin.colPayment}</th>
+                <th>{es.admin.colDebt}</th>
+                <th>{es.admin.colAmount}</th>
+                <th>{es.admin.colDate}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {deductions.map((d) => (
+                <tr key={d.id}>
+                  <td>{short(d.payment_id)}</td>
+                  <td>{short(d.recovery_id)}</td>
+                  <td>{es.money.dop(d.amount_dop)}</td>
+                  <td>{dateOnly(d.created_at)}</td>
                 </tr>
               ))}
             </tbody>

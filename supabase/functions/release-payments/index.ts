@@ -47,6 +47,18 @@ Deno.serve(async (req: Request) => {
       continue;
     }
     try {
+      // Recovery netting already ran in claim_due_payments. A zero net means the whole payout went to
+      // recovery. No transfer is made, and the payment is marked released with no transfer id.
+      if (Number(p.net_payout_dop) <= 0) {
+        const { data: markedZero, error: zeroErr } = await admin.rpc("mark_payment_released", {
+          p_payment: p.payment_id,
+          p_transfer: null,
+        });
+        if (zeroErr) throw new Error(zeroErr.message);
+        results.push({ payment_id: p.payment_id, result: String(markedZero) });
+        continue;
+      }
+
       // The transfer is tied to the original charge, so it does not wait on the platform balance.
       const pi = await stripe(stripeKey, "GET", `/v1/payment_intents/${p.payment_intent_id}`);
       const chargeId = typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id;
@@ -60,8 +72,8 @@ Deno.serve(async (req: Request) => {
       if (existing) {
         transferId = existing.id;
       } else {
-        // Pro share of the USD charge, in cents. Commission is what is left.
-        const payoutMinor = Math.round((Number(p.amount_minor) * p.pro_payout_dop) / p.amount_dop);
+        // Pro's net share of the USD charge, in cents, after recovery netting. Commission is what is left.
+        const payoutMinor = Math.round((Number(p.amount_minor) * p.net_payout_dop) / p.amount_dop);
         const params = new URLSearchParams({
           amount: String(payoutMinor),
           currency: "usd",
