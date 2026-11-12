@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { findTransferForPayment } from "./transfer-lookup.ts";
 
 // Pays pros 24 h after approval. Called every 15 min by pg_cron through pg_net.
 // Each payment gets one Stripe transfer. The idempotency key is the payment id, so a retry
@@ -51,26 +52,36 @@ Deno.serve(async (req: Request) => {
       const chargeId = typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id;
       if (!chargeId) throw new Error("El pago no tiene cargo.");
 
-      // Pro share of the USD charge, in cents. Commission is what is left.
-      const payoutMinor = Math.round((Number(p.amount_minor) * p.pro_payout_dop) / p.amount_dop);
-      const params = new URLSearchParams({
-        amount: String(payoutMinor),
-        currency: "usd",
-        destination: p.pro_account_id,
-        source_transaction: chargeId,
-        transfer_group: p.job_id,
-        "metadata[payment_id]": p.payment_id,
-      });
-      const transfer = await stripe(stripeKey, "POST", "/v1/transfers", params, {
-        "Idempotency-Key": "release_" + p.payment_id,
-      });
+      // Look for a transfer already made for this payment before creating one. This works after
+      // Stripe has expired the idempotency key, and after a failed mark on an earlier run.
+      const listed = await stripe(stripeKey, "GET", `/v1/transfers?transfer_group=${encodeURIComponent(p.job_id)}&limit=100`);
+      let transferId: string;
+      const existing = findTransferForPayment(listed.data ?? [], p.payment_id);
+      if (existing) {
+        transferId = existing.id;
+      } else {
+        // Pro share of the USD charge, in cents. Commission is what is left.
+        const payoutMinor = Math.round((Number(p.amount_minor) * p.pro_payout_dop) / p.amount_dop);
+        const params = new URLSearchParams({
+          amount: String(payoutMinor),
+          currency: "usd",
+          destination: p.pro_account_id,
+          source_transaction: chargeId,
+          transfer_group: p.job_id,
+          "metadata[payment_id]": p.payment_id,
+        });
+        const created = await stripe(stripeKey, "POST", "/v1/transfers", params, {
+          "Idempotency-Key": "release_" + p.payment_id,
+        });
+        transferId = created.id;
+      }
 
       const { data: marked, error: markErr } = await admin.rpc("mark_payment_released", {
         p_payment: p.payment_id,
-        p_transfer: transfer.id,
+        p_transfer: transferId,
       });
       if (markErr) throw new Error(markErr.message);
-      results.push({ payment_id: p.payment_id, result: String(marked), transfer_id: transfer.id });
+      results.push({ payment_id: p.payment_id, result: String(marked), transfer_id: transferId });
     } catch (e) {
       // The payment stays held and is retried on the next run.
       results.push({ payment_id: p.payment_id, result: "error", detail: e instanceof Error ? e.message : String(e) });
