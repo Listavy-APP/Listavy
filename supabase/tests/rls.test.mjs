@@ -1582,6 +1582,9 @@ await check("0019 guarantee: a post-release refund is refused while the reserve 
 });
 
 await check("0019 guarantee: a funded reserve pays the refund and records the recovery", async () => {
+  // Earlier checks may fund the reserve on release, so compare against the balance at the start.
+  const start = await db.query(`select coalesce(sum(case when entry_kind = 'funding' then amount_dop else -amount_dop end), 0) as b from public.guarantee_reserve`);
+  const startBal = Number(start.rows[0].b);
   await db.query(`select public.record_reserve_funding(10000)`);
   const { job, payment } = await seedJobPayment({ status: "released", approvedHoursAgo: 30 });
   await asUser(HOMEOWNER, `select public.open_dispute('${job}', true, 'La fuga regresó al día siguiente')`);
@@ -1596,7 +1599,7 @@ await check("0019 guarantee: a funded reserve pays the refund and records the re
   const p = await db.query(`select status, refunded_minor from public.payments where id = '${payment}'`);
   assert.deepEqual(p.rows[0], { status: "released", refunded_minor: 10000 });
   const bal = await db.query(`select coalesce(sum(case when entry_kind = 'funding' then amount_dop else -amount_dop end), 0) as b from public.guarantee_reserve`);
-  assert.equal(Number(bal.rows[0].b), 4000);
+  assert.equal(Number(bal.rows[0].b) - startBal, 4000);
 });
 
 await check("0019 guarantee: a post-release refund cannot exceed the job amount", async () => {
@@ -1646,6 +1649,42 @@ await check("0020 admin: reserve and recoveries stay read-only for admins", asyn
   await asUser(ADMIN, `update public.pro_recoveries set status = 'settled'`).catch(() => {});
   const owed = await db.query(`select count(*) as n from public.pro_recoveries where status = 'owed'`);
   assert.ok(Number(owed.rows[0].n) > 0);
+});
+
+await check("0021 release: funds 10% of the retained commission", async () => {
+  const { payment } = await seedJobPayment({ status: "held", approvedHoursAgo: 1 });
+  assert.equal((await db.query(`select public.mark_payment_released('${payment}', 'tr_0021a') as r`)).rows[0].r, "released");
+  const g = await db.query(`select amount_dop from public.guarantee_reserve where payment_id = '${payment}' and entry_kind = 'funding'`);
+  assert.equal(g.rows.length, 1);
+  assert.equal(g.rows[0].amount_dop, 72); // 10% of the 720 commission in the fixture
+});
+
+await check("0021 release: a repeat release adds no second funding row", async () => {
+  const { payment } = await seedJobPayment({ status: "held", approvedHoursAgo: 1 });
+  await db.query(`select public.mark_payment_released('${payment}', 'tr_0021b')`);
+  assert.equal((await db.query(`select public.mark_payment_released('${payment}', 'tr_0021b') as r`)).rows[0].r, "skipped");
+  const g = await db.query(`select count(*) as n from public.guarantee_reserve where payment_id = '${payment}' and entry_kind = 'funding'`);
+  assert.equal(Number(g.rows[0].n), 1);
+});
+
+await check("0021 release: a partial split funds 10% of the kept commission only", async () => {
+  const { job, payment } = await seedJobPayment({ status: "held", approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
+  const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+  await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 4000)`);
+  const rf = await db.query(`select id from public.refunds where payment_id = '${payment}'`);
+  await db.query(`select public.mark_refund_succeeded('${rf.rows[0].id}', 're_0021_partial')`);
+  await db.query(`select public.mark_payment_released('${payment}', 'tr_0021c')`);
+  const g = await db.query(`select amount_dop from public.guarantee_reserve where payment_id = '${payment}' and entry_kind = 'funding'`);
+  assert.equal(g.rows[0].amount_dop, 24); // 10% of the 240 kept commission
+});
+
+await check("0021 release: a zero commission adds no funding row", async () => {
+  const { payment } = await seedJobPayment({ status: "held", approvedHoursAgo: 1 });
+  await db.exec(`update public.payments set commission_dop = 0, pro_payout_dop = amount_dop where id = '${payment}'`);
+  assert.equal((await db.query(`select public.mark_payment_released('${payment}', 'tr_0021d') as r`)).rows[0].r, "released");
+  const g = await db.query(`select count(*) as n from public.guarantee_reserve where payment_id = '${payment}'`);
+  assert.equal(Number(g.rows[0].n), 0);
 });
 
 await db.close();
