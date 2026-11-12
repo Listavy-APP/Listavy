@@ -1248,6 +1248,58 @@ await check("0016 apply: the stripe event row is marked processed", async () => 
   });
 });
 
+await check("0017 pros: a pro cannot set their own payout account", async () => {
+  await assert.rejects(
+    asUser(PRO, `update public.pros set stripe_account_id = 'acct_evil' where id = '${PRO}'`),
+    /asigna Listavy/,
+  );
+});
+
+await check("0017 release: approval starts a 24 h clock on the held payment", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    await db.query(applyCall(repair, { event: "evt_r1" }));
+    await db.exec(`update public.jobs set status = 'completed', approved_at = now() where id = '${repair}'`);
+    const r = await db.query(
+      `select extract(epoch from (p.release_after - j.approved_at))::int as secs
+         from public.payments p join public.jobs j on j.id = p.job_id
+        where p.job_id = '${repair}' and p.purpose = 'job'`,
+    );
+    assert.equal(r.rows[0].secs, 86400);
+  });
+});
+
+await check("0017 release: claim returns a payment only after its 24 h window", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    await db.query(applyCall(repair, { event: "evt_r2" }));
+    await db.exec(`update public.jobs set status = 'completed', approved_at = now() where id = '${repair}'`);
+    const early = await db.query(`select count(*)::int as n from public.claim_due_payments() where job_id = '${repair}'`);
+    assert.equal(early.rows[0].n, 0);
+    await db.exec(`update public.payments set release_after = now() - interval '1 hour' where job_id = '${repair}' and purpose = 'job'`);
+    const due = await db.query(`select count(*)::int as n from public.claim_due_payments() where job_id = '${repair}'`);
+    assert.equal(due.rows[0].n, 1);
+  });
+});
+
+await check("0017 release: a payment is marked released once", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    await db.query(applyCall(repair, { event: "evt_r3" }));
+    const pid = (await db.query(`select id from public.payments where job_id = '${repair}' and purpose = 'job'`)).rows[0].id;
+    assert.equal((await db.query(`select public.mark_payment_released('${pid}', 'tr_test1') as r`)).rows[0].r, "released");
+    assert.equal((await db.query(`select public.mark_payment_released('${pid}', 'tr_test1') as r`)).rows[0].r, "skipped");
+    const p = await db.query(`select status, stripe_transfer_id from public.payments where id = '${pid}'`);
+    assert.equal(p.rows[0].status, "released");
+    assert.equal(p.rows[0].stripe_transfer_id, "tr_test1");
+  });
+});
+
+await check("0017 release: signed-in users cannot claim or mark payments", async () => {
+  await assert.rejects(asUser(HOMEOWNER, `select * from public.claim_due_payments()`), /permission denied/);
+  await assert.rejects(asUser(HOMEOWNER, `select public.mark_payment_released('${randomUUID()}', 'tr_x')`), /permission denied/);
+});
+
 await check("0014 apply: a repeated Stripe event id is a no-op", async () => {
   await withRollback(async () => {
     const { repair } = await seedCreditPair();
