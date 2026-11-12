@@ -443,3 +443,8 @@ select:disabled { opacity: 0.6; }
 
 /* Profile photo: same circle as the monogram, cropped to fit */
 img.avatar { object-fit: cover; padding: 0; }
+
+/* Admin payout table (read-only). */
+.table-scroll { overflow-x: auto; }
+.table-scroll table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+.table-scroll th, .table-scroll td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--ink-2); vertical-align: top; white-space: nowrap; }

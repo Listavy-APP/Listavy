@@ -1631,6 +1631,23 @@ await check("0019 access: reserve and recovery rows are not visible to signed-in
   assert.equal((await asUser(PRO, `select id from public.pro_recoveries`)).rows.length, 0);
 });
 
+await check("0020 admin: an admin reads the reserve ledger and recoveries; pros and homeowners do not", async () => {
+  const total = await db.query(`select (select count(*) from public.guarantee_reserve) as g, (select count(*) from public.pro_recoveries) as r`);
+  assert.ok(Number(total.rows[0].g) > 0 && Number(total.rows[0].r) > 0);
+  assert.ok((await asUser(ADMIN, `select id from public.guarantee_reserve`)).rows.length > 0);
+  assert.ok((await asUser(ADMIN, `select id from public.pro_recoveries`)).rows.length > 0);
+  assert.equal((await asUser(HOMEOWNER, `select id from public.guarantee_reserve`)).rows.length, 0);
+  assert.equal((await asUser(PRO, `select id from public.pro_recoveries`)).rows.length, 0);
+});
+
+await check("0020 admin: reserve and recoveries stay read-only for admins", async () => {
+  await assert.rejects(asUser(ADMIN, `insert into public.guarantee_reserve (entry_kind, amount_dop) values ('funding', 1)`), /permission denied|row-level security/);
+  // RLS filters the update to zero rows here. Production also revokes the update privilege.
+  await asUser(ADMIN, `update public.pro_recoveries set status = 'settled'`).catch(() => {});
+  const owed = await db.query(`select count(*) as n from public.pro_recoveries where status = 'owed'`);
+  assert.ok(Number(owed.rows[0].n) > 0);
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);
