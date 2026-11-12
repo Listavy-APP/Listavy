@@ -41,6 +41,22 @@ export function JobActions(props: {
 
   const supabase = () => createSupabaseBrowserClient();
 
+  // Starts Stripe Checkout for the approved quote. Stays busy while the browser redirects.
+  async function payNow() {
+    setError(null);
+    setBusy(true);
+    try {
+      const { data, error: fnError } = await supabase().functions.invoke("stripe-checkout", {
+        body: { job_id: job.id },
+      });
+      if (fnError || !data?.url) throw new Error(es.jobs.payFailed);
+      window.location.href = data.url as string;
+    } catch {
+      setError(es.jobs.payFailed);
+      setBusy(false);
+    }
+  }
+
   async function run(fn: () => Promise<void>) {
     setError(null);
     setBusy(true);
@@ -128,6 +144,15 @@ export function JobActions(props: {
             </button>
           ) : null}
         </>
+      ) : null}
+
+      {role === "homeowner" && job.status === "accepted" && !paid ? (
+        <div className="stack">
+          <p className="muted">{es.jobs.payHint}</p>
+          <button className="button" type="button" disabled={busy} onClick={() => payNow()}>
+            {es.jobs.pay}
+          </button>
+        </div>
       ) : null}
 
       {role === "pro" && job.status === "accepted" ? (
