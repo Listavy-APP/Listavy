@@ -1719,6 +1719,24 @@ await check("0027 evidence: a party can submit a statement; an outsider cannot",
   assert.equal(n.rows[0].n, 1);
 });
 
+await check("0029 suspension: a suspended pro cannot submit a quote; an active pro is not blocked by it", async () => {
+  const quote = randomUUID();
+  await db.exec(`update public.pros set suspended_at = now() where id = '${PRO}'`);
+  try {
+    await assert.rejects(
+      asUser(PRO, `select public.submit_quote('${quote}', 1000, 'Incluye mano de obra y revisión', null, true, now(), now() + interval '2 hours', 2)`),
+      /suspendida/,
+    );
+  } finally {
+    await db.exec(`update public.pros set suspended_at = null where id = '${PRO}'`);
+  }
+  // Not suspended now: the gate passes and the call fails later on the unknown quote.
+  await assert.rejects(
+    asUser(PRO, `select public.submit_quote('${quote}', 1000, 'Incluye mano de obra y revisión', null, true, now(), now() + interval '2 hours', 2)`),
+    /no es tuya/,
+  );
+});
+
 await check("0021 release: a zero commission adds no funding row", async () => {
   const { payment } = await seedJobPayment({ status: "held", approvedHoursAgo: 1 });
   await db.exec(`update public.payments set commission_dop = 0, pro_payout_dop = amount_dop where id = '${payment}'`);
