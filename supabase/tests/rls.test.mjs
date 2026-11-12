@@ -1239,6 +1239,15 @@ await check("0014 apply: credited repair charges RD$5,250, marks the job paid", 
   });
 });
 
+await check("0016 apply: the stripe event row is marked processed", async () => {
+  await withRollback(async () => {
+    const { repair } = await seedCreditPair();
+    await db.query(applyCall(repair, { event: "evt_t16" }));
+    const e = await db.query(`select processed_at from public.stripe_events where id = 'evt_t16'`);
+    assert.notEqual(e.rows[0].processed_at, null);
+  });
+});
+
 await check("0014 apply: a repeated Stripe event id is a no-op", async () => {
   await withRollback(async () => {
     const { repair } = await seedCreditPair();
