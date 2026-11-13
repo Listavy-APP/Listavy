@@ -4,6 +4,7 @@ import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { Avatar } from "@/components/Avatar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getProReviewSummary, listProReviews } from "@/lib/data/reviews";
 
 export const metadata = { title: es.proDetail.title };
 export const instant = false;
@@ -35,6 +36,8 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
   }
 
   const photos = signedIn ? await getWorkPhotoUrls(supabase, pro.id) : [];
+  const summary = await getProReviewSummary(supabase, pro.id);
+  const reviews = await listProReviews(supabase, pro.id);
 
   return (
     <section className="stack">
@@ -61,7 +64,29 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
         </b>
       </div>
 
-      <p className="muted">{es.proDetail.noReviews}</p>
+      <h2>{es.reviews.title}</h2>
+      {summary.review_count === 0 ? (
+        <p className="muted">{es.reviews.noReviews}</p>
+      ) : (
+        <div className="stack">
+          <b>
+            {es.reviews.average(summary.average ?? 0)} · {summary.review_count === 1 ? es.reviews.countOne : es.reviews.countMany(summary.review_count)}
+          </b>
+          {summary.review_count < 3 ? <span className="muted">{es.reviews.fewReviews(summary.review_count)}</span> : null}
+          {reviews.map((r) => (
+            <article key={r.id} className="panel stack">
+              <b>{r.reviewer_name}</b>
+              <span>{es.reviews.average(r.rating)}</span>
+              {r.comment ? <p>{r.comment}</p> : null}
+              {r.response ? (
+                <p className="muted">
+                  <b>{es.reviews.respondTitle}:</b> {r.response.body}
+                </p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      )}
 
       <Link className="button" href={`/pedir?pro=${pro.id}`}>
         {es.jobs.askQuote}

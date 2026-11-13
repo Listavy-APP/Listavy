@@ -4,6 +4,8 @@ import { JobActions } from "./JobActions";
 import { JobTimeline } from "./JobTimeline";
 import { VoiceNote } from "./VoiceNote";
 import { DisputePanel } from "./DisputePanel";
+import { ReviewPanel } from "./ReviewPanel";
+import { getJobReview, hasClientRating } from "@/lib/data/reviews";
 import { listEvidence, listJobDisputes } from "@/lib/data/disputes";
 import { getCompletionCode, getContactPhone, jobFileUrl, type JobPhotoRow, type JobRow, type QuoteRow } from "@/lib/data/jobs";
 import { getProCard } from "@/lib/data/pros";
@@ -77,6 +79,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 
   const voiceUrl = j.voice_path ? await jobFileUrl(supabase, j.voice_path) : null;
   const disputes = await listJobDisputes(supabase, id);
+  const jobReview = await getJobReview(supabase, id);
+  const clientRated = role === "pro" ? await hasClientRating(supabase, id) : false;
   const disputeEvidence = await listEvidence(supabase, disputes.map((d) => d.id));
 
   const contactPhone = await getContactPhone(supabase, id);
@@ -133,6 +137,15 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         jobStatus={j.status}
         disputes={disputes}
         evidence={disputeEvidence}
+      />
+      <ReviewPanel
+        jobId={id}
+        role={role}
+        jobStatus={j.status}
+        paid={j.payment_status === "paid"}
+        disputeOpen={disputes.some((d) => d.stage !== "closed")}
+        review={jobReview}
+        hasClientRating={clientRated}
       />
     </section>
   );

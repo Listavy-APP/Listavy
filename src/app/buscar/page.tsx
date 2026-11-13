@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listProCards } from "@/lib/data/pros";
+import { getProReviewSummary, type ReviewSummary } from "@/lib/data/reviews";
 import { es } from "@/lib/i18n/es";
 import { SD_ZONES, TRADES, isTrade, isZone } from "@/lib/domain/catalog";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -23,6 +24,12 @@ export default async function SearchPage({
   // Anonymous visitors can browse. list_pro_cards returns only safe columns.
   const supabase = await createSupabaseServerClient();
   const pros = await listProCards(supabase, { trade, zone });
+  // One small aggregate per card. Published, non-held reviews only (migration 0030).
+  const summaries = new Map<string, ReviewSummary>(
+    await Promise.all(
+      pros.map(async (p) => [p.id, await getProReviewSummary(supabase, p.id)] as const),
+    ),
+  );
 
   // Trade chips keep the chosen zone, so changing the trade never clears it.
   const chipHref = (t: string | null) => {
@@ -93,7 +100,14 @@ export default async function SearchPage({
               <p className="card-price">
                 {es.search.priceRange}: {es.money.dop(p.price_min_dop)} – {es.money.dop(p.price_max_dop)}
               </p>
-              <p className="muted">{es.search.noReviews}</p>
+              <p className="muted">
+                {(() => {
+                  const sm = summaries.get(p.id);
+                  if (!sm || sm.review_count === 0) return es.reviews.noReviews;
+                  const count = sm.review_count === 1 ? es.reviews.countOne : es.reviews.countMany(sm.review_count);
+                  return `${es.reviews.average(sm.average ?? 0)} · ${count}`;
+                })()}
+              </p>
               <Link className="button secondary" href={`/pro/${p.id}`}>
                 {es.search.viewProfile}
               </Link>

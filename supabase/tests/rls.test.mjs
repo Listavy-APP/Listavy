@@ -1949,6 +1949,112 @@ await check("0024 tip: an amount that leaves out the tip is refused", async () =
   });
 });
 
+// 0030 reviews v1 (spec D5) ----------------------------------------------------------
+await check("0030 submit: the paying homeowner reviews a completed job; a stranger cannot", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.submit_review('${job}', 5, 5, 5, 5, null)`);
+  const n = await db.query(`select count(*)::int as n from public.reviews where job_id = '${job}'`);
+  assert.equal(n.rows[0].n, 1);
+  const { job: other } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await assert.rejects(asUser(OUTSIDER_PRO, `select public.submit_review('${other}', 5, 5, 5, 5, null)`), /Solo el cliente/);
+});
+
+await check("0030 submit: under 4 stars needs 20 characters; contact details are refused", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await assert.rejects(asUser(HOMEOWNER, `select public.submit_review('${job}', 3, 3, 3, 3, 'Muy corto')`), /mínimo 20/);
+  await assert.rejects(
+    asUser(HOMEOWNER, `select public.submit_review('${job}', 5, 5, 5, 5, 'Llámame al 809-555-1234 para el próximo')`),
+    /No incluyas/,
+  );
+  await assert.rejects(
+    asUser(HOMEOWNER, `select public.submit_review('${job}', 5, 5, 5, 5, 'Mira mi perfil en www.ejemplo.com ya')`),
+    /No incluyas/,
+  );
+});
+
+await check("0030 submit: one review per job", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.submit_review('${job}', 4, 4, 4, 4, null)`);
+  await assert.rejects(asUser(HOMEOWNER, `select public.submit_review('${job}', 5, 5, 5, 5, null)`), /Ya reseñaste/);
+});
+
+await check("0030 hold: an open dispute blocks the review form and hides the review from the public", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.submit_review('${job}', 5, 5, 5, 5, null)`);
+  await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
+  const pub = await asUser(OUTSIDER_PRO, `select count(*)::int as n from public.reviews where job_id = '${job}'`);
+  assert.equal(pub.rows[0].n, 0);
+  const sum = await db.query(`select review_count from public.pro_review_summary('${PRO}')`);
+  assert.ok(sum.rows[0].review_count >= 0);
+  const { job: fresh } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.open_dispute('${fresh}', false, 'La fuga regresó al día siguiente')`);
+  await assert.rejects(asUser(HOMEOWNER, `select public.submit_review('${fresh}', 5, 5, 5, 5, null)`), /disputa abierta/);
+});
+
+await check("0030 edit: allowed within 24 hours, refused after, and the pro gets one response edit", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.submit_review('${job}', 5, 5, 5, 5, null)`);
+  const rv = await db.query(`select id from public.reviews where job_id = '${job}'`);
+  const id = rv.rows[0].id;
+  await asUser(HOMEOWNER, `select public.edit_review('${id}', 4, 4, 4, 4, null)`);
+  await db.query(`update public.reviews set created_at = now() - interval '25 hours' where id = '${id}'`);
+  await assert.rejects(asUser(HOMEOWNER, `select public.edit_review('${id}', 5, 5, 5, 5, null)`), /24 horas/);
+
+  await asUser(PRO, `select public.respond_to_review('${id}', 'Gracias por confiar en nosotros.')`);
+  await asUser(PRO, `select public.respond_to_review('${id}', 'Gracias de nuevo, quedó bien.')`);
+  await assert.rejects(asUser(PRO, `select public.respond_to_review('${id}', 'Otra vez, no.')`), /Solo se permite una edición/);
+});
+
+await check("0030 private rating: only the pro rates the client; low average is flagged", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await assert.rejects(asUser(HOMEOWNER, `select public.submit_client_rating('${job}', 1, 1, 2)`), /Solo el profesional/);
+  await asUser(PRO, `select public.submit_client_rating('${job}', 2, 1, 2)`);
+  const r = await db.query(`select is_low from public.private_client_ratings where job_id = '${job}'`);
+  assert.equal(r.rows[0].is_low, true);
+  const visible = await asUser(HOMEOWNER, `select count(*)::int as n from public.private_client_ratings where job_id = '${job}'`);
+  assert.equal(visible.rows[0].n, 0);
+});
+
+await check("0030 dispute: a full refund removes the review; the admin reason is kept", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.submit_review('${job}', 5, 5, 5, 5, null)`);
+  const d = await db.query(`insert into public.disputes (job_id, opened_by, reason, status, stage)
+                            values ('${job}', '${HOMEOWNER}', 'Prueba de reembolso total', 'open', 'executed') returning id`);
+  await db.query(`insert into public.refunds (payment_id, job_id, amount_dop, amount_minor, reason, dispute_id, status)
+                  select p.id, p.job_id, 6000, 10000, 'dispute_full', '${d.rows[0].id}', 'succeeded'
+                    from public.payments p where p.job_id = '${job}'`);
+  await db.query(`update public.disputes set stage = 'closed' where id = '${d.rows[0].id}'`);
+  const rv = await db.query(`select status, status_reason from public.reviews where job_id = '${job}'`);
+  assert.equal(rv.rows[0].status, "removed");
+  assert.equal(rv.rows[0].status_reason, "Reembolso total por disputa");
+});
+
+await check("0030 moderation: only the admin moderates; a removal needs a reason", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.submit_review('${job}', 5, 5, 5, 5, null)`);
+  const rv = await db.query(`select id from public.reviews where job_id = '${job}'`);
+  await assert.rejects(asUser(OUTSIDER_PRO, `select public.moderate_review('${rv.rows[0].id}', 'remove', 'Motivo de prueba largo')`), /Solo el administrador/);
+});
+
+await check("0030 flags: a personal-data flag hides the review at once", async () => {
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.submit_review('${job}', 5, 5, 5, 5, null)`);
+  const rv = await db.query(`select id from public.reviews where job_id = '${job}'`);
+  await asUser(OUTSIDER_PRO, `select public.flag_review('${rv.rows[0].id}', 'personal_data')`);
+  const st = await db.query(`select status from public.reviews where id = '${rv.rows[0].id}'`);
+  assert.equal(st.rows[0].status, "hidden");
+});
+
+await check("0030 names: a visitor sees the reviewer as first name plus last initial, never the full name", async () => {
+  await db.query(`update public.profiles set full_name = 'Ana Maria Pérez' where id = '${HOMEOWNER}'`);
+  const { job } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await asUser(HOMEOWNER, `select public.submit_review('${job}', 5, 5, 5, 5, null)`);
+  const r = await asUser(OUTSIDER_PRO, `select reviewer_name from public.list_pro_reviews('${PRO}') where job_id = '${job}'`);
+  assert.equal(r.rows[0].reviewer_name, "Ana P.");
+  const direct = await asUser(OUTSIDER_PRO, `select full_name from public.profiles where id = '${HOMEOWNER}'`);
+  assert.equal(direct.rows.length, 0);
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);
