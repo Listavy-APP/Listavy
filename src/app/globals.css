@@ -599,3 +599,6 @@ body:has(.bottom-nav) .page { padding-bottom: 96px; }
 }
 .pick-bar .button { width: auto; }
 body:has(.pick-bar) .page { padding-bottom: 160px; }
+
+/* Global brand row (Phase 2, item 5). Same on every page. */
+.app-header { padding-bottom: var(--s1); border-bottom: 1px solid var(--line); margin-bottom: var(--s2); min-height: 48px; }

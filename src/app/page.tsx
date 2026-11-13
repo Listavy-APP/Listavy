@@ -11,15 +11,6 @@ const CAT_PHOTO: Record<(typeof TRADES)[number], string> = {
 export default function HomePage() {
   return (
     <section className="stack hero">
-      <div className="app-top">
-        <span className="wordmark">
-          lista<span>vy</span>
-        </span>
-        <Link className="link-quiet" href="/cuenta">
-          {es.home.accountCta}
-        </Link>
-      </div>
-
       <p className="eyebrow">{es.home.eyebrow}</p>
       <h1>{es.home.title}</h1>
       <p className="lead">{es.home.subtitle}</p>

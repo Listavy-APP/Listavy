@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { Analytics } from "@/components/Analytics";
+import { AppHeader } from "@/components/AppHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { LegalFooter } from "@/components/LegalFooter";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <RegisterServiceWorker />
         <main className="page">
+          <AppHeader />
           {children}
           <LegalFooter />
         </main>
