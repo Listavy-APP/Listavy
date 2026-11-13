@@ -62,7 +62,7 @@ export function FilePick(props: {
         <span className="file-name">{count > 0 ? props.files.map((f) => f.name).join(", ") : es.common.noFile}</span>
       )}
 
-      {isImage && count > 0 ? <span className="file-name">{es.common.filesChosen(count)}</span> : null}
+      {isImage && count > 0 ? <span className="file-name">{es.common.photosChosenCount(count)}</span> : null}
       {props.hint ? <p className="muted">{props.hint}</p> : null}
     </div>
   );

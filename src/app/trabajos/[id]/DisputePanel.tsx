@@ -6,6 +6,23 @@ import { openDispute, submitEvidence, type DisputeRow, type EvidenceRow } from "
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
+/** Deadline text that never splits "5:47 p. m." across lines. */
+function formatDue(iso: string): string {
+  return new Date(iso)
+    .toLocaleString("es-DO", { timeZone: "America/Santo_Domingo", dateStyle: "medium", timeStyle: "short" })
+    .replace(/ (\d{1,2}:\d{2})\s?([ap])\.?\s?m\.?/i, (_, t, ap) => `\u00A0${t}\u00A0${ap.toLowerCase()}.\u00A0m.`);
+}
+
+/** One statement: a party label and a left rule. No avatars. */
+function Statement({ side, text }: { side: "homeowner" | "pro"; text: string }) {
+  return (
+    <div className={`statement statement-${side}`}>
+      <span className="statement-label">{side === "homeowner" ? "Cliente" : "Profesional"}</span>
+      <p>{text}</p>
+    </div>
+  );
+}
+
 export function DisputePanel({
   jobId,
   role,
@@ -50,7 +67,7 @@ export function DisputePanel({
   if (!current) {
     if (!withinFilingWindow) return null;
     return (
-      <section className="stack">
+      <section className="panel dispute-card stack">
         <h2>{es.disputes.openTitle}</h2>
         <p className="muted">{es.disputes.openHelp}</p>
         {error ? <p className="error">{error}</p> : null}
@@ -80,21 +97,21 @@ export function DisputePanel({
   const showOthers = current.stage !== "evidence" && current.stage !== "filed";
 
   return (
-    <section className="stack">
-      <h2>{es.disputes.title}</h2>
-      <p>
-        <strong>{es.disputes.stage[current.stage]}</strong>
-        {stillOpen && current.evidence_due_at ? ` · ${es.disputes.windowOpen} ${new Date(current.evidence_due_at).toLocaleString("es-DO", { timeZone: "America/Santo_Domingo", dateStyle: "medium", timeStyle: "short" })}` : null}
-      </p>
+    <section className="panel dispute-card stack">
+      <div className="dispute-head">
+        <h2>{es.disputes.title}</h2>
+        <span className={`dispute-stage stage-${current.stage}`}>{es.disputes.stage[current.stage]}</span>
+      </div>
+      {stillOpen && current.evidence_due_at ? (
+        <p className="muted dispute-due">{`${es.disputes.windowOpen} ${formatDue(current.evidence_due_at)}`}</p>
+      ) : null}
       {current.stage === "evidence" && !stillOpen ? <p className="muted">{es.disputes.windowClosed}</p> : null}
 
       {current.stage === "evidence" && stillOpen ? (
         mine ? (
           <div className="stack">
             <p className="muted">{es.disputes.evidenceSent}</p>
-            <blockquote>
-              <strong>{role === "homeowner" ? "Cliente" : "Profesional"}:</strong> {mine.statement}
-            </blockquote>
+            <Statement side={role} text={mine.statement} />
           </div>
         ) : (
           <div className="stack">
@@ -116,16 +133,15 @@ export function DisputePanel({
 
       {showOthers
         ? [mine, ...others].filter(Boolean).map((e) => (
-            <blockquote key={`${e!.side}-${e!.created_at}`}>
-              <strong>{e!.side === "homeowner" ? "Cliente" : "Profesional"}:</strong> {e!.statement}
-            </blockquote>
+            <Statement key={`${e!.side}-${e!.created_at}`} side={e!.side} text={e!.statement} />
           ))
         : null}
 
       {current.decision_reason ? (
-        <p>
-          <strong>{es.disputes.decisionTitle}:</strong> {current.decision_reason}
-        </p>
+        <div className="dispute-decision">
+          <span className="statement-label">{es.disputes.decisionTitle}</span>
+          <p>{current.decision_reason}</p>
+        </div>
       ) : null}
     </section>
   );

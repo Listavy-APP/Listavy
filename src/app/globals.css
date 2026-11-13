@@ -634,3 +634,26 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
   font-size: 0.9rem;
   background: var(--canvas);
 }
+
+/* Dispute card (Phase 2, item 8). Navy and cyan only. */
+.dispute-card { gap: var(--s2); }
+.dispute-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s1); flex-wrap: wrap; }
+.dispute-head h2 { margin: 0; }
+.dispute-stage {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--primary-tint);
+  color: var(--primary);
+  white-space: nowrap;
+}
+.dispute-stage.stage-evidence { background: var(--accent-tint); color: var(--accent); }
+.dispute-due { margin: 0; }
+.statement { display: flex; flex-direction: column; gap: 4px; padding: var(--s1) var(--s2); border-left: 3px solid var(--line); background: var(--canvas); border-radius: 0 var(--radius-control) var(--radius-control) 0; }
+.statement p { margin: 0; }
+.statement-homeowner { border-left-color: var(--primary); }
+.statement-pro { border-left-color: var(--accent); }
+.statement-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.dispute-decision { display: flex; flex-direction: column; gap: 4px; padding: var(--s1) var(--s2); border: 1px solid var(--line); border-radius: var(--radius-control); }
+.dispute-decision p { margin: 0; }
