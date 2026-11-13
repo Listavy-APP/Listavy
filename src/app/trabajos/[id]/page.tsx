@@ -138,6 +138,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         disputes={disputes}
         evidence={disputeEvidence}
       />
+      <Link className="muted" href="/pagos">{es.payments.title}</Link>
       <ReviewPanel
         jobId={id}
         role={role}

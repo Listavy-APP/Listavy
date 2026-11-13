@@ -126,6 +126,10 @@ export default async function ProfilePage() {
         </Link>
       ) : null}
 
+      <Link className="button secondary" href="/pagos">
+        {es.payments.title}
+      </Link>
+
       <h2>{es.profile.proTitle}</h2>
       {profile.role === "pro" ? (
         <Link className="button secondary" href="/pro/estado">
