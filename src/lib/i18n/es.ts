@@ -493,7 +493,7 @@ export const es = {
     locationTitle: "Ubicación",
     locationHint: "Compartir tu ubicación se decide trabajo por trabajo, en la pantalla de consentimiento de cada solicitud. Está desactivada por defecto.",
     exportTitle: "Descargar mis datos",
-    exportHint: "Recibes un archivo JSON con tu perfil, tus trabajos, las cotizaciones que enviaste y las reseñas que escribiste.",
+    exportHint: "Recibes un archivo JSON con tu perfil, tus trabajos, tus pagos, las cotizaciones que enviaste, las reseñas y disputas en las que participas, tus declaraciones en disputas y tus avisos. No incluye la preferencia de analítica, que se guarda solo en este dispositivo.",
     exportButton: "Descargar mis datos",
     exporting: "Preparando…",
     exportError: "No pudimos preparar tus datos. Intenta de nuevo.",
