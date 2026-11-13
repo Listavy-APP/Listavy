@@ -462,7 +462,7 @@ export const es = {
     sharedWithPro: "El cliente permitió compartir su ubicación aproximada.",
   },
   legal: {
-    operator: "Listavy es operado por Bianx-log LLC.",
+    operator: "Listavy es operado por Espiga Capital LLC.",
     aboutTitle: "Acerca de Listavy",
     aboutBody: "Listavy conecta a propietarios con plomeros, electricistas y técnicos de aire acondicionado verificados en Santo Domingo.",
     contactTitle: "Contacto",
