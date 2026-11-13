@@ -2055,6 +2055,20 @@ await check("0030 names: a visitor sees the reviewer as first name plus last ini
   assert.equal(direct.rows.length, 0);
 });
 
+await check("0031 refunds: an admin reads refund rows; a pro does not; the trigger function is not an RPC", async () => {
+  const { job, payment } = await seedJobPayment({ approvedHoursAgo: 1 });
+  await db.query(`insert into public.refunds (payment_id, job_id, amount_dop, amount_minor, reason, status)
+                  values ('${payment}', '${job}', 100, 100, 'client_cancel_pre_work', 'succeeded')`);
+  const admin = await asUser(ADMIN, `select count(*)::int as n from public.refunds where job_id = '${job}'`);
+  assert.equal(admin.rows[0].n, 1);
+  const pro = await asUser(PRO, `select count(*)::int as n from public.refunds where job_id = '${job}'`);
+  assert.equal(pro.rows[0].n, 0);
+  await assert.rejects(
+    asUser(ADMIN, `select public.sync_reviews_on_dispute_close()`),
+    /permission denied/,
+  );
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);
