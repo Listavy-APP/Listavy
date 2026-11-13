@@ -433,6 +433,13 @@ export const es = {
     decisionTitle: "Decisión",
     stage: { filed: "Presentada", evidence: "Ventana de evidencia", decided: "Decidida", executed: "Ejecutada", closed: "Cerrada" },
   },
+  nav: {
+    label: "Navegación principal",
+    home: "Inicio",
+    search: "Buscar",
+    notifications: "Avisos",
+    account: "Cuenta",
+  },
   notifications: {
     title: "Avisos",
     empty: "No tienes avisos.",

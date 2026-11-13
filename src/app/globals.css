@@ -530,3 +530,35 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
   border: 1px solid var(--accent); border-radius: var(--radius-control);
   background: var(--accent-tint); color: var(--accent); font-weight: 700;
 }
+
+/* Bottom navigation (Phase 2, item 1). Tab pages only; see BottomNav.tsx. */
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 10;
+}
+.bottom-nav-tab {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+.bottom-nav-tab[aria-current="page"] {
+  color: var(--primary);
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+/* Keep page content clear of the fixed bar on tab pages. */
+body:has(.bottom-nav) .page { padding-bottom: 96px; }
