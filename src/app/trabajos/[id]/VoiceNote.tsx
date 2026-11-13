@@ -9,7 +9,7 @@ export function VoiceNote({ url }: { url: string | null }) {
     <section className="stack">
       <h2>{es.jobs.voiceTitle}</h2>
       {url ? (
-        <audio controls preload="none" src={url} style={{ width: "100%" }} />
+        <audio controls preload="metadata" src={url} style={{ width: "100%" }} />
       ) : (
         <p className="muted">{es.jobs.voiceUnavailable}</p>
       )}
