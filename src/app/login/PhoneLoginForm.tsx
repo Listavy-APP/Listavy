@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { normalizePhone, sendWhatsAppCode, verifyWhatsAppCode } from "@/lib/data/auth";
 import { es } from "@/lib/i18n/es";
@@ -8,8 +7,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Step = "phone" | "code";
 
-export function PhoneLoginForm() {
-  const router = useRouter();
+export function PhoneLoginForm({ next }: { next: string }) {
   const [step, setStep] = useState<Step>("phone");
   const [phoneInput, setPhoneInput] = useState("+1 ");
   const [phone, setPhone] = useState<string | null>(null);
@@ -55,12 +53,19 @@ export function PhoneLoginForm() {
     // because the page is leaving; a second verify would fail with otp_expired.
     inFlight.current = true;
     setBusy(true);
+    // Guard: if the page has not left after 10 s, release the form instead of hanging.
+    const guard = window.setTimeout(() => {
+      inFlight.current = false;
+      setError(es.login.verifyFailed);
+      setBusy(false);
+    }, 10000);
     try {
       await verifyWhatsAppCode(createSupabaseBrowserClient(), phone, code);
       setError(null);
-      router.push("/cuenta");
-      router.refresh();
+      // Full load, so the server reads the new session cookie. Client router state can be stale.
+      window.location.assign(next);
     } catch {
+      window.clearTimeout(guard);
       inFlight.current = false;
       setError(es.login.verifyFailed);
       setBusy(false);

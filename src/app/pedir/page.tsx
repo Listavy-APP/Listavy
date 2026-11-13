@@ -20,9 +20,12 @@ export default async function RequestPage({
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) redirect("/login");
-
   const { pro } = await searchParams;
+  if (!userData.user) {
+    // Keep the chosen pros across sign-in: send the user back to this exact request.
+    const back = `/pedir${pro ? `?pro=${encodeURIComponent(pro)}` : ""}`;
+    redirect(`/login?next=${encodeURIComponent(back)}`);
+  }
   const ids = (pro ?? "")
     .split(",")
     .map((s) => s.trim())

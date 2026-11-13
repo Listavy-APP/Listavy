@@ -247,7 +247,7 @@ export const es = {
     descriptionShort: "Describe el problema con al menos 20 caracteres.",
     photoRequired: "Agrega al menos una foto del problema.",
     genericError: "No pudimos completar la acción. Intenta de nuevo.",
-    oneQuoteHint: "Pides cotización a este profesional. Recibirás la que elijas.",
+    oneQuoteHint: "Pides cotización a 1 profesional. Recibirás la que elijas.",
     manyQuotesHint: (n: number) => `Pides cotización a ${n} profesionales. Recibirás la que elijas.`,
     zoneLabel: "Zona",
     typeLabel: "¿Qué necesitas?",
