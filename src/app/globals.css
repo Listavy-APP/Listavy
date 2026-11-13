@@ -569,3 +569,8 @@ body:has(.bottom-nav) .page { padding-bottom: 96px; }
 .photo-tile img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); background: var(--canvas); display: block; }
 .photo-tile figcaption { font-size: 0.8rem; }
 .photo-missing { width: 100%; aspect-ratio: 1 / 1; border-radius: 12px; background: var(--canvas); border: 1px dashed var(--line); }
+
+/* Discovery tiles with category photos (Phase 2, item 3). */
+.cat { flex-direction: column; align-items: stretch; gap: var(--s1); padding: 0 0 var(--s2); overflow: hidden; }
+.cat-photo { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: var(--canvas); }
+.cat .cat-name { padding: 0 var(--s2); }

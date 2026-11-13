@@ -2,6 +2,12 @@ import Link from "next/link";
 import { es } from "@/lib/i18n/es";
 import { TRADES } from "@/lib/domain/catalog";
 
+const CAT_PHOTO: Record<(typeof TRADES)[number], string> = {
+  plumber: "/categories/plomero.jpg",
+  electrician: "/categories/electricista.jpg",
+  ac_technician: "/categories/aire-acondicionado.jpg",
+};
+
 export default function HomePage() {
   return (
     <section className="stack hero">
@@ -29,6 +35,9 @@ export default function HomePage() {
       <div className="cats">
         {TRADES.map((t) => (
           <Link key={t} className="cat" href={`/buscar?trade=${t}`}>
+            {/* Representative category photo, not a specific pro. Label text carries the meaning. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="cat-photo" src={CAT_PHOTO[t]} alt="" loading="lazy" />
             <span className="cat-name">{es.trades[t]}</span>
           </Link>
         ))}
