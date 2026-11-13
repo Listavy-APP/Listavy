@@ -43,11 +43,26 @@ export type CheckoutEvent = {
   tipDop: number;
 };
 
+/** A paid profile boost. Separate from job payments: no job id, no transfer, no release. */
+export type BoostEvent = {
+  eventId: string;
+  eventType: string;
+  livemode: boolean;
+  proId: string;
+  providerRef: string;
+  paymentRef: string | null;
+  durationDays: number;
+  amountDop: number;
+  amountMinor: number;
+  fx: number;
+};
+
 export type WebhookResult =
   | { kind: "invalid" }
   | { kind: "ignored"; reason: string }
   | { kind: "pending" }
-  | { kind: "checkout"; event: CheckoutEvent };
+  | { kind: "checkout"; event: CheckoutEvent }
+  | { kind: "boost"; event: BoostEvent };
 
 export type TransferInput = {
   paymentId: string;
