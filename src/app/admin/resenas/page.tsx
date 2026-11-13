@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { ModerationButtons } from "./ModerationButtons";
+import { ClearLimitButton } from "./ClearLimitButton";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listAdminReviews } from "@/lib/data/reviews";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -41,6 +42,10 @@ export default async function ReviewModerationPage() {
           {r.comment ? <p>{r.comment}</p> : <p className="muted">Sin comentario</p>}
           {r.status_reason ? <p className="muted">Motivo: {r.status_reason}</p> : null}
           <ModerationButtons reviewId={r.id} status={r.status} />
+          <div className="stack">
+            <span className="muted">Cliente de esta reseña (límite por calificaciones bajas)</span>
+            <ClearLimitButton clientId={r.reviewer_id} />
+          </div>
         </article>
       ))}
     </section>

@@ -8,6 +8,7 @@ import { EmailForm } from "./EmailForm";
 import { DeleteAccount } from "./DeleteAccount";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listMyJobs, listMyReviews } from "@/lib/data/customer";
+import { getClientStanding } from "@/lib/data/standing";
 import { customerPhotoUrl } from "@/lib/storage/customerFiles";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -45,9 +46,23 @@ export default async function ProfilePage() {
     customerPhotoUrl(supabase, profile.avatar_path),
   ]);
 
+  const standing = await getClientStanding(supabase);
+  const standingNotice = standing.blocked ? (
+    <div className="panel stack">
+      <b>{es.standing.blockedTitle}</b>
+      <p>{es.standing.blockedBody}</p>
+    </div>
+  ) : standing.warning ? (
+    <div className="panel stack">
+      <b>{es.standing.warningTitle}</b>
+      <p>{es.standing.warningBody(standing.low_count)}</p>
+    </div>
+  ) : null;
+
   return (
     <section className="stack">
       <h1>{es.profile.title}</h1>
+      {standingNotice}
       <p><a href="/avisos">{es.notifications.title}</a></p>
 
       <h2>{es.profile.photoLabel}</h2>

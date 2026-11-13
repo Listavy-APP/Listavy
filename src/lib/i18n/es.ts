@@ -3,6 +3,14 @@
  * No hard-coded strings in components. Add keys here.
  */
 export const es = {
+  standing: {
+    warningTitle: "Tu cuenta tiene calificaciones bajas",
+    warningBody: (n: number) =>
+      `Tienes ${n} calificaciones bajas de profesionales en los últimos 90 días. Para mejorar: llega a tiempo o avisa con anticipación, describe bien el trabajo al pedirlo, y acuerda el pago y los detalles antes de empezar. Con 5 calificaciones bajas no podrás pedir nuevos trabajos.`,
+    blockedTitle: "No puedes pedir nuevos trabajos por ahora",
+    blockedBody:
+      "Tienes 5 o más calificaciones bajas de profesionales en los últimos 90 días. Podrás pedir de nuevo cuando salgan del período de 90 días.",
+  },
   reviews: {
     title: "Reseñas",
     noReviews: "Sin reseñas todavía",

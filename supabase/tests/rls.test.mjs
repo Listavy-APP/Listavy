@@ -2069,6 +2069,99 @@ await check("0031 refunds: an admin reads refund rows; a pro does not; the trigg
   );
 });
 
+// 0032 client standing (spec D5-d) ------------------------------------------------------
+
+async function seedRatedClientJobs(client, count) {
+  await db.exec(`insert into auth.users (id, phone) values ('${client}', '+1809555${String(client).slice(-4)}') on conflict do nothing`);
+  await db.exec(`insert into public.profiles (id, role, full_name) values ('${client}', 'homeowner', 'Cliente Prueba') on conflict do nothing`);
+  const jobs = [];
+  for (let i = 0; i < count; i++) {
+    const job = randomUUID();
+    const payment = randomUUID();
+    await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, approved_at)
+                   values ('${job}', '${client}', '${PRO}', 'plumber', 'Naco', 'Trabajo de prueba de calificación.', 'completed', 'repair', 'paid', now() - interval '1 hour')`);
+    await db.exec(`insert into public.payments (id, job_id, provider, currency, amount_minor, fx_rate_dop_per_usd,
+                     amount_dop, commission_dop, pro_payout_dop, purpose, status, release_after)
+                   values ('${payment}', '${job}', 'stripe', 'USD', 10000, 60, 6000, 720, 5280, 'job', 'held', now() + interval '1 day')`);
+    jobs.push(job);
+  }
+  return jobs;
+}
+
+async function lowRateAll(jobs) {
+  for (const job of jobs) {
+    await asUser(PRO, `select public.submit_client_rating('${job}', 1, 1, 2)`);
+  }
+}
+
+async function standing(uid) {
+  const r = await asUser(uid, `select low_count, warning, blocked from public.client_standing()`);
+  return r.rows[0];
+}
+const C_STANDING = "00000000-0000-0000-0000-000000000031";
+
+await check("0032 standing: two low ratings give no warning; three give a warning but no block", async () => {
+  const jobs = await seedRatedClientJobs(C_STANDING, 5);
+  await lowRateAll(jobs.slice(0, 2));
+  let st = await standing(C_STANDING);
+  assert.equal(st.low_count, 2);
+  assert.equal(st.warning, false);
+  assert.equal(st.blocked, false);
+  await lowRateAll(jobs.slice(2, 3));
+  st = await standing(C_STANDING);
+  assert.equal(st.low_count, 3);
+  assert.equal(st.warning, true);
+  assert.equal(st.blocked, false);
+});
+const C_BLOCK = "00000000-0000-0000-0000-000000000032";
+
+await check("0032 block: five low ratings stop new job requests; the form refuses the insert", async () => {
+  const jobs = await seedRatedClientJobs(C_BLOCK, 5);
+  await lowRateAll(jobs);
+  const st = await standing(C_BLOCK);
+  assert.equal(st.blocked, true);
+  await assert.rejects(
+    db.query(`insert into public.jobs (homeowner_id, trade, zone, description) values ('${C_BLOCK}', 'plumber', 'Naco', 'Nueva solicitud de prueba')`),
+    /calificaciones bajas/,
+  );
+});
+const C_WINDOW = "00000000-0000-0000-0000-000000000033";
+
+await check("0032 window: low ratings older than 90 days stop counting and the block lifts", async () => {
+  const jobs = await seedRatedClientJobs(C_WINDOW, 5);
+  await lowRateAll(jobs);
+  await db.query(`update public.private_client_ratings set created_at = now() - interval '91 days' where client_id = '${C_WINDOW}'`);
+  const st = await standing(C_WINDOW);
+  assert.equal(st.low_count, 0);
+  assert.equal(st.blocked, false);
+  await db.query(`insert into public.jobs (homeowner_id, trade, zone, description) values ('${C_WINDOW}', 'plumber', 'Naco', 'Nueva solicitud después de la ventana')`);
+});
+const C_CLEAR = "00000000-0000-0000-0000-000000000034";
+
+await check("0032 clear: only an admin clears the count, with a reason; the block lifts and new lows count again", async () => {
+  const jobs = await seedRatedClientJobs(C_CLEAR, 5);
+  await lowRateAll(jobs);
+  await assert.rejects(
+    asUser(PRO, `select public.clear_client_rating_limit('${C_CLEAR}', 'Motivo de prueba largo')`),
+    /Solo el administrador/,
+  );
+  await assert.rejects(
+    asUser(ADMIN, `select public.clear_client_rating_limit('${C_CLEAR}', 'corto')`),
+    /mínimo 10/,
+  );
+  await asUser(ADMIN, `select public.clear_client_rating_limit('${C_CLEAR}', 'Revisión manual del equipo')`);
+  let st = await standing(C_CLEAR);
+  assert.equal(st.blocked, false);
+  assert.equal(st.low_count, 0);
+  await db.query(`insert into public.jobs (homeowner_id, trade, zone, description) values ('${C_CLEAR}', 'plumber', 'Naco', 'Nueva solicitud tras la revisión')`);
+});
+const C_PRIVACY = "00000000-0000-0000-0000-000000000035";
+
+await check("0032 privacy: the client sees counts, not individual ratings", async () => {
+  const r = await asUser(C_PRIVACY, `select count(*)::int as n from public.private_client_ratings where client_id = '${C_PRIVACY}'`);
+  assert.equal(r.rows[0].n, 0);
+});
+
 await db.close();
 
 for (const [status, name] of results) console.log(`${status}  ${name}`);

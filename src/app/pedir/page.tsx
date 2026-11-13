@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { RequestForm } from "./RequestForm";
 import { getProCard } from "@/lib/data/pros";
+import { getClientStanding } from "@/lib/data/standing";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
@@ -32,6 +33,22 @@ export default async function RequestPage({
     (c): c is NonNullable<typeof c> => c !== null,
   );
 
+  const standing = await getClientStanding(supabase);
+  if (standing.blocked) {
+    return (
+      <section className="stack">
+        <h1>{es.jobs.requestTitle}</h1>
+        <div className="panel stack">
+          <b>{es.standing.blockedTitle}</b>
+          <p>{es.standing.blockedBody}</p>
+        </div>
+        <Link className="button secondary" href="/cuenta">
+          {es.common.back}
+        </Link>
+      </section>
+    );
+  }
+
   if (cards.length === 0) {
     return (
       <section className="stack">
@@ -45,9 +62,17 @@ export default async function RequestPage({
   }
 
   return (
+    <>
+      {standing.warning ? (
+        <div className="panel stack">
+          <b>{es.standing.warningTitle}</b>
+          <p>{es.standing.warningBody(standing.low_count)}</p>
+        </div>
+      ) : null}
     <RequestForm
       userId={userData.user.id}
       pros={cards.map((c) => ({ id: c.id, name: c.full_name, trade: c.trade, zone: c.zone }))}
     />
+    </>
   );
 }
