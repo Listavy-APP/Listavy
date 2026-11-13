@@ -18,6 +18,19 @@ export default async function ProStatusPage() {
 
   const pro = await getMyPro(supabase);
 
+  // Current boost, if any. RLS limits this to the signed-in pro's own rows.
+  const { data: activeBoost } = pro
+    ? await supabase
+        .from("boosts")
+        .select("ends_at")
+        .eq("pro_id", pro.id)
+        .in("status", ["active", "paused"])
+        .gt("ends_at", new Date().toISOString())
+        .order("starts_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+
   if (!pro) {
     return (
       <section className="stack">
@@ -39,7 +52,17 @@ export default async function ProStatusPage() {
           {es.search.viewProfile}
         </Link>
       )}
-      {pro.verification_status === "approved" && <BoostPanel />}
+      {pro.verification_status === "approved" && activeBoost && (
+        <p className="panel">
+          {es.proStatus.boost.active(
+            new Date(activeBoost.ends_at).toLocaleDateString("es-DO", {
+              dateStyle: "long",
+              timeZone: "America/Santo_Domingo",
+            }),
+          )}
+        </p>
+      )}
+      {pro.verification_status === "approved" && !activeBoost && <BoostPanel />}
     </section>
   );
 }

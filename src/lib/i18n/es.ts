@@ -227,6 +227,7 @@ export const es = {
       intro: "Tu perfil aparece en la sección Destacados de la búsqueda, con la etiqueta Destacado. No garantiza trabajos ni cambia tu comisión.",
       option: (days: number, price: string) => `${days} días · ${price}`,
       failed: "No se pudo iniciar el pago. Intenta de nuevo.",
+      active: (date: string) => `Promoción activa hasta ${date}.`,
     },
     suspended: "Tu perfil está suspendido. Contacta a Listavy para más información.",
     none: "Todavía no has enviado una solicitud.",
