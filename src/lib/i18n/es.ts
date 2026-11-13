@@ -231,6 +231,7 @@ export const es = {
       option: (days: number, price: string) => `${days} días · ${price}`,
       failed: "No se pudo iniciar el pago. Intenta de nuevo.",
       active: (date: string) => `Promoción activa hasta ${date}.`,
+      paused: "Promoción pausada mientras tu cuenta está bloqueada.",
     },
     suspended: "Tu perfil está suspendido. Contacta a Listavy para más información.",
     none: "Todavía no has enviado una solicitud.",

@@ -22,7 +22,7 @@ export default async function ProStatusPage() {
   const { data: activeBoost } = pro
     ? await supabase
         .from("boosts")
-        .select("ends_at")
+        .select("ends_at, status")
         .eq("pro_id", pro.id)
         .in("status", ["active", "paused"])
         .gt("ends_at", new Date().toISOString())
@@ -54,7 +54,9 @@ export default async function ProStatusPage() {
       )}
       {pro.verification_status === "approved" && activeBoost && (
         <p className="panel">
-          {es.proStatus.boost.active(
+          {activeBoost.status === "paused"
+            ? es.proStatus.boost.paused
+            : es.proStatus.boost.active(
             new Date(activeBoost.ends_at).toLocaleDateString("es-DO", {
               dateStyle: "long",
               timeZone: "America/Santo_Domingo",
