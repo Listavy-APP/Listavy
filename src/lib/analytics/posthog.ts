@@ -24,6 +24,8 @@ export function initAnalytics(): boolean {
     disable_session_recording: true,
     person_profiles: "never",
     persistence: "memory",
+    // Do not capture IP addresses. The privacy text states this.
+    ip: false,
   });
   ready = true;
   return ready;
