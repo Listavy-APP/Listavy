@@ -540,7 +540,7 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
   width: 100%;
   max-width: 480px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   background: var(--paper);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
@@ -551,7 +551,7 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--muted);
   text-decoration: none;
@@ -562,3 +562,10 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
 }
 /* Keep page content clear of the fixed bar on tab pages. */
 body:has(.bottom-nav) .page { padding-bottom: 96px; }
+
+/* Job photo thumbnails (Phase 2, item 2). */
+.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s1); }
+.photo-tile { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.photo-tile img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); background: var(--canvas); display: block; }
+.photo-tile figcaption { font-size: 0.8rem; }
+.photo-missing { width: 100%; aspect-ratio: 1 / 1; border-radius: 12px; background: var(--canvas); border: 1px dashed var(--line); }

@@ -8,6 +8,7 @@ import { es } from "@/lib/i18n/es";
 const TABS = [
   { href: "/", label: es.nav.home },
   { href: "/buscar", label: es.nav.search },
+  { href: "/trabajos", label: es.nav.jobs },
   { href: "/avisos", label: es.nav.notifications },
   { href: "/cuenta", label: es.nav.account },
 ] as const;

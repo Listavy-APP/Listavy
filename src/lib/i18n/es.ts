@@ -433,10 +433,16 @@ export const es = {
     decisionTitle: "Decisión",
     stage: { filed: "Presentada", evidence: "Ventana de evidencia", decided: "Decidida", executed: "Ejecutada", closed: "Cerrada" },
   },
+  trabajos: {
+    title: "Trabajos",
+    empty: "Todavía no tienes trabajos. Busca un profesional para empezar.",
+    findPro: "Buscar profesionales",
+  },
   nav: {
     label: "Navegación principal",
     home: "Inicio",
     search: "Buscar",
+    jobs: "Trabajos",
     notifications: "Avisos",
     account: "Cuenta",
   },

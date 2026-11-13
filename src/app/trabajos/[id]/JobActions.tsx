@@ -95,12 +95,20 @@ export function JobActions(props: {
       {photos.length === 0 ? (
         <p className="muted">{es.jobs.noPhotos}</p>
       ) : (
-        <div className="stack">
+        <div className="photo-grid">
           {photos.map((p, i) => (
-            <p key={i}>
-              <span className="muted">{es.jobs.photoKind[p.kind]}</span>{" "}
-              {p.url ? <a href={p.url} target="_blank" rel="noreferrer">{es.jobs.openPhoto}</a> : null}
-            </p>
+            <figure key={i} className="photo-tile">
+              {p.url ? (
+                <a href={p.url} target="_blank" rel="noreferrer" aria-label={es.jobs.openPhoto}>
+                  {/* Signed URL, private bucket. Thumbnail only; next/image cannot optimize signed URLs. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.url} alt={es.jobs.photoKind[p.kind]} loading="lazy" />
+                </a>
+              ) : (
+                <div className="photo-missing" aria-hidden="true" />
+              )}
+              <figcaption className="muted">{es.jobs.photoKind[p.kind]}</figcaption>
+            </figure>
           ))}
         </div>
       )}
