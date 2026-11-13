@@ -29,6 +29,12 @@ export function initAnalytics(): boolean {
   return ready;
 }
 
+/** Stops capture for this page load and the stored opt-out. Used when the user turns analytics off. */
+export function disableAnalytics(): void {
+  if (!ready) return;
+  posthog.opt_out_capturing();
+}
+
 export function trackEvent(name: AnalyticsEvent, props: AnalyticsProps): void {
   if (!ready) return;
   posthog.capture(name, { ...props });

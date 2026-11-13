@@ -137,7 +137,11 @@ export default async function ProfilePage() {
         </Link>
       )}
 
-      <h2>{es.profile.deleteTitle}</h2>
+      <Link className="button secondary" href="/ajustes">
+        {es.settings.title}
+      </Link>
+
+      <h2 id="eliminar">{es.profile.deleteTitle}</h2>
       <DeleteAccount />
       <hr className="account-rule" />
       <SignOutButton />

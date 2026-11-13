@@ -2,7 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { initAnalytics, trackEvent } from "@/lib/analytics/posthog";
+import { trackEvent, initAnalytics } from "@/lib/analytics/posthog";
+import { getAnalyticsConsent } from "@/lib/analytics/consent";
 import { routePattern, type PageViewProps } from "@/lib/analytics/events";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
@@ -12,7 +13,7 @@ export function Analytics() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!initAnalytics()) return;
+    if (!getAnalyticsConsent() || !initAnalytics()) return;
     const props: PageViewProps = {
       path: routePattern(pathname),
       language: navigator.language.toLowerCase().startsWith("en") ? "en" : "es",
