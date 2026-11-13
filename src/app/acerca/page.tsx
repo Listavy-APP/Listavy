@@ -10,6 +10,12 @@ export default function AboutPage() {
       <h2>{es.legal.contactTitle}</h2>
       <p>{es.legal.contactEmail}</p>
       <p>{es.legal.contactAddress}</p>
+      <h2>{es.legal.creditsTitle}</h2>
+      <ul className="muted">
+        <li>{es.legal.creditPlumber}</li>
+        <li>{es.legal.creditElectrician}</li>
+        <li>{es.legal.creditAc}</li>
+      </ul>
       <Link className="button secondary" href="/privacidad">
         {es.legal.privacyLink}
       </Link>
