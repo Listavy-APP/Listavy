@@ -4,6 +4,7 @@
 
 import { findTransferForPayment } from "./transfer-lookup.ts";
 import type {
+  BoostCheckoutInput,
   BoostEvent,
   CheckoutCreated,
   CheckoutEvent,
@@ -88,6 +89,28 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
         "metadata[amount_minor]": String(input.amountMinor),
         "payment_intent_data[metadata][job_id]": input.jobId,
         ...tipMetadata,
+      });
+      const session = await api("POST", "/v1/checkout/sessions", params);
+      return { url: session.url, sessionId: session.id };
+    },
+
+    async createBoostCheckout(input: BoostCheckoutInput): Promise<CheckoutCreated> {
+      const params = new URLSearchParams({
+        mode: "payment",
+        currency: input.currency.toLowerCase(),
+        success_url: input.successUrl,
+        cancel_url: input.cancelUrl,
+        client_reference_id: input.proId,
+        "line_items[0][quantity]": "1",
+        "line_items[0][price_data][currency]": input.currency.toLowerCase(),
+        "line_items[0][price_data][unit_amount]": String(input.amountMinor),
+        "line_items[0][price_data][product_data][name]": input.productName,
+        "metadata[purpose]": "boost",
+        "metadata[pro_id]": input.proId,
+        "metadata[duration_days]": String(input.durationDays),
+        "metadata[amount_dop]": String(input.amountDop),
+        "metadata[amount_minor]": String(input.amountMinor),
+        "metadata[fx]": String(input.fx),
       });
       const session = await api("POST", "/v1/checkout/sessions", params);
       return { url: session.url, sessionId: session.id };

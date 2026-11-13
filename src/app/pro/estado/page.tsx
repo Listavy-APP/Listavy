@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getMyPro } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { BoostPanel } from "./BoostPanel";
 import { connection } from "next/server";
 
 export const metadata = { title: es.proStatus.title };
@@ -38,6 +39,7 @@ export default async function ProStatusPage() {
           {es.search.viewProfile}
         </Link>
       )}
+      {pro.verification_status === "approved" && <BoostPanel />}
     </section>
   );
 }

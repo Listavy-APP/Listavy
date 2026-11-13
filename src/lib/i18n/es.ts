@@ -222,6 +222,12 @@ export const es = {
     title: "Estado de mi solicitud",
     pending: "Tu solicitud está en revisión. Te avisaremos cuando esté lista.",
     approved: "Tu perfil está aprobado y visible para los propietarios.",
+    boost: {
+      title: "Destacar mi perfil",
+      intro: "Tu perfil aparece en la sección Destacados de la búsqueda, con la etiqueta Destacado. No garantiza trabajos ni cambia tu comisión.",
+      option: (days: number, price: string) => `${days} días · ${price}`,
+      failed: "No se pudo iniciar el pago. Intenta de nuevo.",
+    },
     suspended: "Tu perfil está suspendido. Contacta a Listavy para más información.",
     none: "Todavía no has enviado una solicitud.",
     applyCta: "Enviar solicitud",

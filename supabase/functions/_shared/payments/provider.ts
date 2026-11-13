@@ -24,6 +24,18 @@ export type CheckoutInput = {
   cancelUrl: string;
 };
 
+export type BoostCheckoutInput = {
+  proId: string;
+  durationDays: 7 | 30;
+  amountDop: number;
+  amountMinor: number;
+  currency: Currency;
+  fx: number;
+  productName: string;
+  successUrl: string;
+  cancelUrl: string;
+};
+
 export type CheckoutCreated = { url: string; sessionId: string };
 
 // A paid job checkout, normalized from a provider webhook.
@@ -88,6 +100,9 @@ export interface PaymentProvider {
 
   /** Starts a hosted checkout for one job payment. */
   createCheckout(input: CheckoutInput): Promise<CheckoutCreated>;
+
+  /** Starts a hosted checkout for a paid profile boost. No job, no transfer. */
+  createBoostCheckout(input: BoostCheckoutInput): Promise<CheckoutCreated>;
 
   /** Verifies the webhook signature from the request headers and normalizes the event. Throws only on infrastructure errors. */
   verifyWebhook(raw: string, headers: Headers): Promise<WebhookResult>;
