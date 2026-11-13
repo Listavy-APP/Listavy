@@ -55,6 +55,19 @@ export interface JobPhotoRow {
 }
 
 /** Upload a file under <uid>/<uuid>.<ext>. Returns the object path. */
+const MIME_BY_EXT: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  m4a: "audio/mp4",
+  mp4: "audio/mp4",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  webm: "audio/webm",
+};
+
 export async function uploadJobFile(
   supabase: SupabaseClient,
   uid: string,
@@ -62,7 +75,12 @@ export async function uploadJobFile(
   ext: string,
 ): Promise<string> {
   const path = `${uid}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from(JOB_BUCKET).upload(path, blob, { upsert: false });
+  // Send a real content type. Some browsers leave File.type empty for .m4a and similar,
+  // and playback then depends on the default type the server stores.
+  const contentType = blob.type || MIME_BY_EXT[ext.toLowerCase()] || "application/octet-stream";
+  const { error } = await supabase.storage
+    .from(JOB_BUCKET)
+    .upload(path, blob, { upsert: false, contentType });
   if (error) throw new Error(`No se pudo subir el archivo: ${error.message}`);
   return path;
 }
