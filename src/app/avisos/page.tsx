@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { listMyNotifications } from "@/lib/data/disputes";
+import { EmptyState } from "@/components/EmptyState";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -20,7 +21,9 @@ export default async function NotificationsPage() {
   return (
     <section className="stack">
       <h1>{es.notifications.title}</h1>
-      {rows.length === 0 ? <p className="muted">{es.notifications.empty}</p> : null}
+      {rows.length === 0 ? (
+        <EmptyState title={es.notifications.empty} body={es.notifications.emptyBody} actionHref="/buscar" actionLabel={es.search.title} />
+      ) : null}
       {rows.map((n) => (
         <article key={n.id} className="card stack">
           <p className="muted">

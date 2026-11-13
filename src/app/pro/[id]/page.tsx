@@ -3,6 +3,7 @@ import { getProCard, getWorkPhotoUrls } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { Avatar } from "@/components/Avatar";
+import { EmptyState } from "@/components/EmptyState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getProReviewSummary, listProReviews } from "@/lib/data/reviews";
 
@@ -66,7 +67,7 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
 
       <h2>{es.reviews.title}</h2>
       {summary.review_count === 0 ? (
-        <p className="muted">{es.reviews.noReviews}</p>
+        <EmptyState title={es.reviews.noReviews} body={es.reviews.noReviewsBody} />
       ) : (
         <div className="stack">
           <b>

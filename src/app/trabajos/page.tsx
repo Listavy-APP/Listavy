@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listMyJobs } from "@/lib/data/customer";
 import { es } from "@/lib/i18n/es";
+import { EmptyState } from "@/components/EmptyState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: es.trabajos.title };
@@ -28,10 +29,7 @@ export default async function TrabajosPage() {
     <section className="stack">
       <h1>{es.trabajos.title}</h1>
       {jobs.length === 0 ? (
-        <div className="panel stack">
-          <p className="muted">{es.trabajos.empty}</p>
-          <Link className="button" href="/buscar">{es.trabajos.findPro}</Link>
-        </div>
+        <EmptyState title={es.trabajos.emptyTitle} body={es.trabajos.empty} actionHref="/buscar" actionLabel={es.trabajos.findPro} />
       ) : (
         <ul className="list">
           {jobs.map((j) => (

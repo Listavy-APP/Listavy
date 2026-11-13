@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -93,7 +94,7 @@ export function JobActions(props: {
 
       <h2>{es.jobs.photosTitle}</h2>
       {photos.length === 0 ? (
-        <p className="muted">{es.jobs.noPhotos}</p>
+        <EmptyState title={es.jobs.noPhotos} body={es.jobs.noPhotosBody} />
       ) : (
         <div className="photo-grid">
           {photos.map((p, i) => (

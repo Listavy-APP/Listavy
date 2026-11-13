@@ -602,3 +602,20 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 
 /* Global brand row (Phase 2, item 5). Same on every page. */
 .app-header { padding-bottom: var(--s1); border-bottom: 1px solid var(--line); margin-bottom: var(--s2); min-height: 48px; }
+
+/* Empty and loading states (Phase 2, item 6). */
+.empty-state { display: flex; flex-direction: column; gap: var(--s1); align-items: flex-start; }
+.empty-title { margin: 0; font-weight: 700; color: var(--ink); }
+.empty-state .button { width: auto; }
+.skeleton {
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--line) 25%, var(--canvas) 50%, var(--line) 75%);
+  background-size: 200% 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton { animation: skeleton-pulse 1.2s ease-in-out infinite; }
+}
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

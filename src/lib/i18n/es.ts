@@ -14,6 +14,7 @@ export const es = {
   reviews: {
     title: "Reseñas",
     noReviews: "Sin reseñas todavía",
+    noReviewsBody: "Las reseñas aparecen después de un trabajo completado y pagado.",
     countOne: "1 reseña",
     countMany: (n: number) => `${n} reseñas`,
     fewReviews: (n: number) => `${n} reseña${n === 1 ? "" : "s"} hasta ahora`,
@@ -300,6 +301,7 @@ export const es = {
     voiceTitle: "Nota de voz",
     voiceUnavailable: "No se pudo cargar la nota de voz.",
     noPhotos: "Sin fotos todavía.",
+    noPhotosBody: "Las fotos del problema y del trabajo aparecen aquí.",
     photoKind: { request: "Problema", before: "Antes", after: "Después" },
     openPhoto: "Ver foto",
     quotesTitle: "Cotizaciones",
@@ -436,6 +438,7 @@ export const es = {
   },
   trabajos: {
     title: "Trabajos",
+    emptyTitle: "Aún no tienes trabajos",
     empty: "Todavía no tienes trabajos. Busca un profesional para empezar.",
     findPro: "Buscar profesionales",
   },
@@ -459,6 +462,7 @@ export const es = {
   notifications: {
     title: "Avisos",
     empty: "No tienes avisos.",
+    emptyBody: "Aquí verás avisos sobre tus trabajos y disputas.",
     kinds: { notice: "Disputa", reminder: "Recordatorio", decision: "Decisión", recovery_request: "Pago pendiente" },
   },
   location: {
