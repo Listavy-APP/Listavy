@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { getCurrentProfile } from "@/lib/data/profiles";
-import { listMyJobs } from "@/lib/data/customer";
+import { listJobsForUser } from "@/lib/data/customer";
 import { es } from "@/lib/i18n/es";
 import { EmptyState } from "@/components/EmptyState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -23,7 +23,7 @@ export default async function TrabajosPage() {
   if (!userData.user) redirect("/login");
 
   const profile = await getCurrentProfile(supabase);
-  const jobs = profile ? await listMyJobs(supabase, profile.id) : [];
+  const jobs = profile ? await listJobsForUser(supabase, profile.id) : [];
 
   return (
     <section className="stack">

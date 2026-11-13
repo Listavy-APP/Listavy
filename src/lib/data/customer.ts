@@ -19,6 +19,18 @@ export interface CustomerReview {
   pro_name: string | null;
 }
 
+/** Jobs the signed-in user is party to: as homeowner or as the assigned pro. */
+export async function listJobsForUser(supabase: SupabaseClient, userId: string): Promise<CustomerJob[]> {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("id, trade, zone, status, payment_status, created_at")
+    .or(`homeowner_id.eq.${userId},pro_id.eq.${userId}`)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw new Error(`No se pudieron leer tus trabajos: ${error.message}`);
+  return (data ?? []) as CustomerJob[];
+}
+
 export async function listMyJobs(supabase: SupabaseClient, homeownerId: string): Promise<CustomerJob[]> {
   const { data, error } = await supabase
     .from("jobs")

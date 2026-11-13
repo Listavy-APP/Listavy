@@ -269,20 +269,26 @@ export function JobActions(props: {
                 <input inputMode="decimal" value={revDuration} onChange={(e) => setRevDuration(e.target.value)} /></label>
               <TextArea label={es.jobs.revisionReason} rows={3} value={revReason} onChange={(e) => setRevReason(e.target.value)} />
               <button className="button" type="button" disabled={busy || revMaterials === ""}
-                onClick={() =>
+                onClick={() => {
+                  const startMs = Date.parse(revStart);
+                  const endMs = Date.parse(revEnd);
+                  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
+                    setError(es.jobs.invalidWindow);
+                    return;
+                  }
                   run(async () => {
                     await proposeRevision(supabase(), job.id, {
                       amountDop: Number(revAmount),
                       includes: revIncludes.trim(),
                       excludes: revExcludes.trim(),
                       materialsIncluded: revMaterials === "yes",
-                      windowStart: new Date(revStart).toISOString(),
-                      windowEnd: new Date(revEnd).toISOString(),
+                      windowStart: new Date(startMs).toISOString(),
+                      windowEnd: new Date(endMs).toISOString(),
                       durationHours: Number(revDuration),
                       reason: revReason.trim(),
                     });
-                  })
-                }>
+                  });
+                }}>
                 {es.jobs.revisionForm}
               </button>
             </div>

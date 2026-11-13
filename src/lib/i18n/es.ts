@@ -277,6 +277,7 @@ export const es = {
     materialsRequired: "Indica si los materiales están incluidos.",
     startLabel: "Inicio de la ventana",
     endLabel: "Fin de la ventana",
+    invalidWindow: "Indica la fecha y hora de inicio y fin de la ventana.",
     durationLabel: "Duración estimada (horas)",
     sendQuote: "Enviar cotización",
     decline: "No puedo",
