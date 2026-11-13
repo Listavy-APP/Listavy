@@ -546,36 +546,49 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
 }
 
 /* Bottom navigation (Phase 2, item 1). Tab pages only; see BottomNav.tsx. */
+/* Floating pill nav (Phase 2, item 1 revised): frosted capsule, icon-only, centred above the edge. */
 .bottom-nav {
   position: fixed;
   left: 50%;
-  bottom: 0;
+  bottom: calc(12px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;
+  width: calc(100% - 32px);
+  max-width: 440px;
+  height: 64px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  background: var(--paper);
-  border-top: 1px solid var(--line);
-  padding-bottom: env(safe-area-inset-bottom);
+  align-items: center;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.06);
   z-index: 10;
 }
 .bottom-nav-tab {
-  min-height: 56px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--muted);
-  text-decoration: none;
-}
-.bottom-nav-tab[aria-current="page"] {
   color: var(--primary);
-  box-shadow: inset 0 3px 0 var(--accent);
+  text-decoration: none;
+  border-radius: 999px;
 }
-/* Keep page content clear of the fixed bar on tab pages. */
-body:has(.bottom-nav) .page { padding-bottom: 96px; }
+.bottom-nav-well {
+  width: 56px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+.bottom-nav-tab[aria-current="page"] .bottom-nav-well { background: rgba(15, 23, 42, 0.09); }
+.bottom-nav-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Keep page content clear of the floating pill (pill 64 px + 12 px inset + 24 px gap). */
+body:has(.bottom-nav) .page { padding-bottom: 120px; }
 
 /* Job photo thumbnails (Phase 2, item 2). */
 .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s1); }
@@ -598,7 +611,7 @@ body:has(.bottom-nav) .page { padding-bottom: 96px; }
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(56px + env(safe-area-inset-bottom));
+  bottom: calc(92px + env(safe-area-inset-bottom));
   width: 100%;
   max-width: 480px;
   display: flex;
