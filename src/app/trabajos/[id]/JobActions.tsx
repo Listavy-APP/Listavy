@@ -2,7 +2,7 @@
 
 import { EmptyState } from "@/components/EmptyState";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   addJobPhoto,
   approveCloseout,
@@ -62,11 +62,17 @@ export function JobActions(props: {
     }
   }
 
+  // Per-file record of completed uploads. A retry after a partial failure skips these,
+  // so no file is uploaded twice or added to the job twice.
+  const uploadedPhotos = useRef(new Map<File, string>());
+
   async function uploadPhotos(files: File[], kind: "before" | "after") {
     for (const f of files) {
+      if (uploadedPhotos.current.has(f)) continue;
       const blob = await resizeImage(f);
       const path = await uploadJobFile(supabase(), props.userId, blob, "jpg");
       await addJobPhoto(supabase(), job.id, kind, path);
+      uploadedPhotos.current.set(f, path);
     }
   }
 

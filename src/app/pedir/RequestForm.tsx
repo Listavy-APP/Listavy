@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { LocationConsent } from "@/components/LocationConsent";
 import { Choice } from "@/components/ui/Choice";
 import { FilePick } from "@/components/ui/FilePick";
@@ -24,6 +24,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [voice, setVoice] = useState<File | null>(null);
+  const uploaded = useRef(new Map<File, string>());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdJobId, setCreatedJobId] = useState<string | null>(null);
@@ -38,15 +39,25 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
     setBusy(true);
     try {
       const supabase = createSupabaseBrowserClient();
+      // Files that already uploaded in a failed attempt are reused, so a retry adds no duplicates.
       const photoPaths: string[] = [];
       for (const file of photos) {
-        const blob = await resizeImage(file);
-        photoPaths.push(await uploadJobFile(supabase, props.userId, blob, "jpg"));
+        let path = uploaded.current.get(file);
+        if (!path) {
+          const blob = await resizeImage(file);
+          path = await uploadJobFile(supabase, props.userId, blob, "jpg");
+          uploaded.current.set(file, path);
+        }
+        photoPaths.push(path);
       }
       let voicePath: string | null = null;
       if (voice) {
-        const ext = voice.name.split(".").pop() || "m4a";
-        voicePath = await uploadJobFile(supabase, props.userId, voice, ext);
+        voicePath = uploaded.current.get(voice) ?? null;
+        if (!voicePath) {
+          const ext = voice.name.split(".").pop() || "m4a";
+          voicePath = await uploadJobFile(supabase, props.userId, voice, ext);
+          uploaded.current.set(voice, voicePath);
+        }
       }
       const jobId = await createJobRequest(supabase, {
         trade,
