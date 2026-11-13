@@ -574,3 +574,28 @@ body:has(.bottom-nav) .page { padding-bottom: 96px; }
 .cat { flex-direction: column; align-items: stretch; gap: var(--s1); padding: 0 0 var(--s2); overflow: hidden; }
 .cat-photo { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: var(--canvas); }
 .cat .cat-name { padding: 0 var(--s2); }
+
+/* Multi-pro picker (Phase 2, item 4). */
+.card-picked { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow-card); }
+.card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s1); }
+.card-actions .button { width: 100%; }
+/* Sits above the fixed bottom nav (56px + safe area). */
+.pick-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(56px + env(safe-area-inset-bottom));
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: var(--s1) var(--s2);
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.06);
+  z-index: 9;
+}
+.pick-bar .button { width: auto; }
+body:has(.pick-bar) .page { padding-bottom: 160px; }

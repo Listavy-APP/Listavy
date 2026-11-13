@@ -5,7 +5,7 @@ import { es } from "@/lib/i18n/es";
 import { SD_ZONES, TRADES, isTrade, isZone } from "@/lib/domain/catalog";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { avatarUrl } from "@/lib/storage/proFiles";
-import { Avatar } from "@/components/Avatar";
+import { ProPicker } from "./ProPicker";
 
 export const metadata = { title: es.search.title };
 // Session-dependent page: block on the server so redirects return real status codes.
@@ -84,36 +84,27 @@ export default async function SearchPage({
       {pros.length === 0 ? (
         <p className="muted">{es.search.empty}</p>
       ) : (
-        <ul className="cards">
-          {pros.map((p) => (
-            <li key={p.id} className="card">
-              <div className="card-head">
-                <Avatar name={p.full_name} src={avatarUrl(supabase, p.avatar_path)} />
-                <div className="card-body">
-                  <p className="card-name">{p.full_name ?? "—"}</p>
-                  <p className="muted">
-                    {es.trades[p.trade]} · {p.zone}
-                  </p>
-                </div>
-              </div>
-              <div className="badge">{es.search.verified}</div>
-              <p className="card-price">
-                {es.search.priceRange}: {es.money.dop(p.price_min_dop)} – {es.money.dop(p.price_max_dop)}
-              </p>
-              <p className="muted">
-                {(() => {
-                  const sm = summaries.get(p.id);
-                  if (!sm || sm.review_count === 0) return es.reviews.noReviews;
-                  const count = sm.review_count === 1 ? es.reviews.countOne : es.reviews.countMany(sm.review_count);
-                  return `${es.reviews.average(sm.average ?? 0)} · ${count}`;
-                })()}
-              </p>
-              <Link className="button secondary" href={`/pro/${p.id}`}>
-                {es.search.viewProfile}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <ProPicker
+          pros={pros.map((p) => {
+            const sm = summaries.get(p.id);
+            const reviewLabel =
+              !sm || sm.review_count === 0
+                ? es.reviews.noReviews
+                : `${es.reviews.average(sm.average ?? 0)} · ${
+                    sm.review_count === 1 ? es.reviews.countOne : es.reviews.countMany(sm.review_count)
+                  }`;
+            return {
+              id: p.id,
+              name: p.full_name,
+              trade: p.trade,
+              tradeLabel: es.trades[p.trade],
+              zone: p.zone,
+              priceLabel: `${es.search.priceRange}: ${es.money.dop(p.price_min_dop)} – ${es.money.dop(p.price_max_dop)}`,
+              reviewLabel,
+              avatarSrc: avatarUrl(supabase, p.avatar_path),
+            };
+          })}
+        />
       )}
     </section>
   );

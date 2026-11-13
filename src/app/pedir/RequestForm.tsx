@@ -96,7 +96,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
           </li>
         ))}
       </ul>
-      <p className="muted">{es.jobs.threeQuotesHint}</p>
+      <p className="muted">{props.pros.length === 1 ? es.jobs.oneQuoteHint : es.jobs.manyQuotesHint(props.pros.length)}</p>
 
       <label className="field">
         <span>{es.jobs.zoneLabel}</span>
