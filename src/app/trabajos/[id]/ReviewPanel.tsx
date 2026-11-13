@@ -32,7 +32,7 @@ export function ReviewPanel({ jobId, role, jobStatus, paid, disputeOpen, review,
   if (role === "homeowner") {
     if (!paid && !review) return null;
     if (!review) {
-      if (disputeOpen) return <p className="muted">{es.reviews.inDispute}</p>;
+      if (disputeOpen) return <p className="review-hold" role="status">{es.reviews.inDispute}</p>;
       return <ReviewForm jobId={jobId} />;
     }
     return <OwnReview review={review} disputeOpen={disputeOpen} />;
