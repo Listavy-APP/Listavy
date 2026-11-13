@@ -11,6 +11,7 @@ import { listMyJobs, listMyReviews } from "@/lib/data/customer";
 import { getClientStanding } from "@/lib/data/standing";
 import { customerPhotoUrl } from "@/lib/storage/customerFiles";
 import { es } from "@/lib/i18n/es";
+import { formatPhoneDisplay } from "@/lib/domain/phone";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: es.profile.title };
@@ -78,7 +79,7 @@ export default async function ProfilePage() {
 
       <dl className="details">
         <dt>{es.profile.phoneLabel}</dt>
-        <dd>{profile.phone ?? "—"}</dd>
+        <dd>{formatPhoneDisplay(profile.phone)}</dd>
       </dl>
       <p className="muted">{es.profile.phoneHint}</p>
 
@@ -138,6 +139,7 @@ export default async function ProfilePage() {
 
       <h2>{es.profile.deleteTitle}</h2>
       <DeleteAccount />
+      <hr className="account-rule" />
       <SignOutButton />
     </section>
   );

@@ -17,13 +17,16 @@ export function FilePick(props: {
   disabled?: boolean;
   files: File[];
   onFiles: (files: File[]) => void;
+  /** Thumbnails for work and profile photos. Identity documents pass false: file names only. */
+  preview?: boolean;
 }) {
   const isImage = props.accept.includes("image");
+  const showThumbs = isImage && (props.preview ?? true);
 
   // Object URLs for previews. Revoked when the selection changes or the field unmounts.
   const previews = useMemo(
-    () => (isImage ? props.files.map((f) => ({ name: f.name, url: URL.createObjectURL(f) })) : []),
-    [isImage, props.files],
+    () => (showThumbs ? props.files.map((f) => ({ name: f.name, url: URL.createObjectURL(f) })) : []),
+    [showThumbs, props.files],
   );
   useEffect(() => () => previews.forEach((p) => URL.revokeObjectURL(p.url)), [previews]);
 
@@ -45,7 +48,7 @@ export function FilePick(props: {
         <span>{props.buttonLabel}</span>
       </label>
 
-      {isImage ? (
+      {showThumbs ? (
         count > 0 ? (
           <div className="file-previews">
             {previews.map((p) => (
@@ -62,7 +65,7 @@ export function FilePick(props: {
         <span className="file-name">{count > 0 ? props.files.map((f) => f.name).join(", ") : es.common.noFile}</span>
       )}
 
-      {isImage && count > 0 ? <span className="file-name">{es.common.photosChosenCount(count)}</span> : null}
+      {showThumbs && count > 0 ? <span className="file-name">{es.common.photosChosenCount(count)}</span> : null}
       {props.hint ? <p className="muted">{props.hint}</p> : null}
     </div>
   );

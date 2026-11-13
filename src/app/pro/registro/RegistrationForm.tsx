@@ -151,6 +151,7 @@ export function RegistrationForm() {
 
       <FilePick
         label={es.registration.idLabel}
+        preview={false}
         hint={es.registration.idHint}
         buttonLabel={es.common.chooseOne}
         accept="image/*"
@@ -197,6 +198,7 @@ export function RegistrationForm() {
 
           <FilePick
             label={es.registration.companyDocLabel}
+            preview={false}
             hint={es.registration.companyDocHint}
             buttonLabel={es.registration.chooseDoc}
             accept="image/*,application/pdf"

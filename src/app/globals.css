@@ -657,3 +657,11 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .statement-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .dispute-decision { display: flex; flex-direction: column; gap: 4px; padding: var(--s1) var(--s2); border: 1px solid var(--line); border-radius: var(--radius-control); }
 .dispute-decision p { margin: 0; }
+
+/* Polish batch (Phase 2, item 9). */
+.chip-row {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  padding-right: 28px;
+}
+.account-rule { border: 0; border-top: 1px solid var(--line); margin: var(--s3) 0 var(--s2); }

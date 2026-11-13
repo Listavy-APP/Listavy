@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { PRIVACY_POLICY } from "@/lib/legal/privacy";
 import { es } from "@/lib/i18n/es";
 
@@ -32,9 +31,6 @@ export default function PrivacyPage() {
           ))}
         </div>
       ))}
-      <Link className="button secondary" href="/acerca">
-        {es.legal.aboutLink}
-      </Link>
     </section>
   );
 }
