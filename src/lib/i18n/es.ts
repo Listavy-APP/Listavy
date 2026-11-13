@@ -303,6 +303,7 @@ export const es = {
     voiceTitle: "Nota de voz",
     voiceUnavailable: "No se pudo cargar la nota de voz.",
     noPhotos: "Sin fotos todavía.",
+    beforeRequired: "Agrega al menos una foto de antes para empezar.",
     noPhotosBody: "Las fotos del problema y del trabajo aparecen aquí.",
     photoKind: { request: "Problema", before: "Antes", after: "Después" },
     openPhoto: "Ver foto",

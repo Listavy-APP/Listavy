@@ -156,7 +156,8 @@ export function JobActions(props: {
             files={beforeFiles}
             onFiles={setBeforeFiles}
           />
-          <button className="button" type="button" disabled={busy || !paid}
+          {beforeFiles.length === 0 ? <p className="muted">{es.jobs.beforeRequired}</p> : null}
+          <button className="button" type="button" disabled={busy || !paid || beforeFiles.length === 0}
             onClick={() =>
               run(async () => {
                 await uploadPhotos(beforeFiles, "before");
