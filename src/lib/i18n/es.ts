@@ -380,6 +380,10 @@ export const es = {
     ac_technician: "Técnico de aire acondicionado",
   },
   admin: {
+    navLabel: "Secciones de administración",
+    navPayments: "Pagos",
+    navDisputes: "Disputas",
+    navReviews: "Reseñas",
     title: "Pagos y reservas",
     subtitle: "Vista de solo lectura. Las acciones de mediación llegan en la siguiente etapa.",
     reserveTitle: "Reserva de garantía",

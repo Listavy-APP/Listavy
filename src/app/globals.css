@@ -679,3 +679,16 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
   padding-right: 28px;
 }
 .account-rule { border: 0; border-top: 1px solid var(--line); margin: var(--s3) 0 var(--s2); }
+
+/* Admin mobile layout (Phase 2, item 11). */
+.admin-nav { margin-top: var(--s1); }
+.stat { display: flex; flex-direction: column; gap: 4px; padding: var(--s2); border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--paper); box-shadow: var(--shadow-card); }
+.stat-label { font-size: 0.85rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-value { font-size: 1.6rem; font-weight: 800; color: var(--ink); }
+.records { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
+.record { padding: var(--s2); border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--paper); display: flex; flex-direction: column; gap: var(--s1); }
+.record-title { margin: 0; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.record-rows { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.record-row { display: grid; grid-template-columns: 9rem 1fr; gap: var(--s1); font-size: 0.9rem; }
+.record-row dt { color: var(--muted); }
+.record-row dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }

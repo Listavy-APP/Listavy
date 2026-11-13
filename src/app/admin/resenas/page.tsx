@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { AdminNav } from "../AdminNav";
 import { connection } from "next/server";
 import { ModerationButtons } from "./ModerationButtons";
 import { ClearLimitButton } from "./ClearLimitButton";
@@ -30,6 +31,7 @@ export default async function ReviewModerationPage() {
 
   return (
     <section className="stack">
+      <AdminNav current="/admin/resenas" />
       <h1>Moderación de reseñas</h1>
       {sorted.length === 0 ? <p className="muted">No hay reseñas.</p> : null}
       {sorted.map((r) => (
