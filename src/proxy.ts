@@ -33,7 +33,9 @@ export async function proxy(request: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some((p) => request.nextUrl.pathname.startsWith(p));
 
   if (isProtected && !data.user) {
-    const redirect = NextResponse.redirect(new URL("/login", request.url));
+    // Keep the full destination (path and query, e.g. /pedir?pro=<ids>) so sign-in returns there.
+    const next = request.nextUrl.pathname + request.nextUrl.search;
+    const redirect = NextResponse.redirect(new URL(`/login?next=${encodeURIComponent(next)}`, request.url));
     response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
     return redirect;
   }
