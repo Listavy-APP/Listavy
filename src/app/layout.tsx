@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   title: { default: es.brand, template: `%s · ${es.brand}` },
   description: es.home.subtitle,
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: es.brand, statusBarStyle: "default" },
 };
 

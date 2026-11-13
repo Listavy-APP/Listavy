@@ -46,6 +46,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Skip static files, the PWA manifest, and the service worker.
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icon.svg).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icon.svg|icon-192.png|icon-512.png|icon-maskable-512.png|apple-touch-icon.png).*)",
   ],
 };
