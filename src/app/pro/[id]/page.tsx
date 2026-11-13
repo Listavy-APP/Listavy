@@ -99,7 +99,7 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
           <Link href="/login">{es.proDetail.loginForPhotos}</Link>
         </div>
       ) : photos.length === 0 ? (
-        <p className="muted">{es.proDetail.noPhotos}</p>
+        <EmptyState title={es.proDetail.noPhotos} body={es.proDetail.noPhotosBody} />
       ) : (
         <div className="photos">
           {photos.map((src, i) => (

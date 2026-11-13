@@ -619,3 +619,18 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* File pickers: image previews and a designed empty placeholder (Phase 2, item 7). */
+.file-previews { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s1); }
+.file-thumb { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); display: block; }
+.file-empty {
+  min-height: 72px;
+  display: grid;
+  place-items: center;
+  padding: var(--s1);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  font-size: 0.9rem;
+  background: var(--canvas);
+}
