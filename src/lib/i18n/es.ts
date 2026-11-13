@@ -466,7 +466,7 @@ export const es = {
     aboutTitle: "Acerca de Listavy",
     aboutBody: "Listavy conecta a propietarios con plomeros, electricistas y técnicos de aire acondicionado verificados en Santo Domingo.",
     contactTitle: "Contacto",
-    contactEmail: "Correo: bianxlog@outlook.com",
+    contactEmail: "Correo: listavyapp@gmail.com",
     contactAddress: "Dirección: 73 Market Pl, Yonkers, NY 10710",
     privacyTitle: "Política de privacidad",
     privacyLink: "Política de privacidad",
