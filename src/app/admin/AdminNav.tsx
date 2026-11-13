@@ -5,6 +5,7 @@ const LINKS = [
   { href: "/admin", label: es.admin.navPayments },
   { href: "/admin/disputas", label: es.admin.navDisputes },
   { href: "/admin/resenas", label: es.admin.navReviews },
+  { href: "/admin/destacados", label: es.admin.navBoosts },
 ] as const;
 
 /** Admin section nav. `current` is the active href. */
