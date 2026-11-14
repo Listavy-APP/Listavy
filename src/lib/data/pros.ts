@@ -151,6 +151,19 @@ export async function listBoostedProIds(
   return ((data ?? []) as { pro_id: string }[]).map((r) => r.pro_id);
 }
 
+/**
+ * Cards for a set of pro ids (boosted pros). Fetched by id, so the list_pro_cards
+ * row limit does not hide them. Ids that are not approved are dropped.
+ * Order follows the input ids.
+ */
+export async function getProCardsByIds(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<ProCard[]> {
+  const cards = await Promise.all(ids.map((id) => getProCard(supabase, id)));
+  return cards.filter((c): c is ProCard => c !== null);
+}
+
 /** Whether a pro has an active paid boost. */
 export async function isProBoosted(supabase: SupabaseClient, id: string): Promise<boolean> {
   const { data, error } = await supabase.rpc("is_pro_boosted", { p_pro: id });
