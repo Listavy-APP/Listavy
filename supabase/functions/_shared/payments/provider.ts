@@ -79,7 +79,8 @@ export type WebhookResult =
 export type TransferInput = {
   paymentId: string;
   jobId: string;
-  chargeId: string;
+  /** Omit to fund the transfer from the platform balance (referral discounts). */
+  chargeId?: string;
   destination: string; // the pro's account at the provider
   amountMinor: number;
   currency: Currency;

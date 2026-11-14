@@ -137,18 +137,33 @@ export type PaymentSplit = {
   ratePct: number;
 };
 
+export type PaymentSplitWithReferral = PaymentSplit & {
+  /** Referral discount taken off the charge. Listavy funds it. The pro is not affected. */
+  referralDiscountDop: number;
+};
+
+/**
+ * Referral discount (Invita y gana). It reduces what the homeowner is charged. Commission and the
+ * pro's payout are still computed on the amount before the discount, so the pro is paid in full.
+ * Invariant: proPayoutDop + commissionDop = amountDop + referralDiscountDop.
+ */
 export function splitPayment(input: {
   quoteDop: number;
   creditDop: number;
   tipDop: number;
   kind: JobKind;
   plan: PlanTier;
-}): PaymentSplit {
+  discountDop?: number;
+}): PaymentSplitWithReferral {
   const { quoteDop, creditDop, tipDop, kind, plan } = input;
+  const discount = input.discountDop ?? 0;
+  if (!Number.isInteger(discount) || discount < 0) throw new Error("El descuento no es válido.");
   const tip = validateTip(tipDop, quoteDop);
-  const chargedDop = kind === "diagnostic" ? quoteDop : Math.max(0, quoteDop - creditDop);
+  const beforeReferral = kind === "diagnostic" ? quoteDop : Math.max(0, quoteDop - creditDop);
+  if (discount >= beforeReferral && discount > 0) throw new Error("El descuento supera el monto del trabajo.");
+  const chargedDop = beforeReferral - discount;
   if (chargedDop <= 0) throw new Error("No hay monto que cobrar.");
-  const commission = computeCommission({ amountDop: chargedDop, kind, plan });
+  const commission = computeCommission({ amountDop: beforeReferral, kind, plan });
   return {
     chargedDop,
     commissionDop: commission.commissionDop,
@@ -156,5 +171,6 @@ export function splitPayment(input: {
     amountDop: chargedDop + tip,
     proPayoutDop: commission.proPayoutDop + tip,
     ratePct: commission.ratePct,
+    referralDiscountDop: discount,
   };
 }
