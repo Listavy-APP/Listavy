@@ -6,6 +6,7 @@ import {
   uploadJpeg,
 } from "@/lib/storage/proFiles";
 import type { ProCard, ProFile, Pro, ProType, Trade } from "@/lib/types/database";
+import { DEFAULT_CITY, type City } from "@/lib/domain/catalog";
 
 /**
  * Data-access layer for pros. UI code calls these functions, never raw queries.
@@ -99,12 +100,13 @@ export async function createProApplication(
 /** Approved pros for a trade and/or zone. Uses the list_pro_cards function. */
 export async function listProCards(
   supabase: SupabaseClient,
-  filters: { trade?: Trade | null; zone?: string | null } = {},
+  filters: { trade?: Trade | null; zone?: string | null; city?: City } = {},
 ): Promise<ProCard[]> {
   const { data, error } = await supabase.rpc("list_pro_cards", {
     p_trade: filters.trade ?? null,
     p_zone: filters.zone ?? null,
     p_pro_id: null,
+    p_city: filters.city ?? DEFAULT_CITY,
   });
   if (error) throw new Error(`No se pudo buscar profesionales: ${error.message}`);
   return (data ?? []) as ProCard[];
@@ -141,11 +143,12 @@ export async function getWorkPhotoUrls(supabase: SupabaseClient, proId: string):
 /** Up to 3 boosted pro ids for a search, newest boost first. Same filters as listProCards. */
 export async function listBoostedProIds(
   supabase: SupabaseClient,
-  filters: { trade?: Trade | null; zone?: string | null } = {},
+  filters: { trade?: Trade | null; zone?: string | null; city?: City } = {},
 ): Promise<string[]> {
   const { data, error } = await supabase.rpc("boosted_pro_ids", {
     p_trade: filters.trade ?? null,
     p_zone: filters.zone ?? null,
+    p_city: filters.city ?? DEFAULT_CITY,
   });
   if (error) throw new Error(`No se pudieron cargar los destacados: ${error.message}`);
   return ((data ?? []) as { pro_id: string }[]).map((r) => r.pro_id);

@@ -488,6 +488,14 @@ export const es = {
     carpenter: "Carpintero",
     blacksmith: "Herrero",
   },
+  cities: {
+    santo_domingo: "Santo Domingo",
+    santiago: "Santiago de los Caballeros",
+  },
+  cityUi: {
+    label: "Ciudad",
+    mismatch: "Los profesionales elegidos no atienden esa ciudad. Elige otra zona o quita a un profesional.",
+  },
   admin: {
     navLabel: "Secciones de administración",
     navPayments: "Pagos",
