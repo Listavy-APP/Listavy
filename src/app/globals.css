@@ -505,6 +505,7 @@ legend {
 .photo-edit {
   position: relative;
   display: inline-block;
+  justify-self: start;
   flex: none;
   border-radius: 50%;
   cursor: pointer;

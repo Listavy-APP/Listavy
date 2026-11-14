@@ -73,7 +73,6 @@ export default async function ProfilePage() {
       </div>
       {standingNotice}
 
-      <h2>{es.profile.photoLabel}</h2>
       <PhotoPicker
         userId={profile.id}
         name={profile.full_name}
