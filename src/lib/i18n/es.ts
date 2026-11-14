@@ -491,6 +491,7 @@ export const es = {
   cities: {
     santo_domingo: "Santo Domingo",
     santiago: "Santiago de los Caballeros",
+    puerto_plata: "Puerto Plata",
   },
   cityUi: {
     label: "Ciudad",
