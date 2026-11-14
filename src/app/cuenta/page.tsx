@@ -5,6 +5,7 @@ import { SignOutButton } from "./SignOutButton";
 import { PhotoPicker } from "./PhotoPicker";
 import { EmailForm } from "./EmailForm";
 import { DeleteAccount } from "./DeleteAccount";
+import { HashScroll } from "@/components/HashScroll";
 import { Icon } from "@/components/Icon";
 import { JobCard } from "@/components/JobCard";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -191,6 +192,7 @@ export default async function ProfilePage() {
       <h2 id="eliminar">{es.profile.deleteTitle}</h2>
       <DeleteAccount />
       </div>
+      <HashScroll id="eliminar" />
     </section>
   );
 }
