@@ -27,7 +27,6 @@ export default function HomePage() {
 
       <div className="sec-title">
         <span>{es.home.servicesTitle}</span>
-        <Link href="/buscar">{es.home.seeAll}</Link>
       </div>
       <div className="cats">
         {TRADES.map((t) => (
