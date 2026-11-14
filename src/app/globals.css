@@ -58,6 +58,10 @@ html, body {
 }
 
 .stack { display: flex; flex-direction: column; gap: var(--s2); }
+/* About page: 24px between sections; heading and its text stay close together. */
+.about { gap: var(--s3); }
+.about-section { display: flex; flex-direction: column; gap: var(--s1); }
+.about-section h1, .about-section h2 { margin: 0; }
 
 /* Type hierarchy */
 /* Scale: page title > section > subsection > body > helper. One step between each. */
