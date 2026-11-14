@@ -22,6 +22,10 @@ export default function AboutPage() {
           <li>{es.legal.creditPlumber}</li>
           <li>{es.legal.creditElectrician}</li>
           <li>{es.legal.creditAc}</li>
+          <li>{es.legal.creditPainter}</li>
+          <li>{es.legal.creditLocksmith}</li>
+          <li>{es.legal.creditCarpenter}</li>
+          <li>{es.legal.creditBlacksmith}</li>
         </ul>
       </div>
       <Link className="button secondary" href="/privacidad">
