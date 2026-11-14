@@ -576,6 +576,8 @@ export const es = {
     emptyTitle: "Aún no tienes trabajos",
     empty: "Todavía no tienes trabajos. Busca un profesional para empezar.",
     findPro: "Buscar profesionales",
+    asClient: "Como cliente",
+    asPro: "Como profesional",
   },
   picker: {
     pick: "Elegir",
