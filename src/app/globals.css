@@ -694,7 +694,8 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .account-rule { border: 0; border-top: 1px solid var(--line); margin: var(--s3) 0 var(--s2); }
 
 /* Admin mobile layout (Phase 2, item 11). */
-.admin-nav { margin-top: var(--s1); }
+/* Admin sections wrap instead of scrolling, so the active chip is never hidden under the fade. */
+.admin-nav { margin-top: var(--s1); flex-wrap: wrap; overflow: visible; padding-right: 0; -webkit-mask-image: none; mask-image: none; }
 .stat { display: flex; flex-direction: column; gap: 4px; padding: var(--s2); border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--paper); box-shadow: var(--shadow-card); }
 .stat-label { font-size: 0.85rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .stat-value { font-size: 1.6rem; font-weight: 800; color: var(--ink); }
