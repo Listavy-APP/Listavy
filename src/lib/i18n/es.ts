@@ -145,7 +145,7 @@ export const es = {
     back: "Volver",
   },
   profile: {
-    title: "Mi perfil",
+    title: "Mi cuenta",
     photoLabel: "Foto de perfil",
     photoHint: "Una foto clara de tu cara. Se muestra solo a los profesionales de tus trabajos.",
     photoChoose: "Elegir foto",

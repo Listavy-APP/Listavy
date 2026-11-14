@@ -22,7 +22,7 @@ export default async function PhoneChangePage() {
   return (
     <section className="stack">
       <BackBar href="/cuenta" />
-      <h1>{es.phoneChange.title}</h1>
+      <h1 className="page-title">{es.phoneChange.title}</h1>
       <p className="muted">{es.phoneChange.hint}</p>
       <p>
         <span className="muted">{es.phoneChange.current}: </span>

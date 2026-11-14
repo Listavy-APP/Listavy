@@ -27,7 +27,7 @@ export default async function AddressesPage() {
   return (
     <section className="stack">
       <BackBar href="/cuenta" />
-      <h1>{es.addresses.title}</h1>
+      <h1 className="page-title">{es.addresses.title}</h1>
       {error ? <p className="error">{es.addresses.saveFailed}</p> : null}
       <AddressManager userId={userData.user.id} addresses={addresses} />
     </section>

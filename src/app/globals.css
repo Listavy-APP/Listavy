@@ -498,7 +498,15 @@ legend {
 .contact-row summary::-webkit-details-marker { display: none; }
 .contact-row summary::after { content: "›"; color: var(--ink-2); font-size: 20px; }
 .page-head h1 { text-align: center; flex: 1; }
-.nav-icon { flex: none; width: 24px; color: var(--ink-2); }
+.nav-icon {
+  flex: 0 0 20px;
+  display: block;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  color: var(--ink-2);
+}
+.page-title { text-align: center; }
 a.contact-row {
   display: flex;
   align-items: center;
