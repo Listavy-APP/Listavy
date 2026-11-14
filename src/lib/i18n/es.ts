@@ -126,6 +126,8 @@ export const es = {
     save: "Guardar",
     cancel: "Cancelar",
     saveFailed: "No se pudo guardar. Inténtalo de nuevo.",
+    confirmRemove: "¿Eliminar esta dirección?",
+    confirmRemoveYes: "Sí, eliminar",
     types: ["Casa", "Trabajo", "Otra"],
   },
   profile: {

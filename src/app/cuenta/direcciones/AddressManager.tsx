@@ -35,6 +35,7 @@ export function AddressManager(props: { userId: string; addresses: SavedAddress[
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   async function save(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -75,6 +76,7 @@ export function AddressManager(props: { userId: string; addresses: SavedAddress[
       const supabase = createSupabaseBrowserClient();
       const { error: err } = await supabase.from("addresses").delete().eq("id", id);
       if (err) throw err;
+      setConfirmId(null);
       router.refresh();
     } catch {
       setError(es.addresses.saveFailed);
@@ -142,9 +144,23 @@ export function AddressManager(props: { userId: string; addresses: SavedAddress[
                   </button>
                 )}
               </div>
-              <button className="button danger" type="button" disabled={busy} onClick={() => remove(a.id)}>
-                {es.addresses.remove}
-              </button>
+              {confirmId === a.id ? (
+                <div className="stack">
+                  <p>{es.addresses.confirmRemove}</p>
+                  <div className="row">
+                    <button className="button danger" type="button" disabled={busy} onClick={() => remove(a.id)}>
+                      {es.addresses.confirmRemoveYes}
+                    </button>
+                    <button className="button secondary" type="button" disabled={busy} onClick={() => setConfirmId(null)}>
+                      {es.addresses.cancel}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button className="button danger" type="button" disabled={busy} onClick={() => setConfirmId(a.id)}>
+                  {es.addresses.remove}
+                </button>
+              )}
             </li>
           ))}
         </ul>
