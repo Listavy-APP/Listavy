@@ -63,7 +63,7 @@ export default async function ProfilePage() {
   return (
     <section className="stack">
       <div className="page-head">
-        <h1>{es.profile.title}</h1>
+        <h1 className="sr-only">{es.profile.title}</h1>
         <Link className="gear-btn" href="/ajustes" aria-label={es.settings.title}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3" />
