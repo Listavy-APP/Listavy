@@ -179,6 +179,16 @@ select:focus {
   background: var(--paper);
   border-color: var(--line);
 }
+/* Tertiary: text-only action (Reportar). Same height rule as the other buttons, no fill, no border. */
+.button.tertiary {
+  min-height: 44px;
+  padding: 0 var(--s1);
+  color: var(--ink-2);
+  background: transparent;
+  border-color: transparent;
+  font-weight: 600;
+  text-decoration: underline;
+}
 .button.danger {
   /* Destructive actions are text links only (UI phase §1). Never a filled red button. */
   min-height: 44px;
@@ -394,9 +404,29 @@ a.button.danger:hover { color: var(--danger); }
   text-decoration: none;
 }
 .chip.on { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
-.pro-hero { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); padding: var(--s3) 0 var(--s1); }
-.pro-hero .avatar { width: 88px; height: 88px; font-size: 1.75rem; }
-.pro-hero .sub { color: var(--muted); font-size: 14px; margin: 0; }
+/* Public pro profile (ASOS-style hub pattern: navy banner, centred avatar, hairline sections). */
+.pro-profile { gap: var(--s2); }
+.pro-hero { gap: var(--s1); padding-bottom: var(--s2); border-bottom: 1px solid #e2e8f0; }
+.pro-hero .account-avatar .avatar { width: 96px; height: 96px; font-size: 1.75rem; }
+.pro-name { margin: 0; font-size: 22px; text-align: center; overflow-wrap: anywhere; }
+.pro-hero .sub { color: var(--muted); font-size: 14px; margin: 0; text-align: center; }
+.pro-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1); }
+.pro-note { margin: 0; text-align: center; font-size: 14px; }
+.pro-actions { display: flex; flex-direction: column; align-items: stretch; gap: var(--s1); }
+.pro-actions .save-pro { width: 100%; }
+.pro-actions .button { width: 100%; }
+.pro-actions .button.tertiary { width: auto; align-self: center; }
+.pro-actions .muted { margin: 0; text-align: center; font-size: 14px; }
+.pro-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding-top: var(--s2);
+  border-top: 1px solid #e2e8f0;
+}
+.pro-section > h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.pro-section .price-block { border: 0; padding: 0; background: transparent; }
+.pro-section .tabs { margin-bottom: var(--s1); }
 .price-block {
   display: flex;
   flex-direction: column;
@@ -588,22 +618,7 @@ legend {
 }
 .checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); font-size: 15px; }
 .checklist li.ok { color: var(--ink); font-weight: 600; }
-.save-pro {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s1);
-  align-self: center;
-  min-height: 44px;
-  padding: 0 var(--s2);
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--ink);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-}
+/* Heart toggle: uses .button.secondary; only the pressed state is added here. */
 .save-pro[aria-pressed="true"] { color: var(--primary); border-color: var(--primary); }
 .tabs { display: flex; border-bottom: 1px solid #e2e8f0; }
 .tab {
@@ -636,9 +651,9 @@ a.contact-row {
   text-decoration: none;
 }
 a.contact-row::after { content: "›"; margin-left: auto; color: var(--ink-2); font-size: 20px; }
-a.contact-row .contact-label { flex: 1; font-size: 16px; color: var(--ink); font-weight: 500; }
+a.contact-row .contact-label { flex: 1 1 auto; min-width: 0; font-size: 16px; color: var(--ink); font-weight: 500; white-space: nowrap; }
 .contact-label { font-size: 14px; color: var(--ink-2); }
-.contact-value { flex: 1; text-align: right; overflow-wrap: anywhere; font-weight: 600; }
+.contact-value { flex: 0 1 auto; min-width: 0; max-width: 60%; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .contact-row[open] summary::after { content: "⌄"; }
 .contact-row > :not(summary) { padding-bottom: var(--s2); }
 
@@ -814,7 +829,7 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
 .bottom-nav-tab[aria-current="page"] .bottom-nav-well { background: rgba(15, 23, 42, 0.09); }
 .bottom-nav-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Keep page content clear of the floating pill (pill 64 px + 12 px inset + 24 px gap). */
-body:has(.bottom-nav) .page { padding-bottom: 120px; }
+body:has(.bottom-nav) .page { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
 
 /* Job photo thumbnails (Phase 2, item 2). */
 .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s1); }
