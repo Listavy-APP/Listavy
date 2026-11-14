@@ -99,6 +99,8 @@ export async function getJobReview(supabase: SupabaseClient, jobId: string): Pro
     )
     .eq("job_id", jobId)
     .maybeSingle();
+  // TEMP DIAG (remove after investigation): what the job-review query returns.
+  console.log("[diag-job-review]", JSON.stringify({ jobId, hasError: !!error, errorMessage: error?.message ?? null, found: !!data, status: (data as { status?: string } | null)?.status ?? null }));
   if (error) throw new Error(`No se pudo leer la reseña: ${error.message}`);
   if (!data) return null;
   type Row = Omit<ReviewRow, "reviewer_name" | "response"> & { review_responses: ReviewResponseRow[] | null };
