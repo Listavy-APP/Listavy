@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { RequestForm } from "./RequestForm";
 import { getProCard } from "@/lib/data/pros";
@@ -47,9 +46,6 @@ export default async function RequestPage({
           <b>{es.standing.blockedTitle}</b>
           <p>{es.standing.blockedBody}</p>
         </div>
-        <Link className="button secondary" href="/cuenta">
-          {es.common.back}
-        </Link>
       </section>
     );
   }
@@ -60,9 +56,6 @@ export default async function RequestPage({
         <BackBar href="/buscar" />
         <h1>{es.jobs.requestTitle}</h1>
         <p className="muted">{es.jobs.noPro}</p>
-        <Link className="button secondary" href="/buscar">
-          {es.common.back}
-        </Link>
       </section>
     );
   }
