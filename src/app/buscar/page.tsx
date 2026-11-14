@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listBoostedProIds, listProCards } from "@/lib/data/pros";
+import { getProCardsByIds, listBoostedProIds, listProCards } from "@/lib/data/pros";
 import { getProReviewSummary, type ReviewSummary } from "@/lib/data/reviews";
 import { es } from "@/lib/i18n/es";
 import { SD_ZONES, TRADES, isTrade, isZone } from "@/lib/domain/catalog";
@@ -23,13 +23,14 @@ export default async function SearchPage({
 
   // Anonymous visitors can browse. list_pro_cards returns only safe columns.
   const supabase = await createSupabaseServerClient();
-  const pros = await listProCards(supabase, { trade, zone });
-  // Paid boosts: up to 3 pros, newest boost first, filtered the same way (migration 0036).
+  const organicAll = await listProCards(supabase, { trade, zone });
+  // Paid boosts: up to 3 ids, newest boost first, filtered the same way (migration 0036).
+  // Cards are fetched by id so the listProCards row limit cannot hide a boosted pro.
   const boostedIds = await listBoostedProIds(supabase, { trade, zone });
-  const boostedSet = new Set(boostedIds);
-  const byId = new Map(pros.map((p) => [p.id, p] as const));
-  const boostedPros = boostedIds.map((id) => byId.get(id)).filter((p): p is (typeof pros)[number] => Boolean(p));
-  const organicPros = pros.filter((p) => !boostedSet.has(p.id));
+  const boostedPros = await getProCardsByIds(supabase, boostedIds);
+  const boostedSet = new Set(boostedPros.map((p) => p.id));
+  const organicPros = organicAll.filter((p) => !boostedSet.has(p.id));
+  const pros = [...boostedPros, ...organicPros];
   // One small aggregate per card. Published, non-held reviews only (migration 0030).
   const summaries = new Map<string, ReviewSummary>(
     await Promise.all(
