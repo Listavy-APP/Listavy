@@ -13,7 +13,10 @@ export function JobCard(props: {
   statusLabel: string;
   amountDop: number | null;
   noProLabel: string;
+  /** False for the pro's own view: the pro name line is omitted. */
+  showPro?: boolean;
 }) {
+  const showPro = props.showPro ?? true;
   return (
     <Link className="job-card" href={props.href}>
       <div className="job-card-top">
@@ -21,7 +24,8 @@ export function JobCard(props: {
         <span className="status-pill">{props.statusLabel}</span>
       </div>
       <div className="muted">
-        {props.proName ?? props.noProLabel} · {props.zone} · {props.dateLabel}
+        {showPro ? `${props.proName ?? props.noProLabel} · ` : ""}
+        {props.zone} · {props.dateLabel}
       </div>
       {props.amountDop !== null ? (
         <div className="job-card-amount">RD${props.amountDop.toLocaleString("es-DO")}</div>

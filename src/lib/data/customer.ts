@@ -25,12 +25,15 @@ export interface CustomerReview {
 export async function listJobsForUser(supabase: SupabaseClient, userId: string): Promise<CustomerJob[]> {
   const { data, error } = await supabase
     .from("jobs")
-    .select("id, trade, zone, status, payment_status, created_at")
+    .select(
+      "id, trade, zone, status, payment_status, created_at, approved_quote:quotes!jobs_approved_quote_id_fkey(amount_dop), pros:pros!jobs_pro_id_fkey(profiles:profiles!pros_id_fkey(full_name))",
+    )
     .or(`homeowner_id.eq.${userId},pro_id.eq.${userId}`)
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) throw new Error(`No se pudieron leer tus trabajos: ${error.message}`);
-  return (data ?? []) as CustomerJob[];
+  // To-one joins come back as objects at runtime; the generated types read them as arrays.
+  return (data ?? []) as unknown as CustomerJob[];
 }
 
 export async function listMyJobs(supabase: SupabaseClient, homeownerId: string): Promise<CustomerJob[]> {
