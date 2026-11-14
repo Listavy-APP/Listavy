@@ -550,6 +550,10 @@ export const es = {
     account: "Cuenta",
   },
   notifications: {
+    openDisputes: "Disputas abiertas",
+    disputeOpen: "Disputa abierta",
+    disputeBody: "Este trabajo tiene una disputa abierta. Revísala para continuar.",
+    disputeAction: "Ver trabajo",
     title: "Avisos",
     empty: "No tienes avisos.",
     emptyBody: "Aquí verás avisos sobre tus trabajos y disputas.",
