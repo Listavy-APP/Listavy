@@ -61,28 +61,31 @@ export function PhotoPicker(props: {
   return (
     <div className="stack">
       <div className="row">
-        <Avatar name={props.name} src={props.photoUrl} />
-        <div className="stack">
-          <label className="file-pick">
-            <input
-              className="sr-only"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              disabled={busy}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void onPick(f);
-                e.target.value = "";
-              }}
-            />
-            <span>{es.profile.photoChoose}</span>
-          </label>
-          {props.photoPath ? (
-            <button className="button secondary" type="button" disabled={busy} onClick={onRemove}>
-              {es.profile.photoRemove}
-            </button>
-          ) : null}
-        </div>
+        <label className="photo-edit" aria-label={es.profile.photoChoose}>
+          <input
+            className="sr-only"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            disabled={busy}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onPick(f);
+              e.target.value = "";
+            }}
+          />
+          <Avatar name={props.name} src={props.photoUrl} />
+          <span className="photo-badge" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+          </span>
+        </label>
+        {props.photoPath ? (
+          <button className="button danger" type="button" disabled={busy} onClick={onRemove}>
+            {es.profile.photoRemove}
+          </button>
+        ) : null}
       </div>
       <p className="muted">{es.profile.photoHint}</p>
       {message ? <p className="ok">{message}</p> : null}
