@@ -161,6 +161,15 @@ export const es = {
     title: "Sobre mí",
     empty: "Este profesional aún no ha escrito su descripción.",
   },
+  proPayouts: {
+    title: "Mis pagos",
+    note: "Solo lectura. Aquí ves los pagos de tus trabajos.",
+    empty: "Aún no tienes pagos de trabajos.",
+    failed: "No se pudieron cargar tus pagos. Inténtalo de nuevo.",
+    released: "Pagado",
+    held: "Pendiente de liberar",
+    disputed: "En disputa",
+  },
   saved: {
     title: "Guardados",
     save: "Guardar",

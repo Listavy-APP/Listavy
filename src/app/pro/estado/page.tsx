@@ -68,6 +68,11 @@ export default async function ProStatusPage() {
           )}
         </p>
       )}
+      {pro.verification_status === "approved" && (
+        <Link className="button secondary" href="/pro/pagos">
+          {es.proPayouts.title}
+        </Link>
+      )}
       {pro.verification_status === "approved" && <BioForm proId={pro.id} initial={(pro as { bio?: string | null }).bio ?? null} />}
       {pro.verification_status === "approved" && !activeBoost && <BoostPanel />}
     </section>
