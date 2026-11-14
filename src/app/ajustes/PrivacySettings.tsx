@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { getAnalyticsConsent, setAnalyticsConsent } from "@/lib/analytics/consent";
 import { buildMyDataExport } from "@/lib/data/export";
 import { es } from "@/lib/i18n/es";
+import { Switch } from "@/components/Switch";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function PrivacySettings({ userId }: { userId: string }) {
@@ -46,11 +47,11 @@ export function PrivacySettings({ userId }: { userId: string }) {
       <h2>{es.settings.privacyTitle}</h2>
       <p className="muted">{es.settings.privacyIntro}</p>
 
-      <div className="stack">
-        <label className="field">
+      <div className="hub-group">
+        <div className="settings-row">
           <span>{es.settings.analyticsLabel}</span>
-          <input type="checkbox" checked={analytics} onChange={(e) => toggleAnalytics(e.target.checked)} />
-        </label>
+          <Switch checked={analytics} onChange={toggleAnalytics} label={es.settings.analyticsLabel} />
+        </div>
         <p className="muted">{es.settings.analyticsHint}</p>
       </div>
 
