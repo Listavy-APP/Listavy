@@ -10,7 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { SaveProButton } from "@/components/SaveProButton";
 import { ReportProButton } from "@/components/ReportProButton";
 import { listSavedProIds } from "@/lib/data/saved";
-import { getProReviewSummary, listProReviews } from "@/lib/data/reviews";
+import { getProReviewSummary, listDemoReviews, listProReviews } from "@/lib/data/reviews";
 
 export const metadata = { title: es.proDetail.title };
 export const instant = false;
@@ -54,7 +54,8 @@ export default async function ProDetailPage({
   const boosted = await isProBoosted(supabase, pro.id);
   const photos = signedIn ? await getWorkPhotoUrls(supabase, pro.id) : [];
   const summary = await getProReviewSummary(supabase, pro.id);
-  const reviews = await listProReviews(supabase, pro.id);
+  const reviews = pro.is_demo ? [] : await listProReviews(supabase, pro.id);
+  const demoReviews = pro.is_demo ? await listDemoReviews(supabase, pro.id) : [];
 
   return (
     <section className="stack pro-profile">
@@ -62,6 +63,12 @@ export default async function ProDetailPage({
         <Link className="back" href="/buscar" aria-label={es.common.back}><BackArrow /></Link>
         <span className="bt">{es.proDetail.title}</span>
       </div>
+
+      {pro.is_demo ? (
+        <div className="panel demo-banner" role="note">
+          <b>{es.proDetail.demoBanner}</b>
+        </div>
+      ) : null}
 
       <div className="account-hero pro-hero">
         <div className="account-banner" aria-hidden="true" />
@@ -73,12 +80,14 @@ export default async function ProDetailPage({
           {es.trades[pro.trade]} · {pro.zone}
         </p>
         <div className="pro-badges">
+          {pro.is_demo ? <span className="badge demo-badge">{es.proDetail.demoBadge}</span> : null}
           <span className="badge">{es.search.verified}</span>
           {boosted ? <span className="badge">{es.search.boostedLabel}</span> : null}
         </div>
         {boosted ? <p className="muted pro-note">{es.search.boostedProfile}</p> : null}
       </div>
 
+      {!pro.is_demo ? (
       <div className="pro-actions">
         <SaveProButton userId={userId} proId={pro.id} initialSaved={savedIds.includes(pro.id)} next={`/pro/${pro.id}`} />
         {pro.available ? (
@@ -93,6 +102,7 @@ export default async function ProDetailPage({
         {!pro.available ? <p className="muted">{es.availability.unavailable}</p> : null}
         <ReportProButton userId={userId} proId={pro.id} next={`/pro/${pro.id}`} />
       </div>
+      ) : null}
 
       <div className="pro-section">
         <h2>{es.proChecklist.title}</h2>
@@ -127,7 +137,22 @@ export default async function ProDetailPage({
           </Link>
         </nav>
 
-        {tabReviews ? (
+        {tabReviews && pro.is_demo ? (
+          <>
+            <h2>{es.reviews.title}</h2>
+            <p className="muted">{es.proDetail.demoReviewsNote}</p>
+            <div className="stack">
+              {demoReviews.map((r) => (
+                <article key={r.id} className="panel stack demo-review">
+                  <span className="badge demo-badge">{es.proDetail.demoBadge}</span>
+                  <span className="muted">{es.proDetail.demoReviewLabel}</span>
+                  <span>{es.reviews.average(r.rating)}</span>
+                  <p>{r.comment}</p>
+                </article>
+              ))}
+            </div>
+          </>
+        ) : tabReviews ? (
           <>
             <h2>{es.reviews.title}</h2>
             {summary.review_count === 0 ? (

@@ -236,3 +236,24 @@ export async function listAdminReviews(supabase: SupabaseClient): Promise<AdminR
     held: heldJobs.has(r.job_id),
   }));
 }
+
+export interface DemoReviewRow {
+  id: string;
+  rating: number;
+  quality: number | null;
+  punctuality: number | null;
+  cleanliness: number | null;
+  comment: string;
+  reviewer_label: string;
+}
+
+/** Illustrative reviews for a demo pro (table demo_reviews, migration 0058). Never mixed with real reviews. */
+export async function listDemoReviews(supabase: SupabaseClient, proId: string): Promise<DemoReviewRow[]> {
+  const { data, error } = await supabase
+    .from("demo_reviews")
+    .select("id, rating, quality, punctuality, cleanliness, comment, reviewer_label")
+    .eq("pro_id", proId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(`No se pudieron leer las reseñas de demostración: ${error.message}`);
+  return (data ?? []) as DemoReviewRow[];
+}

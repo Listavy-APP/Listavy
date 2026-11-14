@@ -341,6 +341,11 @@ export const es = {
     zone: "Zona",
     trade: "Oficio",
     contact: "Contactar después de elegir",
+    demoBanner: "Perfil de demostración. No es un profesional disponible para contratar.",
+    demoBadge: "DEMO",
+    demoReviewsNote: "Estas reseñas son ilustrativas. No son opiniones de clientes reales.",
+    demoReviewLabel: "Reseña de demostración — ilustrativa",
+    demoLink: "Ver un perfil de ejemplo",
   },
   jobs: {
     requestTitle: "Pedir cotización",

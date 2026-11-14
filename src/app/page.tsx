@@ -1,3 +1,4 @@
+import { DEMO_PRO_ID } from "@/lib/domain/demo";
 import Link from "next/link";
 import { es } from "@/lib/i18n/es";
 import { TRADES } from "@/lib/domain/catalog";
@@ -45,6 +46,9 @@ export default function HomePage() {
       </div>
 
       <div className="actions">
+        <Link className="button secondary" href={`/pro/${DEMO_PRO_ID}`}>
+          {es.proDetail.demoLink}
+        </Link>
         <Link className="button" href="/login">
           {es.home.loginCta}
         </Link>

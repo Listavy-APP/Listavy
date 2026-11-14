@@ -1006,3 +1006,7 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
   background: var(--paper);
   color: var(--primary);
 }
+
+/* Demo (showcase) profile */
+.demo-banner { border: 1px solid var(--line, #d0d0d0); background: var(--surface-2, #f6f6f6); }
+.demo-badge { background: transparent; border: 1px solid currentColor; }
