@@ -2,7 +2,8 @@ import Link from "next/link";
 import { es } from "@/lib/i18n/es";
 import { TRADES } from "@/lib/domain/catalog";
 
-const CAT_PHOTO: Record<(typeof TRADES)[number], string> = {
+/** Representative category photos only. Trades without a licensed photo get a neutral tile. */
+const CAT_PHOTO: Partial<Record<(typeof TRADES)[number], string>> = {
   plumber: "/categories/plomero.jpg",
   electrician: "/categories/electricista.jpg",
   ac_technician: "/categories/aire-acondicionado.jpg",
@@ -32,8 +33,12 @@ export default function HomePage() {
         {TRADES.map((t) => (
           <Link key={t} className="cat" href={`/buscar?trade=${t}`}>
             {/* Representative category photo, not a specific pro. Label text carries the meaning. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="cat-photo" src={CAT_PHOTO[t]} alt="" loading="lazy" />
+            {CAT_PHOTO[t] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="cat-photo" src={CAT_PHOTO[t]} alt="" loading="lazy" />
+            ) : (
+              <span className="cat-photo cat-photo-empty" aria-hidden="true" />
+            )}
             <span className="cat-name">{es.trades[t]}</span>
           </Link>
         ))}
