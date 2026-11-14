@@ -511,6 +511,8 @@ legend {
 .account-avatar { margin-top: -48px; }
 .account-avatar .photo-row { justify-content: center; }
 .account-avatar .avatar { width: 96px; height: 96px; }
+.hub-band { height: 12px; margin: 0 calc(-1 * var(--s2)); background: #f1f5f9; }
+.hub-group h2 { margin: var(--s2) 0 var(--s1); font-size: 14px; font-weight: 600; color: var(--ink-2); }
 .account-hello { margin: 0; font-size: 18px; font-weight: 600; }
 .icon-box {
   display: inline-flex;

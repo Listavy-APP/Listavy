@@ -83,6 +83,7 @@ export default async function ProfilePage() {
       {standingNotice}
 
 
+      <div className="hub-group">
       <Link className="contact-row" href="/cuenta/perfil">
         <span className="icon-box"><Icon name="user" /></span>
         <span className="contact-label">{es.profile.editProfile}</span>
@@ -109,6 +110,9 @@ export default async function ProfilePage() {
         <span className="contact-label">{es.addresses.title}</span>
       </Link>
 
+      </div>
+      <div className="hub-band" />
+      <div className="hub-group">
       <h2>{es.profile.tripsTitle}</h2>
       {jobs.length === 0 ? (
         <p className="muted">{es.profile.noTrips}</p>
@@ -143,6 +147,9 @@ export default async function ProfilePage() {
         </ul>
       )}
 
+      </div>
+      <div className="hub-band" />
+      <div className="hub-group">
       {profile.role === "pro" ? (
         <Link className="button secondary" href="/pro/solicitudes">
           {es.jobs.inboxTitle}
@@ -160,10 +167,14 @@ export default async function ProfilePage() {
         </Link>
       )}
 
+      </div>
+      <div className="hub-band" />
+      <div className="hub-group">
       <hr className="account-rule" />
       <SignOutButton />
       <h2 id="eliminar">{es.profile.deleteTitle}</h2>
       <DeleteAccount />
+      </div>
     </section>
   );
 }
