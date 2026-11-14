@@ -37,30 +37,42 @@ export function DeleteAccount() {
     } catch (err) {
       setError(err instanceof Error ? err.message : es.profile.deleteError);
       setBusy(false);
+      setConfirming(false);
     }
-  }
-
-  if (!confirming) {
-    return (
-      <div className="stack">
-        <p className="muted">{es.profile.deleteInfo}</p>
-        <button type="button" className="button danger" onClick={() => setConfirming(true)}>
-          {es.profile.deleteStart}
-        </button>
-      </div>
-    );
   }
 
   return (
     <div className="stack">
-      <p>{es.profile.deleteConfirm}</p>
-      {error ? <p className="error">{error}</p> : null}
-      <button type="button" className="button danger" onClick={onDelete} disabled={busy}>
-        {busy ? es.profile.deleteBusy : es.profile.deleteConfirmButton}
+      <div className="panel stack delete-warning" role="note">
+        <b>{es.profile.deleteWarningTitle}</b>
+        <p>{es.profile.deleteWarningBody}</p>
+      </div>
+      {error ? <p className="error" role="alert">{error}</p> : null}
+      <button type="button" className="button danger" onClick={() => setConfirming(true)}>
+        {es.profile.deleteStart}
       </button>
-      <button type="button" className="button secondary" onClick={() => setConfirming(false)} disabled={busy}>
-        {es.profile.deleteCancel}
-      </button>
+
+      {confirming ? (
+        <div className="sheet-backdrop" onClick={() => !busy && setConfirming(false)}>
+          <div
+            className="sheet stack"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+            aria-describedby="delete-dialog-body"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="delete-dialog-title">{es.profile.deleteDialogTitle}</h2>
+            <p id="delete-dialog-body">{es.profile.deleteDialogBody}</p>
+            <button type="button" className="button secondary" onClick={() => setConfirming(false)} disabled={busy} autoFocus>
+              {es.profile.deleteCancel}
+            </button>
+            <button type="button" className="sheet-action danger" onClick={onDelete} disabled={busy}>
+              {busy ? es.profile.deleteBusy : es.profile.deleteDialogConfirm}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

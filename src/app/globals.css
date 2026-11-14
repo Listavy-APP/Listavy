@@ -386,6 +386,7 @@ a.button.danger:hover { color: var(--danger); }
   background: var(--paper);
   color: var(--ink);
 }
+.signout-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s1); }
 .settings-quiet-link {
   align-self: center;
   margin-top: var(--s3);
