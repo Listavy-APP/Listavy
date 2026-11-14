@@ -6,6 +6,8 @@ import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminNav } from "./AdminNav";
 import { RecordList } from "./RecordList";
+import { ResolveReportButton } from "./ResolveReportButton";
+import { BackBar } from "@/components/BackBar";
 
 export const metadata = { title: es.admin.title };
 
@@ -34,16 +36,29 @@ export default async function AdminPayoutsPage() {
   const profile = await getCurrentProfile(supabase);
   if (!profile || profile.role !== "admin") notFound();
 
-  const [payments, reserve, owed, deductions] = await Promise.all([
+  const [payments, reserve, owed, deductions, reportsRes, openRes] = await Promise.all([
     listAdminPayments(supabase),
     getReserveBalance(supabase),
     listOwedRecoveries(supabase),
     listDeductions(supabase),
+    supabase.rpc("list_pro_reports"),
+    supabase.rpc("count_open_pro_reports"),
   ]);
+  const openReports = Number(openRes.data ?? 0);
+  const reports = (reportsRes.data ?? []) as {
+    id: string;
+    pro_id: string;
+    pro_name: string | null;
+    reason: string;
+    details: string | null;
+    created_at: string;
+    resolved_at: string | null;
+  }[];
 
   return (
     <section className="stack">
       <AdminNav current="/admin" />
+      <BackBar href="/" />
       <h1>{es.admin.title}</h1>
       <p className="muted">{es.admin.subtitle}</p>
 
@@ -51,6 +66,25 @@ export default async function AdminPayoutsPage() {
         <span className="stat-label">{es.admin.reserveBalance}</span>
         <span className="stat-value">{es.money.dop(reserve)}</span>
       </div>
+
+      <h2>{es.admin.reportsTitle}</h2>
+      <p className="muted">{es.admin.openReports(openReports)}</p>
+      {reports.length === 0 ? (
+        <p className="muted">{es.admin.reportsEmpty}</p>
+      ) : (
+        <RecordList
+          items={reports.map((r) => ({
+            key: r.id,
+            title: r.pro_name ?? short(r.pro_id),
+            rows: [
+              [es.admin.colReason, es.report.reasons[r.reason as keyof typeof es.report.reasons] ?? r.reason],
+              [es.admin.colDetails, r.details ?? "—"],
+              [es.admin.colDate, dateOnly(r.created_at)],
+              [es.admin.colReportState, r.resolved_at ? es.admin.resolved : <ResolveReportButton reportId={r.id} />],
+            ],
+          }))}
+        />
+      )}
 
       <h2>{es.admin.recoveriesTitle}</h2>
       {owed.length === 0 ? (

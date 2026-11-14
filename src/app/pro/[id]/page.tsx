@@ -1,17 +1,32 @@
 import Link from "next/link";
+import { connection } from "next/server";
+import { BackArrow } from "@/components/BackBar";
 import { getProCard, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getProReviewSummary, listProReviews } from "@/lib/data/reviews";
+import { SaveProButton } from "@/components/SaveProButton";
+import { ReportProButton } from "@/components/ReportProButton";
+import { listSavedProIds } from "@/lib/data/saved";
+import { getProReviewSummary, listDemoReviews, listProReviews } from "@/lib/data/reviews";
 
 export const metadata = { title: es.proDetail.title };
 export const instant = false;
 
-export default async function ProDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  // Per-request render: the session is read at request time (avoids prerender of Date.now in auth).
+  await connection();
   const { id } = await params;
+  const { tab } = await searchParams;
+  const tabReviews = tab === "resenas";
   // Public page. Only approved pros resolve. Photos need sign-in.
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -23,9 +38,7 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
     return (
       <section className="stack">
         <div className="backbar">
-          <Link className="back" href="/buscar" aria-label={es.common.back}>
-            ‹
-          </Link>
+          <Link className="back" href="/buscar" aria-label={es.common.back}><BackArrow /></Link>
           <span className="bt">{es.proDetail.title}</span>
         </div>
         <h1>{es.proDetail.notFound}</h1>
@@ -36,82 +49,156 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
     );
   }
 
+  const userId = userData.user?.id ?? null;
+  const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
   const boosted = await isProBoosted(supabase, pro.id);
   const photos = signedIn ? await getWorkPhotoUrls(supabase, pro.id) : [];
   const summary = await getProReviewSummary(supabase, pro.id);
-  const reviews = await listProReviews(supabase, pro.id);
+  const reviews = pro.is_demo ? [] : await listProReviews(supabase, pro.id);
+  const demoReviews = pro.is_demo ? await listDemoReviews(supabase, pro.id) : [];
 
   return (
-    <section className="stack">
+    <section className="stack pro-profile">
       <div className="backbar">
-        <Link className="back" href="/buscar" aria-label={es.common.back}>
-          ‹
-        </Link>
+        <Link className="back" href="/buscar" aria-label={es.common.back}><BackArrow /></Link>
         <span className="bt">{es.proDetail.title}</span>
       </div>
 
-      <div className="pro-hero">
-        <Avatar name={pro.full_name} src={avatarUrl(supabase, pro.avatar_path)} />
-        <h1>{pro.full_name ?? es.proDetail.title}</h1>
-        <div className="badge">{es.search.verified}</div>
-        {boosted ? <div className="badge">{es.search.boostedLabel}</div> : null}
-        {boosted ? <p className="muted">{es.search.boostedProfile}</p> : null}
+      {pro.is_demo ? (
+        <div className="panel demo-banner" role="note">
+          <b>{es.proDetail.demoBanner}</b>
+        </div>
+      ) : null}
+
+      <div className="account-hero pro-hero">
+        <div className="account-banner" aria-hidden="true" />
+        <div className="account-avatar">
+          <Avatar name={pro.full_name} src={avatarUrl(supabase, pro.avatar_path)} />
+        </div>
+        <h1 className="pro-name">{pro.full_name ?? es.proDetail.title}</h1>
         <p className="sub">
           {es.trades[pro.trade]} · {pro.zone}
         </p>
+        <div className="pro-badges">
+          {pro.is_demo ? <span className="badge demo-badge">{es.proDetail.demoBadge}</span> : null}
+          <span className="badge">{es.search.verified}</span>
+          {boosted ? <span className="badge">{es.search.boostedLabel}</span> : null}
+        </div>
+        {boosted ? <p className="muted pro-note">{es.search.boostedProfile}</p> : null}
       </div>
 
-      <div className="price-block">
-        <span className="muted">{es.search.priceRange}</span>
-        <b>
-          {es.money.dop(pro.price_min_dop)} – {es.money.dop(pro.price_max_dop)}
-        </b>
+      {!pro.is_demo ? (
+      <div className="pro-actions">
+        <SaveProButton userId={userId} proId={pro.id} initialSaved={savedIds.includes(pro.id)} next={`/pro/${pro.id}`} />
+        {pro.available ? (
+          <Link className="button" href={`/pedir?pro=${pro.id}`}>
+            {es.jobs.askQuote}
+          </Link>
+        ) : (
+          <button className="button" type="button" disabled>
+            {es.availability.unavailableBtn}
+          </button>
+        )}
+        {!pro.available ? <p className="muted">{es.availability.unavailable}</p> : null}
+        <ReportProButton userId={userId} proId={pro.id} next={`/pro/${pro.id}`} />
+      </div>
+      ) : null}
+
+      <div className="pro-section">
+        <h2>{es.proChecklist.title}</h2>
+        <ul className="checklist">
+          <li className={pro.identity_verified ? "ok" : "muted"}>{pro.identity_verified ? "✓" : "–"} {es.proChecklist.identity}</li>
+          <li className={pro.email_verified ? "ok" : "muted"}>{pro.email_verified ? "✓" : "–"} {es.proChecklist.email}</li>
+          <li className={pro.phone_verified ? "ok" : "muted"}>{pro.phone_verified ? "✓" : "–"} {es.proChecklist.phone}</li>
+        </ul>
       </div>
 
-      <h2>{es.reviews.title}</h2>
-      {summary.review_count === 0 ? (
-        <EmptyState title={es.reviews.noReviews} body={es.reviews.noReviewsBody} />
-      ) : (
-        <div className="stack">
+      <div className="pro-section">
+        <h2>{es.proBio.title}</h2>
+        {pro.bio ? <p>{pro.bio}</p> : <p className="muted">{es.proBio.empty}</p>}
+      </div>
+
+      <div className="pro-section">
+        <div className="price-block">
+          <span className="muted">{es.search.priceRange}</span>
           <b>
-            {es.reviews.average(summary.average ?? 0)} · {summary.review_count === 1 ? es.reviews.countOne : es.reviews.countMany(summary.review_count)}
+            {es.money.dop(pro.price_min_dop)} – {es.money.dop(pro.price_max_dop)}
           </b>
-          {summary.review_count < 3 ? <span className="muted">{es.reviews.fewReviews(summary.review_count)}</span> : null}
-          {reviews.map((r) => (
-            <article key={r.id} className="panel stack">
-              <b>{r.reviewer_name}</b>
-              <span>{es.reviews.average(r.rating)}</span>
-              {r.comment ? <p>{r.comment}</p> : null}
-              {r.response ? (
-                <p className="muted">
-                  <b>{es.reviews.respondTitle}:</b> {r.response.body}
-                </p>
-              ) : null}
-            </article>
-          ))}
         </div>
-      )}
+      </div>
 
-      <Link className="button" href={`/pedir?pro=${pro.id}`}>
-        {es.jobs.askQuote}
-      </Link>
+      <div className="pro-section">
+        <nav className="tabs" aria-label={es.proTabs.label}>
+          <Link className="tab" href={`/pro/${pro.id}`} aria-current={tabReviews ? undefined : "page"}>
+            {es.proTabs.work}
+          </Link>
+          <Link className="tab" href={`/pro/${pro.id}?tab=resenas`} aria-current={tabReviews ? "page" : undefined}>
+            {es.proTabs.reviews}
+          </Link>
+        </nav>
 
-      <h2>{es.proDetail.photos}</h2>
-      {!signedIn ? (
-        <div className="panel">
-          <Link href="/login">{es.proDetail.loginForPhotos}</Link>
-        </div>
-      ) : photos.length === 0 ? (
-        <EmptyState title={es.proDetail.noPhotos} body={es.proDetail.noPhotosBody} />
-      ) : (
-        <div className="photos">
-          {photos.map((src, i) => (
-            // Signed URLs change each request, so the image is not optimized by Next.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={i} src={src} alt={`${es.proDetail.photos} ${i + 1}`} loading="lazy" />
-          ))}
-        </div>
-      )}
+        {tabReviews && pro.is_demo ? (
+          <>
+            <h2>{es.reviews.title}</h2>
+            <p className="muted">{es.proDetail.demoReviewsNote}</p>
+            <div className="stack">
+              {demoReviews.map((r) => (
+                <article key={r.id} className="panel stack demo-review">
+                  <span className="badge demo-badge">{es.proDetail.demoBadge}</span>
+                  <span className="muted">{es.proDetail.demoReviewLabel}</span>
+                  <span>{es.reviews.average(r.rating)}</span>
+                  <p>{r.comment}</p>
+                </article>
+              ))}
+            </div>
+          </>
+        ) : tabReviews ? (
+          <>
+            <h2>{es.reviews.title}</h2>
+            {summary.review_count === 0 ? (
+              <EmptyState title={es.reviews.noReviews} body={es.reviews.noReviewsBody} />
+            ) : (
+              <div className="stack">
+                <b>
+                  {es.reviews.average(summary.average ?? 0)} · {summary.review_count === 1 ? es.reviews.countOne : es.reviews.countMany(summary.review_count)}
+                </b>
+                {summary.review_count < 3 ? <span className="muted">{es.reviews.fewReviews(summary.review_count)}</span> : null}
+                {reviews.map((r) => (
+                  <article key={r.id} className="panel stack">
+                    <b>{r.reviewer_name}</b>
+                    <span>{es.reviews.average(r.rating)}</span>
+                    {r.comment ? <p>{r.comment}</p> : null}
+                    {r.response ? (
+                      <p className="muted">
+                        <b>{es.reviews.respondTitle}:</b> {r.response.body}
+                      </p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <h2>{es.proDetail.photos}</h2>
+            {!signedIn ? (
+              <div className="panel">
+                <Link href="/login">{es.proDetail.loginForPhotos}</Link>
+              </div>
+            ) : photos.length === 0 ? (
+              <EmptyState title={es.proDetail.noPhotos} body={es.proDetail.noPhotosBody} />
+            ) : (
+              <div className="photos">
+                {photos.map((src, i) => (
+                  // Signed URLs change each request, so the image is not optimized by Next.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={i} src={src} alt={`${es.proDetail.photos} ${i + 1}`} loading="lazy" />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackArrow } from "@/components/BackBar";
 import { notFound, redirect } from "next/navigation";
 import { JobActions } from "./JobActions";
 import { ReferralPrompt } from "@/components/ReferralPrompt";
@@ -91,9 +92,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   return (
     <section className="stack">
       <div className="backbar">
-        <Link className="back" href={role === "pro" ? "/pro/solicitudes" : "/cuenta"} aria-label={es.common.back}>
-          ‹
-        </Link>
+        <Link className="back" href={role === "pro" ? "/pro/solicitudes" : "/cuenta"} aria-label={es.common.back}><BackArrow /></Link>
         <span className="bt">{es.jobs.jobTitle}</span>
       </div>
 
@@ -103,9 +102,11 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       <p>{j.description}</p>
       <p className="muted">
         {j.job_type === "diagnostic" ? es.jobs.typeDiagnostic : es.jobs.typeRepair} ·{" "}
-        {j.status === "accepted" && j.payment_status === "unpaid"
-          ? es.jobs.statusAcceptedUnpaid
-          : (es.jobs.statusLabel[j.status as keyof typeof es.jobs.statusLabel] ?? j.status)}
+        <span className="status-pill">
+          {j.status === "accepted" && j.payment_status === "unpaid"
+            ? es.jobs.statusAcceptedUnpaid
+            : (es.jobs.statusLabel[j.status as keyof typeof es.jobs.statusLabel] ?? j.status)}
+        </span>
       </p>
 
       {j.voice_path ? <VoiceNote url={voiceUrl} /> : null}

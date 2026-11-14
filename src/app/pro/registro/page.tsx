@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getMyPro } from "@/lib/data/pros";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { RegistrationForm } from "./RegistrationForm";
+import { BackBar } from "@/components/BackBar";
 import { connection } from "next/server";
 
 export const metadata = { title: "Ofrecer mis servicios" };
@@ -18,5 +19,10 @@ export default async function RegistrationPage() {
   const existing = await getMyPro(supabase);
   if (existing) redirect("/pro/estado");
 
-  return <RegistrationForm />;
+  return (
+    <>
+      <BackBar href="/cuenta" />
+      <RegistrationForm />
+    </>
+  );
 }

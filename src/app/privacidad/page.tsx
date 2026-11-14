@@ -1,5 +1,6 @@
 import { PRIVACY_POLICY } from "@/lib/legal/privacy";
 import { es } from "@/lib/i18n/es";
+import { BackBar } from "@/components/BackBar";
 
 export const metadata = { title: es.legal.privacyTitle };
 
@@ -17,6 +18,7 @@ export default function PrivacyPage() {
   const policy = PRIVACY_POLICY;
   return (
     <section className="stack">
+      <BackBar href="/" />
       <h1>{es.legal.privacyTitle}</h1>
       <p>{es.legal.operator}</p>
       {policy.status === "draft" ? <p className="notice">{es.legal.privacyDraftNotice}</p> : null}

@@ -1,3 +1,4 @@
+import { DEMO_PRO_ID } from "@/lib/domain/demo";
 import Link from "next/link";
 import { connection } from "next/server";
 import { es } from "@/lib/i18n/es";
@@ -8,10 +9,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // Session-dependent: the referral banner shows the signed-in user's code.
 export const instant = false;
 
+/** Representative category photos only. They do not show a specific pro. */
 const CAT_PHOTO: Record<(typeof TRADES)[number], string> = {
   plumber: "/categories/plomero.jpg",
   electrician: "/categories/electricista.jpg",
   ac_technician: "/categories/aire-acondicionado.jpg",
+  painter: "/categories/pintor.jpg",
+  locksmith: "/categories/cerrajero.jpg",
+  carpenter: "/categories/carpintero.jpg",
+  blacksmith: "/categories/herrero.jpg",
 };
 
 export default async function HomePage() {
@@ -41,13 +47,18 @@ export default async function HomePage() {
         </Link>
       ) : null}
 
-      <Link className="search-bar" href="/buscar">
-        {es.home.searchPlaceholder}
-      </Link>
+      <form className="search-bar" role="search" action="/buscar" method="get">
+        <input
+          type="search"
+          name="q"
+          enterKeyHint="search"
+          placeholder={es.home.searchPlaceholder}
+          aria-label={es.home.searchPlaceholder}
+        />
+      </form>
 
       <div className="sec-title">
         <span>{es.home.servicesTitle}</span>
-        <Link href="/buscar">{es.home.seeAll}</Link>
       </div>
       <div className="cats">
         {TRADES.map((t) => (
@@ -61,6 +72,9 @@ export default async function HomePage() {
       </div>
 
       <div className="actions">
+        <Link className="button secondary" href={`/pro/${DEMO_PRO_ID}`}>
+          {es.proDetail.demoLink}
+        </Link>
         <Link className="button" href="/login">
           {es.home.loginCta}
         </Link>
