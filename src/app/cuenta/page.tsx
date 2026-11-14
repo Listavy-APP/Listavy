@@ -98,6 +98,10 @@ export default async function ProfilePage() {
         <EmailForm current={profile.email} verified={profile.email_verified_at !== null} />
       </details>
 
+      <Link className="button secondary" href="/cuenta/direcciones">
+        {es.addresses.title}
+      </Link>
+
       <h2>{es.profile.tripsTitle}</h2>
       {jobs.length === 0 ? (
         <p className="muted">{es.profile.noTrips}</p>
