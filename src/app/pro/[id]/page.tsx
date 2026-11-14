@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { BackArrow } from "@/components/BackBar";
 import { getProCard, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
@@ -21,6 +22,8 @@ export default async function ProDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string }>;
 }) {
+  // Per-request render: the session is read at request time (avoids prerender of Date.now in auth).
+  await connection();
   const { id } = await params;
   const { tab } = await searchParams;
   const tabReviews = tab === "resenas";
