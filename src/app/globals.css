@@ -513,6 +513,28 @@ legend {
 .account-avatar .avatar { width: 96px; height: 96px; }
 .hub-band { height: 12px; margin: 0 calc(-1 * var(--s2)); background: #f1f5f9; }
 .hub-group h2 { margin: var(--s2) 0 var(--s1); font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.job-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--s2);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--ink);
+  text-decoration: none;
+}
+.job-card-top { display: flex; justify-content: space-between; align-items: center; gap: var(--s1); }
+.job-card-amount { font-weight: 700; }
+.status-pill {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .account-hello { margin: 0; font-size: 18px; font-weight: 600; }
 .icon-box {
   display: inline-flex;

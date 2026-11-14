@@ -6,6 +6,7 @@ import { PhotoPicker } from "./PhotoPicker";
 import { EmailForm } from "./EmailForm";
 import { DeleteAccount } from "./DeleteAccount";
 import { Icon } from "@/components/Icon";
+import { JobCard } from "@/components/JobCard";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listMyJobs, listMyReviews } from "@/lib/data/customer";
 import { getClientStanding } from "@/lib/data/standing";
@@ -117,20 +118,25 @@ export default async function ProfilePage() {
       {jobs.length === 0 ? (
         <p className="muted">{es.profile.noTrips}</p>
       ) : (
-        <ul className="list">
+        <div className="cards">
           {jobs.map((j) => (
-            <li key={j.id}>
-              <Link href={`/trabajos/${j.id}`}>
-                <strong>{es.trades[j.trade as keyof typeof es.trades] ?? j.trade}</strong> · {j.zone} · {formatDate(j.created_at)}
-              </Link>
-              <div className="muted">
-                {j.status === "accepted" && j.payment_status === "unpaid"
+            <JobCard
+              key={j.id}
+              href={`/trabajos/${j.id}`}
+              title={es.trades[j.trade as keyof typeof es.trades] ?? j.trade}
+              proName={j.pros?.profiles?.full_name ?? null}
+              zone={j.zone}
+              dateLabel={formatDate(j.created_at)}
+              statusLabel={
+                j.status === "accepted" && j.payment_status === "unpaid"
                   ? es.profile.jobStatusUnpaid
-                  : (es.profile.jobStatus[j.status as keyof typeof es.profile.jobStatus] ?? j.status)}
-              </div>
-            </li>
+                  : (es.profile.jobStatus[j.status as keyof typeof es.profile.jobStatus] ?? j.status)
+              }
+              amountDop={j.approved_quote?.amount_dop ?? null}
+              noProLabel={es.profile.jobProFallback}
+            />
           ))}
-        </ul>
+        </div>
       )}
 
       <h2>{es.profile.reviewsTitle}</h2>

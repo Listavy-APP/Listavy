@@ -153,6 +153,7 @@ export const es = {
     photoSaved: "Foto guardada.",
     photoTooBig: "La foto es demasiado grande. Máximo 2 MB.",
     editProfile: "Editar perfil",
+    jobProFallback: "Profesional por asignar",
     editTitle: "Editar perfil",
     hello: (name: string) => `Hola, ${name}`,
     helloFallback: "Hola",
