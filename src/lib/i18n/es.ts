@@ -638,6 +638,50 @@ export const es = {
     deleteLink: "Eliminar mi cuenta",
     privacyLink: "Leer la política de privacidad",
   },
+  help: {
+    title: "Ayuda",
+    intro: "Respuestas cortas a las preguntas más comunes.",
+    clientTitle: "Para clientes",
+    proTitle: "Para profesionales",
+    payTitle: "Pagos",
+    faq: [
+      {
+        q: "¿Cómo pido un trabajo?",
+        a: "Busca un profesional, elige hasta 3 del mismo oficio y pide cotización. Recibirás la cotización que elijas.",
+      },
+      {
+        q: "¿Cómo funciona el pago?",
+        a: "Pagas al reservar. Listavy guarda el dinero hasta que apruebes el trabajo, y el profesional recibe su pago 24 horas después de tu aprobación.",
+      },
+      {
+        q: "¿Qué pasa si hay un problema?",
+        a: "Puedes abrir una disputa solo dentro de 48 horas después de cerrar el trabajo, y solo por un defecto que no se veía al cerrarlo. Ambas partes tienen el mismo plazo para enviar su versión. Si el plazo vence, el administrador revisa el caso.",
+      },
+      {
+        q: "¿Cómo dejo una reseña?",
+        a: "Puedes dejarla después de un trabajo completado y pagado. Puedes editarla durante 24 horas. Si hay una disputa abierta, la reseña queda oculta hasta que se cierre.",
+      },
+    ],
+    proFaq: [
+      {
+        q: "¿Cómo envío una cotización?",
+        a: "Revisa las solicitudes que recibes y envía tu cotización. El cliente elige una.",
+      },
+      {
+        q: "¿Cómo dejo de recibir solicitudes?",
+        a: "Desactiva «Disponible para nuevas solicitudes» en tu perfil de profesional. Los clientes no podrán pedirte cotizaciones hasta que la vuelvas a activar.",
+      },
+      {
+        q: "¿Dónde veo mis pagos?",
+        a: "Mis pagos muestra el historial de pagos de tus trabajos. Es solo de lectura.",
+      },
+      {
+        q: "¿Puedo responder una reseña?",
+        a: "Sí. Puedes responder en un máximo de 500 caracteres.",
+      },
+    ],
+    payNote: "Pagas al reservar. Listavy guarda el dinero hasta que apruebes el trabajo, y el profesional recibe su pago 24 horas después de tu aprobación.",
+  },
   legal: {
     operator: "Listavy es operado por Espiga Capital LLC.",
     aboutTitle: "Acerca de Listavy",

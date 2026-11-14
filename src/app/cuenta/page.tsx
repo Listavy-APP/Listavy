@@ -116,6 +116,11 @@ export default async function ProfilePage() {
         <span className="contact-label">{es.addresses.title}</span>
       </Link>
 
+      <Link className="contact-row" href="/ayuda">
+        <span className="icon-box"><Icon name="help" /></span>
+        <span className="contact-label">{es.help.title}</span>
+      </Link>
+
       </div>
       <div className="hub-band" />
       <div className="hub-group">
