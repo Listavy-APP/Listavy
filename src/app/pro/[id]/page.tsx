@@ -69,6 +69,20 @@ export default async function ProDetailPage({
         </p>
       </div>
 
+      <div className="stack">
+        <h2>{es.proBio.title}</h2>
+        {pro.bio ? <p>{pro.bio}</p> : <p className="muted">{es.proBio.empty}</p>}
+      </div>
+
+      <div className="stack">
+        <h2>{es.proChecklist.title}</h2>
+        <ul className="checklist">
+          <li className={pro.identity_verified ? "ok" : "muted"}>{pro.identity_verified ? "✓" : "–"} {es.proChecklist.identity}</li>
+          <li className={pro.email_verified ? "ok" : "muted"}>{pro.email_verified ? "✓" : "–"} {es.proChecklist.email}</li>
+          <li className={pro.phone_verified ? "ok" : "muted"}>{pro.phone_verified ? "✓" : "–"} {es.proChecklist.phone}</li>
+        </ul>
+      </div>
+
       <div className="price-block">
         <span className="muted">{es.search.priceRange}</span>
         <b>

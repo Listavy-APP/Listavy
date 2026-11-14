@@ -137,4 +137,9 @@ export interface ProCard {
   verified_at: string | null;
   /** Approved profile photo path in the pro-avatars bucket, or null. */
   avatar_path: string | null;
+  /** Public bio written by the pro (up to 500 characters), or null. */
+  bio: string | null;
+  identity_verified: boolean;
+  email_verified: boolean;
+  phone_verified: boolean;
 }

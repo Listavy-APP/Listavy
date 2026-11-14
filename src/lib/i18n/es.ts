@@ -144,6 +144,16 @@ export const es = {
     verifyFailed: "El código no es válido o ya venció. Pide uno nuevo.",
     back: "Volver",
   },
+  proChecklist: {
+    title: "Verificado por Listavy",
+    identity: "Identidad verificada",
+    email: "Correo verificado",
+    phone: "Teléfono verificado",
+  },
+  proBio: {
+    title: "Sobre mí",
+    empty: "Este profesional aún no ha escrito su descripción.",
+  },
   proTabs: {
     work: "Trabajos",
     reviews: "Reseñas",
