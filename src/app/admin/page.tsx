@@ -35,12 +35,21 @@ export default async function AdminPayoutsPage() {
   const profile = await getCurrentProfile(supabase);
   if (!profile || profile.role !== "admin") notFound();
 
-  const [payments, reserve, owed, deductions] = await Promise.all([
+  const [payments, reserve, owed, deductions, reportsRes] = await Promise.all([
     listAdminPayments(supabase),
     getReserveBalance(supabase),
     listOwedRecoveries(supabase),
     listDeductions(supabase),
+    supabase.rpc("list_pro_reports"),
   ]);
+  const reports = (reportsRes.data ?? []) as {
+    id: string;
+    pro_id: string;
+    pro_name: string | null;
+    reason: string;
+    details: string | null;
+    created_at: string;
+  }[];
 
   return (
     <section className="stack">
@@ -53,6 +62,23 @@ export default async function AdminPayoutsPage() {
         <span className="stat-label">{es.admin.reserveBalance}</span>
         <span className="stat-value">{es.money.dop(reserve)}</span>
       </div>
+
+      <h2>{es.admin.reportsTitle}</h2>
+      {reports.length === 0 ? (
+        <p className="muted">{es.admin.reportsEmpty}</p>
+      ) : (
+        <RecordList
+          items={reports.map((r) => ({
+            key: r.id,
+            title: r.pro_name ?? short(r.pro_id),
+            rows: [
+              [es.admin.colReason, es.report.reasons[r.reason as keyof typeof es.report.reasons] ?? r.reason],
+              [es.admin.colDetails, r.details ?? "—"],
+              [es.admin.colDate, dateOnly(r.created_at)],
+            ],
+          }))}
+        />
+      )}
 
       <h2>{es.admin.recoveriesTitle}</h2>
       {owed.length === 0 ? (

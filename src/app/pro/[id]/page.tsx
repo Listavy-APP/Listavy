@@ -6,6 +6,7 @@ import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { SaveProButton } from "@/components/SaveProButton";
+import { ReportProButton } from "@/components/ReportProButton";
 import { listSavedProIds } from "@/lib/data/saved";
 import { getProReviewSummary, listProReviews } from "@/lib/data/reviews";
 
@@ -74,6 +75,8 @@ export default async function ProDetailPage({
       </div>
 
       <SaveProButton userId={userId} proId={pro.id} initialSaved={savedIds.includes(pro.id)} next={`/pro/${pro.id}`} />
+
+      <ReportProButton userId={userId} proId={pro.id} next={`/pro/${pro.id}`} />
 
       <div className="stack">
         <h2>{es.proBio.title}</h2>
