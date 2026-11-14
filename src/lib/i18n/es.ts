@@ -161,6 +161,13 @@ export const es = {
     title: "Sobre mí",
     empty: "Este profesional aún no ha escrito su descripción.",
   },
+  saved: {
+    title: "Guardados",
+    save: "Guardar",
+    saved: "Guardado",
+    empty: "Aún no tienes profesionales guardados.",
+    failed: "No se pudo actualizar. Inténtalo de nuevo.",
+  },
   proTabs: {
     work: "Trabajos",
     reviews: "Reseñas",

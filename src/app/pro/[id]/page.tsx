@@ -5,6 +5,8 @@ import { avatarUrl } from "@/lib/storage/proFiles";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { SaveProButton } from "@/components/SaveProButton";
+import { listSavedProIds } from "@/lib/data/saved";
 import { getProReviewSummary, listProReviews } from "@/lib/data/reviews";
 
 export const metadata = { title: es.proDetail.title };
@@ -44,6 +46,8 @@ export default async function ProDetailPage({
     );
   }
 
+  const userId = userData.user?.id ?? null;
+  const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
   const boosted = await isProBoosted(supabase, pro.id);
   const photos = signedIn ? await getWorkPhotoUrls(supabase, pro.id) : [];
   const summary = await getProReviewSummary(supabase, pro.id);
@@ -68,6 +72,8 @@ export default async function ProDetailPage({
           {es.trades[pro.trade]} · {pro.zone}
         </p>
       </div>
+
+      <SaveProButton userId={userId} proId={pro.id} initialSaved={savedIds.includes(pro.id)} next={`/pro/${pro.id}`} />
 
       <div className="stack">
         <h2>{es.proBio.title}</h2>
