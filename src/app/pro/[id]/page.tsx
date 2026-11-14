@@ -76,6 +76,10 @@ export default async function ProDetailPage({
         </b>
       </div>
 
+      <Link className="button" href={`/pedir?pro=${pro.id}`}>
+        {es.jobs.askQuote}
+      </Link>
+
       <nav className="tabs" aria-label={es.proTabs.label}>
         <Link className="tab" href={`/pro/${pro.id}`} aria-current={tabReviews ? undefined : "page"}>
           {es.proTabs.work}
@@ -110,10 +114,6 @@ export default async function ProDetailPage({
           ))}
         </div>
       )}
-
-      <Link className="button" href={`/pedir?pro=${pro.id}`}>
-        {es.jobs.askQuote}
-      </Link>
 
       </>
       ) : (
