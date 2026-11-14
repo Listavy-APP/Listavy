@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { SignOutButton } from "./SignOutButton";
 import { PhotoPicker } from "./PhotoPicker";
-import { ProfileForm } from "./ProfileForm";
 import { EmailForm } from "./EmailForm";
 import { DeleteAccount } from "./DeleteAccount";
 import { Icon } from "@/components/Icon";
@@ -72,16 +71,23 @@ export default async function ProfilePage() {
           </svg>
         </Link>
       </div>
+      <div className="account-hero">
+        <div className="account-banner" aria-hidden="true" />
+        <div className="account-avatar">
+          <PhotoPicker userId={profile.id} name={profile.full_name} photoUrl={photoUrl} photoPath={profile.avatar_path} />
+        </div>
+        <p className="account-hello">
+          {profile.full_name ? es.profile.hello(profile.full_name.split(" ")[0]) : es.profile.helloFallback}
+        </p>
+      </div>
       {standingNotice}
 
-      <PhotoPicker
-        userId={profile.id}
-        name={profile.full_name}
-        photoUrl={photoUrl}
-        photoPath={profile.avatar_path}
-      />
 
-      <ProfileForm userId={profile.id} fullName={profile.full_name} zone={profile.zone} />
+      <Link className="contact-row" href="/cuenta/perfil">
+        <span className="icon-box"><Icon name="user" /></span>
+        <span className="contact-label">{es.profile.editProfile}</span>
+        <span className="contact-value">{profile.full_name ?? "—"}</span>
+      </Link>
 
       <Link className="contact-row" href="/cuenta/telefono">
         <span className="icon-box"><Icon name="phone" /></span>

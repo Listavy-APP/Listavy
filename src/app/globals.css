@@ -500,6 +500,18 @@ legend {
 .page-head h1 { text-align: center; flex: 1; }
 .nav-icon { color: var(--ink-2); }
 .page-title { text-align: center; }
+.account-hero { display: flex; flex-direction: column; align-items: center; gap: var(--s1); }
+.account-banner {
+  align-self: stretch;
+  height: 96px;
+  margin: 0 calc(-1 * var(--s2));
+  border-radius: 0 0 16px 16px;
+  background: linear-gradient(135deg, var(--primary), #0e7490);
+}
+.account-avatar { margin-top: -48px; }
+.account-avatar .photo-row { justify-content: center; }
+.account-avatar .avatar { width: 96px; height: 96px; }
+.account-hello { margin: 0; font-size: 18px; font-weight: 600; }
 .icon-box {
   display: inline-flex;
   flex: 0 0 20px;
