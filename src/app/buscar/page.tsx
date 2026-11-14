@@ -4,6 +4,7 @@ import { getProReviewSummary, type ReviewSummary } from "@/lib/data/reviews";
 import { es } from "@/lib/i18n/es";
 import { SD_ZONES, TRADES, isTrade, isZone } from "@/lib/domain/catalog";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { listSavedProIds } from "@/lib/data/saved";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { ProPicker } from "./ProPicker";
 
@@ -27,6 +28,9 @@ export default async function SearchPage({
 
   // Anonymous visitors can browse. list_pro_cards returns only safe columns.
   const supabase = await createSupabaseServerClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id ?? null;
+  const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
   const organicAll = (await listProCards(supabase, { trade, zone })).filter((p) => matchesName(p.full_name));
   // Paid boosts: up to 3 ids, newest boost first, filtered the same way (migration 0036).
   // Cards are fetched by id so the listProCards row limit cannot hide a boosted pro.
@@ -133,6 +137,8 @@ export default async function SearchPage({
         <p className="muted">{es.search.empty}</p>
       ) : (
         <ProPicker
+          userId={userId}
+          savedIds={savedIds}
           boosted={boostedPros.map((p) => toPicker(p, true))}
           pros={organicPros.map((p) => toPicker(p, false))}
         />
