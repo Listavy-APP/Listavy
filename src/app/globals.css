@@ -497,6 +497,19 @@ legend {
 }
 .contact-row summary::-webkit-details-marker { display: none; }
 .contact-row summary::after { content: "›"; color: var(--ink-2); font-size: 20px; }
+.page-head h1 { text-align: center; flex: 1; }
+.nav-icon { flex: none; width: 24px; color: var(--ink-2); }
+a.contact-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 56px;
+  color: var(--ink);
+  text-decoration: none;
+}
+a.contact-row::after { content: "›"; margin-left: auto; color: var(--ink-2); font-size: 20px; }
+a.contact-row .contact-label { flex: 1; font-size: 16px; color: var(--ink); font-weight: 500; }
+.contact-row summary .nav-icon { margin-right: 0; }
 .contact-label { font-size: 14px; color: var(--ink-2); }
 .contact-value { flex: 1; text-align: right; overflow-wrap: anywhere; font-weight: 600; }
 .contact-row[open] summary::after { content: "⌄"; }
