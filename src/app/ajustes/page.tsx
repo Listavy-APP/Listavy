@@ -23,6 +23,7 @@ export default async function SettingsPage() {
       <h1>{es.settings.title}</h1>
       <PrivacySettings userId={userData.user.id} />
       <Link className="button secondary" href="/cuenta">{es.settings.accountLink}</Link>
+      <Link className="settings-quiet-link" href="/cuenta#eliminar">{es.settings.deleteLink}</Link>
     </section>
   );
 }

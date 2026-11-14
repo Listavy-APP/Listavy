@@ -375,16 +375,29 @@ a.button.danger:hover { color: var(--danger); }
 .backbar .back {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 44px;
-  padding: 0 var(--s2) 0 var(--s1);
-  font-size: 16px;
-  font-weight: 600;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  padding: 0;
   text-decoration: none;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--paper);
   color: var(--ink);
+}
+.signout-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s1); }
+.settings-quiet-link {
+  align-self: center;
+  margin-top: var(--s3);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .backbar .bt { font-size: 16px; font-weight: 700; }
 .chip-row { display: flex; gap: var(--s1); overflow-x: auto; scrollbar-width: none; }

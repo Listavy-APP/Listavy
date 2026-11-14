@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackArrow } from "@/components/BackBar";
 import { getProCardsByIds, listBoostedProIds, listProCards } from "@/lib/data/pros";
 import { getProReviewSummary, type ReviewSummary } from "@/lib/data/reviews";
 import { es } from "@/lib/i18n/es";
@@ -81,9 +82,7 @@ export default async function SearchPage({
   return (
     <section className="stack">
       <div className="backbar">
-        <Link className="back" href="/" aria-label={es.common.back}>
-          ‹
-        </Link>
+        <Link className="back" href="/" aria-label={es.common.back}><BackArrow /></Link>
         <span className="bt">{es.search.title}</span>
       </div>
 
