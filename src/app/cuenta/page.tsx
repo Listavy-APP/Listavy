@@ -82,13 +82,10 @@ export default async function ProfilePage() {
 
       <ProfileForm userId={profile.id} fullName={profile.full_name} zone={profile.zone} />
 
-      <details className="contact-row">
-        <summary>
-          <span className="contact-label">{es.profile.phoneLabel}</span>
-          <span className="contact-value">{formatPhoneDisplay(profile.phone)}</span>
-        </summary>
-        <p className="muted">{es.profile.phoneHint}</p>
-      </details>
+      <Link className="contact-row" href="/cuenta/telefono">
+        <span className="contact-label">{es.profile.phoneLabel}</span>
+        <span className="contact-value">{formatPhoneDisplay(profile.phone)}</span>
+      </Link>
 
       <details className="contact-row">
         <summary>
