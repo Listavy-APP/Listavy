@@ -6,6 +6,9 @@ import { PhotoPicker } from "./PhotoPicker";
 import { ProfileForm } from "./ProfileForm";
 import { EmailForm } from "./EmailForm";
 import { DeleteAccount } from "./DeleteAccount";
+import { ClaimReferral } from "@/components/ClaimReferral";
+import { ReferralSection } from "@/components/ReferralSection";
+import { referralProgramEnabled } from "@/lib/data/referrals";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listMyJobs, listMyReviews } from "@/lib/data/customer";
 import { getClientStanding } from "@/lib/data/standing";
@@ -48,6 +51,7 @@ export default async function ProfilePage() {
   ]);
 
   const standing = await getClientStanding(supabase);
+  const referralEnabled = await referralProgramEnabled(supabase);
   const standingNotice = standing.blocked ? (
     <div className="panel stack">
       <b>{es.standing.blockedTitle}</b>
@@ -64,6 +68,7 @@ export default async function ProfilePage() {
     <section className="stack">
       <h1>{es.profile.title}</h1>
       {standingNotice}
+      {profile.role !== "pro" ? <ClaimReferral track="client" /> : null}
       <p><a href="/avisos">{es.notifications.title}</a></p>
 
       <h2>{es.profile.photoLabel}</h2>
@@ -125,6 +130,8 @@ export default async function ProfilePage() {
           {es.jobs.inboxTitle}
         </Link>
       ) : null}
+
+      {referralEnabled ? <ReferralSection supabase={supabase} uid={profile.id} role={profile.role} /> : null}
 
       <h2>{es.profile.proTitle}</h2>
       {profile.role === "pro" ? (

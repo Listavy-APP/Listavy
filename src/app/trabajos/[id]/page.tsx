@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { JobActions } from "./JobActions";
+import { ReferralPrompt } from "@/components/ReferralPrompt";
 import { JobTimeline } from "./JobTimeline";
 import { VoiceNote } from "./VoiceNote";
 import { DisputePanel } from "./DisputePanel";
@@ -130,6 +131,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         contactPhone={contactPhone}
         completionCode={completionCode}
       />
+      {j.status === "completed" && role === "homeowner" ? <ReferralPrompt supabase={supabase} /> : null}
       <DisputePanel
         jobId={id}
         role={role}

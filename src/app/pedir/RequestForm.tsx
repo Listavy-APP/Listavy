@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ClaimReferral } from "@/components/ClaimReferral";
 import { useRef, useState, type FormEvent } from "react";
 import { LocationConsent } from "@/components/LocationConsent";
 import { Choice } from "@/components/ui/Choice";
@@ -100,6 +101,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
   return (
     <form className="stack" onSubmit={onSubmit}>
       <h1>{es.jobs.requestTitle}</h1>
+      <ClaimReferral track="client" />
       <ul className="list">
         {props.pros.map((p) => (
           <li key={p.id}>

@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { Analytics } from "@/components/Analytics";
 import { AppHeader } from "@/components/AppHeader";
+import { CaptureReferral } from "@/components/CaptureReferral";
 import { BottomNav } from "@/components/BottomNav";
 import { LegalFooter } from "@/components/LegalFooter";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es-DO" className={manrope.variable}>
       <body>
+        <CaptureReferral />
         <RegisterServiceWorker />
         <main className="page">
           <AppHeader />

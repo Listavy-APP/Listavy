@@ -1,5 +1,7 @@
 "use client";
 
+import { ClaimReferral } from "@/components/ClaimReferral";
+
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Choice } from "@/components/ui/Choice";
@@ -95,6 +97,7 @@ export function RegistrationForm() {
   return (
     <form className="stack" onSubmit={onSubmit}>
       <h1>{es.registration.title}</h1>
+      <ClaimReferral track="pro" />
       <p className="lead">{es.registration.intro}</p>
 
       <Choice
