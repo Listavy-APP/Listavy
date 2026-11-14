@@ -1,7 +1,15 @@
 import type { Trade } from "@/lib/types/database";
 
 /** Trades offered in v1. Must match the check constraints in the migrations. */
-export const TRADES: readonly Trade[] = ["plumber", "electrician", "ac_technician"] as const;
+export const TRADES: readonly Trade[] = [
+  "plumber",
+  "electrician",
+  "ac_technician",
+  "painter",
+  "locksmith",
+  "carpenter",
+  "blacksmith",
+] as const;
 
 /**
  * Santo Domingo zones for v1. Must match pros_zone_valid in migration 0003.

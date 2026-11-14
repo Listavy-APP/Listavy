@@ -6,7 +6,7 @@
  */
 
 export type Role = "homeowner" | "pro" | "admin";
-export type Trade = "plumber" | "electrician" | "ac_technician";
+export type Trade = "plumber" | "electrician" | "ac_technician" | "painter" | "locksmith" | "carpenter" | "blacksmith";
 export type VerificationStatus = "pending" | "approved" | "suspended";
 export type ProPlan = "free" | "pro";
 export type ProType = "individual" | "company";

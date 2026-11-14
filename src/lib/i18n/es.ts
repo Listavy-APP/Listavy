@@ -483,6 +483,10 @@ export const es = {
     plumber: "Plomero",
     electrician: "Electricista",
     ac_technician: "Técnico de aire acondicionado",
+    painter: "Pintor",
+    locksmith: "Cerrajero",
+    carpenter: "Carpintero",
+    blacksmith: "Herrero",
   },
   admin: {
     navLabel: "Secciones de administración",
