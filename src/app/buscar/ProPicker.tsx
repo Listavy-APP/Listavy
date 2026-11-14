@@ -8,6 +8,7 @@ import { es } from "@/lib/i18n/es";
 
 export type PickerPro = {
   id: string;
+  available: boolean;
   name: string | null;
   trade: string;
   tradeLabel: string;
@@ -79,7 +80,7 @@ export function ProPicker({
             className={`button ${on ? "" : "secondary"}`}
             aria-pressed={on}
             aria-label={`${on ? es.picker.picked : es.picker.pick}: ${p.name ?? ""}`}
-            disabled={blocked}
+            disabled={blocked || !p.available}
             onClick={() => toggle(p)}
           >
             {on ? es.picker.picked : es.picker.pick}
@@ -87,6 +88,7 @@ export function ProPicker({
           <Link className="button secondary" href={`/pro/${p.id}`}>
             {es.search.viewProfile}
           </Link>
+          {!p.available ? <p className="muted">{es.availability.unavailable}</p> : null}
           <SaveProButton userId={userId} proId={p.id} initialSaved={savedIds.includes(p.id)} next="/buscar" />
         </div>
       </li>

@@ -5,6 +5,7 @@ import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BoostPanel } from "./BoostPanel";
 import { BioForm } from "./BioForm";
+import { AvailabilityToggle } from "@/components/AvailabilityToggle";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
 
@@ -72,6 +73,9 @@ export default async function ProStatusPage() {
         <Link className="button secondary" href="/pro/pagos">
           {es.proPayouts.title}
         </Link>
+      )}
+      {pro.verification_status === "approved" && (
+        <AvailabilityToggle proId={pro.id} initial={(pro as { available?: boolean }).available ?? true} />
       )}
       {pro.verification_status === "approved" && <BioForm proId={pro.id} initial={(pro as { bio?: string | null }).bio ?? null} />}
       {pro.verification_status === "approved" && !activeBoost && <BoostPanel />}

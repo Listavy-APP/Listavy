@@ -170,6 +170,13 @@ export const es = {
     held: "Pendiente de liberar",
     disputed: "En disputa",
   },
+  availability: {
+    label: "Disponible para nuevas solicitudes",
+    hint: "Si la desactivas, los clientes no podrán pedirte cotizaciones hasta que la vuelvas a activar.",
+    unavailable: "No está aceptando solicitudes por ahora.",
+    unavailableBtn: "No disponible",
+    failed: "No se pudo guardar. Inténtalo de nuevo.",
+  },
   saved: {
     title: "Guardados",
     save: "Guardar",

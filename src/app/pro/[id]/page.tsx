@@ -96,9 +96,18 @@ export default async function ProDetailPage({
         </b>
       </div>
 
-      <Link className="button" href={`/pedir?pro=${pro.id}`}>
-        {es.jobs.askQuote}
-      </Link>
+      {pro.available ? (
+        <Link className="button" href={`/pedir?pro=${pro.id}`}>
+          {es.jobs.askQuote}
+        </Link>
+      ) : (
+        <>
+          <button className="button" type="button" disabled>
+            {es.availability.unavailableBtn}
+          </button>
+          <p className="muted">{es.availability.unavailable}</p>
+        </>
+      )}
 
       <nav className="tabs" aria-label={es.proTabs.label}>
         <Link className="tab" href={`/pro/${pro.id}`} aria-current={tabReviews ? undefined : "page"}>

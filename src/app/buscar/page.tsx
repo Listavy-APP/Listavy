@@ -56,6 +56,7 @@ export default async function SearchPage({
           }`;
     return {
       id: p.id,
+      available: p.available,
       name: p.full_name,
       trade: p.trade,
       tradeLabel: es.trades[p.trade],

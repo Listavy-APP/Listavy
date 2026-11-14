@@ -142,4 +142,6 @@ export interface ProCard {
   identity_verified: boolean;
   email_verified: boolean;
   phone_verified: boolean;
+  /** False when the pro has paused new requests. The server refuses requests to a pro with false. */
+  available: boolean;
 }
