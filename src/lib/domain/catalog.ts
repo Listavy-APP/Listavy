@@ -12,7 +12,7 @@ export const TRADES: readonly Trade[] = [
 ] as const;
 
 /** Cities. Must match the city check constraints in migrations 0054. */
-export const CITIES = ["santo_domingo", "santiago"] as const;
+export const CITIES = ["santo_domingo", "santiago", "puerto_plata"] as const;
 export type City = (typeof CITIES)[number];
 export const DEFAULT_CITY: City = "santo_domingo";
 
@@ -36,12 +36,26 @@ export const SANTIAGO_ZONES = [
   "Jardines Metropolitanos", "Thomen", "Villa María", "La Salle", "Ensanche Libertad",
 ] as const;
 
+/**
+ * San Felipe de Puerto Plata zones, confirmed by Fabian (2026-11-14). Use in this order.
+ * Must match the Puerto Plata branch of pros_zone_by_city in migration 0056.
+ */
+export const PUERTO_PLATA_ZONES = [
+  "Centro Histórico", "El Malecón", "Ensanche Miramar", "Padre Granero", "Barrio Haití",
+  "Gregorio Luperón", "El Javillar", "Los Callejones", "Playa Oeste", "San Marcos",
+  "Villa Progreso", "Costambar",
+] as const;
+
 export const ZONES_BY_CITY: Record<City, readonly string[]> = {
   santo_domingo: SD_ZONES,
   santiago: SANTIAGO_ZONES,
+  puerto_plata: PUERTO_PLATA_ZONES,
 };
 
-export type Zone = (typeof SD_ZONES)[number] | (typeof SANTIAGO_ZONES)[number];
+export type Zone =
+  | (typeof SD_ZONES)[number]
+  | (typeof SANTIAGO_ZONES)[number]
+  | (typeof PUERTO_PLATA_ZONES)[number];
 
 export function isTrade(value: string): value is Trade {
   return (TRADES as readonly string[]).includes(value);
@@ -59,5 +73,6 @@ export function isZone(value: string): value is Zone {
 export function cityOfZone(value: string): City | null {
   if ((SD_ZONES as readonly string[]).includes(value)) return "santo_domingo";
   if ((SANTIAGO_ZONES as readonly string[]).includes(value)) return "santiago";
+  if ((PUERTO_PLATA_ZONES as readonly string[]).includes(value)) return "puerto_plata";
   return null;
 }
