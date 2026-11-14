@@ -68,12 +68,6 @@ export function PrivacySettings({ userId }: { userId: string }) {
         {error ? <p className="error" role="alert">{error}</p> : null}
       </div>
 
-      <div className="stack">
-        <h3>{es.settings.deleteTitle}</h3>
-        <p className="muted">{es.settings.deleteHint}</p>
-        <Link className="button secondary" href="/cuenta#eliminar">{es.settings.deleteLink}</Link>
-      </div>
-
       <p className="muted"><Link href="/privacidad">{es.settings.privacyLink}</Link></p>
     </section>
   );
