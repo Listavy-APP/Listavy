@@ -54,7 +54,7 @@ export function ReportProButton({ userId, proId, next }: { userId: string | null
 
   if (!open) {
     return (
-      <button className="button secondary" type="button" onClick={() => setOpen(true)}>
+      <button className="button tertiary" type="button" onClick={() => setOpen(true)}>
         {es.report.button}
       </button>
     );

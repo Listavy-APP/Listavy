@@ -26,7 +26,7 @@ export function SaveProButton({
 
   if (!userId) {
     return (
-      <Link className="save-pro" href={`/login?next=${encodeURIComponent(next)}`}>
+      <Link className="button secondary save-pro" href={`/login?next=${encodeURIComponent(next)}`}>
         <span aria-hidden="true">♡</span> {es.saved.save}
       </Link>
     );
@@ -56,7 +56,7 @@ export function SaveProButton({
 
   return (
     <>
-      <button type="button" className="save-pro" aria-pressed={saved} disabled={busy} onClick={toggle}>
+      <button type="button" className="button secondary save-pro" aria-pressed={saved} disabled={busy} onClick={toggle}>
         <span aria-hidden="true">{saved ? "♥" : "♡"}</span> {saved ? es.saved.saved : es.saved.save}
       </button>
       {error ? <p className="error" role="alert">{error}</p> : null}
