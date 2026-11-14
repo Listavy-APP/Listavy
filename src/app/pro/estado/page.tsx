@@ -4,6 +4,7 @@ import { getMyPro } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BoostPanel } from "./BoostPanel";
+import { BioForm } from "./BioForm";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
 
@@ -67,6 +68,7 @@ export default async function ProStatusPage() {
           )}
         </p>
       )}
+      {pro.verification_status === "approved" && <BioForm proId={pro.id} initial={(pro as { bio?: string | null }).bio ?? null} />}
       {pro.verification_status === "approved" && !activeBoost && <BoostPanel />}
     </section>
   );

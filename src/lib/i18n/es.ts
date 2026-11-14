@@ -150,6 +150,13 @@ export const es = {
     email: "Correo verificado",
     phone: "Teléfono verificado",
   },
+  proBioForm: {
+    title: "Tu descripción",
+    label: "Sobre ti (visible en tu perfil, máximo 500 caracteres)",
+    save: "Guardar descripción",
+    saved: "Descripción guardada.",
+    failed: "No se pudo guardar. Inténtalo de nuevo.",
+  },
   proBio: {
     title: "Sobre mí",
     empty: "Este profesional aún no ha escrito su descripción.",
