@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackArrow } from "@/components/BackBar";
 import { notFound, redirect } from "next/navigation";
 import { JobActions } from "./JobActions";
 import { JobTimeline } from "./JobTimeline";
@@ -90,9 +91,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   return (
     <section className="stack">
       <div className="backbar">
-        <Link className="back" href={role === "pro" ? "/pro/solicitudes" : "/cuenta"} aria-label={es.common.back}>
-          ‹
-        </Link>
+        <Link className="back" href={role === "pro" ? "/pro/solicitudes" : "/cuenta"} aria-label={es.common.back}><BackArrow /></Link>
         <span className="bt">{es.jobs.jobTitle}</span>
       </div>
 

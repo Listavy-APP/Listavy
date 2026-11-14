@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackArrow } from "@/components/BackBar";
 import { getProCard, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
@@ -34,9 +35,7 @@ export default async function ProDetailPage({
     return (
       <section className="stack">
         <div className="backbar">
-          <Link className="back" href="/buscar" aria-label={es.common.back}>
-            ‹
-          </Link>
+          <Link className="back" href="/buscar" aria-label={es.common.back}><BackArrow /></Link>
           <span className="bt">{es.proDetail.title}</span>
         </div>
         <h1>{es.proDetail.notFound}</h1>
@@ -57,9 +56,7 @@ export default async function ProDetailPage({
   return (
     <section className="stack pro-profile">
       <div className="backbar">
-        <Link className="back" href="/buscar" aria-label={es.common.back}>
-          ‹
-        </Link>
+        <Link className="back" href="/buscar" aria-label={es.common.back}><BackArrow /></Link>
         <span className="bt">{es.proDetail.title}</span>
       </div>
 
