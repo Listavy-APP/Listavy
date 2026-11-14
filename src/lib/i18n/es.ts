@@ -487,8 +487,13 @@ export const es = {
     navBoosts: "Destacados",
     reportsTitle: "Reportes de profesionales",
     reportsEmpty: "No hay reportes.",
+    openReports: (n: number) => (n === 1 ? "1 reporte sin resolver." : `${n} reportes sin resolver.`),
+    resolve: "Marcar como resuelto",
+    resolved: "Resuelto",
+    resolveFailed: "No se pudo marcar. Inténtalo de nuevo.",
     colReason: "Motivo",
     colDetails: "Detalles",
+    colReportState: "Estado",
     boosts: {
       title: "Destacados",
       subtitle: "Promociones pagadas de profesionales. Reembolsos solo para profesionales bloqueados o suspendidos, o cuando el pago no pudo activarse.",
