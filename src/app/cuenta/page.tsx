@@ -106,6 +106,11 @@ export default async function ProfilePage() {
         <EmailForm current={profile.email} verified={profile.email_verified_at !== null} />
       </details>
 
+      <Link className="contact-row" href="/cuenta/guardados">
+        <span className="icon-box"><Icon name="heart" /></span>
+        <span className="contact-label">{es.saved.title}</span>
+      </Link>
+
       <Link className="contact-row" href="/cuenta/direcciones">
         <span className="icon-box"><Icon name="home" /></span>
         <span className="contact-label">{es.addresses.title}</span>
