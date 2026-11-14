@@ -84,14 +84,14 @@ export default async function ProfilePage() {
       <ProfileForm userId={profile.id} fullName={profile.full_name} zone={profile.zone} />
 
       <Link className="contact-row" href="/cuenta/telefono">
-        <Icon name="phone" />
+        <span className="icon-box"><Icon name="phone" /></span>
         <span className="contact-label">{es.profile.phoneLabel}</span>
         <span className="contact-value">{formatPhoneDisplay(profile.phone)}</span>
       </Link>
 
       <details className="contact-row">
         <summary>
-          <Icon name="mail" />
+          <span className="icon-box"><Icon name="mail" /></span>
           <span className="contact-label">{es.profile.emailLabel}</span>
           <span className="contact-value">{profile.email ?? "—"}</span>
         </summary>
@@ -99,7 +99,7 @@ export default async function ProfilePage() {
       </details>
 
       <Link className="contact-row" href="/cuenta/direcciones">
-        <Icon name="home" />
+        <span className="icon-box"><Icon name="home" /></span>
         <span className="contact-label">{es.addresses.title}</span>
       </Link>
 

@@ -507,6 +507,14 @@ legend {
   color: var(--ink-2);
 }
 .page-title { text-align: center; }
+.icon-box {
+  display: inline-flex;
+  flex: 0 0 20px;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
 a.contact-row {
   display: flex;
   align-items: center;
