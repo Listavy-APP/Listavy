@@ -21,6 +21,7 @@ export function PhotoPicker(props: {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   async function onPick(file: File) {
     setError(null);
@@ -60,19 +61,16 @@ export function PhotoPicker(props: {
 
   return (
     <div className="stack">
-      <div className="row">
-        <label className="photo-edit" aria-label={es.profile.photoChoose}>
-          <input
-            className="sr-only"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            disabled={busy}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onPick(f);
-              e.target.value = "";
-            }}
-          />
+      <div className="photo-row">
+        <button
+          type="button"
+          className="photo-edit"
+          aria-haspopup="dialog"
+          aria-expanded={sheetOpen}
+          aria-label={es.profile.photoChoose}
+          disabled={busy}
+          onClick={() => setSheetOpen(true)}
+        >
           <Avatar name={props.name} src={props.photoUrl} />
           <span className="photo-badge" aria-hidden="true">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -80,13 +78,45 @@ export function PhotoPicker(props: {
               <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
           </span>
-        </label>
-        {props.photoPath ? (
-          <button className="button danger" type="button" disabled={busy} onClick={onRemove}>
-            {es.profile.photoRemove}
-          </button>
-        ) : null}
+        </button>
       </div>
+      {sheetOpen ? (
+        <div className="sheet-backdrop" onClick={() => setSheetOpen(false)}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label={es.profile.photoChoose} onClick={(e) => e.stopPropagation()}>
+            <label className="sheet-action">
+              <input
+                className="sr-only"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={busy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  setSheetOpen(false);
+                  if (f) void onPick(f);
+                  e.target.value = "";
+                }}
+              />
+              {es.profile.photoChoose}
+            </label>
+            {props.photoPath ? (
+              <button
+                type="button"
+                className="sheet-action danger"
+                disabled={busy}
+                onClick={() => {
+                  setSheetOpen(false);
+                  void onRemove();
+                }}
+              >
+                {es.profile.photoRemove}
+              </button>
+            ) : null}
+            <button type="button" className="sheet-action" onClick={() => setSheetOpen(false)}>
+              {es.addresses.cancel}
+            </button>
+          </div>
+        </div>
+      ) : null}
       <p className="muted">{es.profile.photoHint}</p>
       {message ? <p className="ok">{message}</p> : null}
       {error ? <p className="error">{error}</p> : null}
