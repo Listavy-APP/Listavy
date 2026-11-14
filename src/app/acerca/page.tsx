@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { es } from "@/lib/i18n/es";
+import { BackBar } from "@/components/BackBar";
 
 export default function AboutPage() {
   return (
     <section className="stack">
+      <BackBar href="/" />
       <h1>{es.legal.aboutTitle}</h1>
       <p className="lead">{es.legal.aboutBody}</p>
       <p>{es.legal.operator}</p>

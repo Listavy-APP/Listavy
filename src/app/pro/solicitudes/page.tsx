@@ -4,6 +4,7 @@ import { InviteCard, type Quote } from "./InviteCard";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
+import { BackBar } from "@/components/BackBar";
 
 export const metadata = { title: es.jobs.inboxTitle };
 export const instant = false;
@@ -31,6 +32,7 @@ export default async function InboxPage() {
 
   return (
     <section className="stack">
+      <BackBar href="/trabajos" />
       <h1>{es.jobs.inboxTitle}</h1>
       {open.length === 0 ? <p className="muted">{es.jobs.inboxEmpty}</p> : null}
       {rows.map((r) => (
