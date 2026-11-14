@@ -20,10 +20,29 @@ Deno.serve(async (req: Request) => {
   if (result.kind === "ignored") return json({ received: true, ignored: result.reason });
   if (result.kind === "pending") return json({ received: true, pending: true });
 
-  const e = result.event;
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
+
+  if (result.kind === "boost") {
+    const b = result.event;
+    const { data: boostData, error: boostError } = await admin.rpc("apply_boost_checkout", {
+      p_event_id: b.eventId,
+      p_event_type: b.eventType,
+      p_livemode: b.livemode,
+      p_pro: b.proId,
+      p_session_id: b.providerRef,
+      p_payment_intent_id: b.paymentRef,
+      p_duration_days: b.durationDays,
+      p_amount_dop: b.amountDop,
+      p_amount_minor: b.amountMinor,
+      p_fx: b.fx,
+    });
+    if (boostError) return new Response(boostError.message, { status: 500 });
+    return json({ received: true, result: boostData });
+  }
+
+  const e = result.event;
   const { data, error } = await admin.rpc("apply_stripe_checkout", {
     p_event_id: e.eventId,
     p_event_type: e.eventType,

@@ -107,3 +107,46 @@ export async function listDeductions(supabase: SupabaseClient, limit = 100): Pro
   if (error) throw new Error(`No se pudieron leer las deducciones: ${error.message}`);
   return (data ?? []) as AdminDeduction[];
 }
+
+/** One boost row for the admin view. The pro name comes from profiles (admin RLS). */
+export type AdminBoost = {
+  id: string;
+  pro_id: string;
+  pro_name: string | null;
+  duration_days: number;
+  amount_dop: number;
+  status: "active" | "paused" | "expired" | "refunded" | "refund_due";
+  flag_reason: string | null;
+  starts_at: string;
+  ends_at: string;
+  refunded_at: string | null;
+  refund_amount_dop: number | null;
+  created_at: string;
+};
+
+/** Latest 100 boosts, newest first, with the pro's name. Admin RLS applies. */
+export async function listAdminBoosts(supabase: SupabaseClient): Promise<AdminBoost[]> {
+  const { data: rows, error } = await supabase
+    .from("boosts")
+    .select("id, pro_id, duration_days, amount_dop, status, flag_reason, starts_at, ends_at, refunded_at, refund_amount_dop, created_at")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(`No se pudieron cargar los destacados: ${error.message}`);
+  const boosts = (rows ?? []) as Omit<AdminBoost, "pro_name">[];
+
+  const ids = [...new Set(boosts.map((b) => b.pro_id))];
+  const names = new Map<string, string | null>();
+  if (ids.length > 0) {
+    const { data: profiles, error: pErr } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+    if (pErr) throw new Error(`No se pudieron cargar los nombres: ${pErr.message}`);
+    for (const p of (profiles ?? []) as { id: string; full_name: string | null }[]) names.set(p.id, p.full_name);
+  }
+  return boosts.map((b) => ({ ...b, pro_name: names.get(b.pro_id) ?? null }));
+}
+
+/** Refund owed for one boost in DOP, or null when it cannot be refunded. Admin only (database check). */
+export async function boostRefundPreview(supabase: SupabaseClient, boostId: string): Promise<number | null> {
+  const { data, error } = await supabase.rpc("boost_refund_dop", { p_boost: boostId });
+  if (error || typeof data !== "number") return null;
+  return data;
+}

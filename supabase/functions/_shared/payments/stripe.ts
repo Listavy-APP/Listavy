@@ -4,6 +4,8 @@
 
 import { findTransferForPayment } from "./transfer-lookup.ts";
 import type {
+  BoostCheckoutInput,
+  BoostEvent,
   CheckoutCreated,
   CheckoutEvent,
   CheckoutInput,
@@ -92,6 +94,28 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
       return { url: session.url, sessionId: session.id };
     },
 
+    async createBoostCheckout(input: BoostCheckoutInput): Promise<CheckoutCreated> {
+      const params = new URLSearchParams({
+        mode: "payment",
+        currency: input.currency.toLowerCase(),
+        success_url: input.successUrl,
+        cancel_url: input.cancelUrl,
+        client_reference_id: input.proId,
+        "line_items[0][quantity]": "1",
+        "line_items[0][price_data][currency]": input.currency.toLowerCase(),
+        "line_items[0][price_data][unit_amount]": String(input.amountMinor),
+        "line_items[0][price_data][product_data][name]": input.productName,
+        "metadata[purpose]": "boost",
+        "metadata[pro_id]": input.proId,
+        "metadata[duration_days]": String(input.durationDays),
+        "metadata[amount_dop]": String(input.amountDop),
+        "metadata[amount_minor]": String(input.amountMinor),
+        "metadata[fx]": String(input.fx),
+      });
+      const session = await api("POST", "/v1/checkout/sessions", params);
+      return { url: session.url, sessionId: session.id };
+    },
+
     async verifyWebhook(raw: string, headers: Headers): Promise<WebhookResult> {
       const signature = headers.get("stripe-signature") ?? "";
       if (!(await signatureValid(raw, signature, config.webhookSecret, Date.now() / 1000))) {
@@ -104,6 +128,22 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
       const session = event.data.object;
       if (session.payment_status !== "paid") return { kind: "pending" };
       const m = session.metadata ?? {};
+      if (m.purpose === "boost") {
+        if (!m.pro_id) return { kind: "ignored", reason: "no pro metadata" };
+        const boost: BoostEvent = {
+          eventId: event.id,
+          eventType: event.type,
+          livemode: event.livemode,
+          proId: m.pro_id,
+          providerRef: session.id,
+          paymentRef: session.payment_intent ?? null,
+          durationDays: Number(m.duration_days),
+          amountDop: Number(m.amount_dop),
+          amountMinor: Number(m.amount_minor),
+          fx: Number(m.fx),
+        };
+        return { kind: "boost", event: boost };
+      }
       if (!m.job_id || !m.purpose) return { kind: "ignored", reason: "no job metadata" };
 
       const normalized: CheckoutEvent = {

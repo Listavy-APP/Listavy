@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getMyPro } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { BoostPanel } from "./BoostPanel";
 import { connection } from "next/server";
 
 export const metadata = { title: es.proStatus.title };
@@ -16,6 +17,19 @@ export default async function ProStatusPage() {
   if (!userData.user) redirect("/login");
 
   const pro = await getMyPro(supabase);
+
+  // Current boost, if any. RLS limits this to the signed-in pro's own rows.
+  const { data: activeBoost } = pro
+    ? await supabase
+        .from("boosts")
+        .select("ends_at, status")
+        .eq("pro_id", pro.id)
+        .in("status", ["active", "paused"])
+        .gt("ends_at", new Date().toISOString())
+        .order("starts_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
 
   if (!pro) {
     return (
@@ -38,6 +52,19 @@ export default async function ProStatusPage() {
           {es.search.viewProfile}
         </Link>
       )}
+      {pro.verification_status === "approved" && activeBoost && (
+        <p className="panel">
+          {activeBoost.status === "paused"
+            ? es.proStatus.boost.paused
+            : es.proStatus.boost.active(
+            new Date(activeBoost.ends_at).toLocaleDateString("es-DO", {
+              dateStyle: "long",
+              timeZone: "America/Santo_Domingo",
+            }),
+          )}
+        </p>
+      )}
+      {pro.verification_status === "approved" && !activeBoost && <BoostPanel />}
     </section>
   );
 }

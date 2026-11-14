@@ -137,3 +137,23 @@ export async function getWorkPhotoUrls(supabase: SupabaseClient, proId: string):
   );
   return urls.filter((u): u is string => u !== null);
 }
+
+/** Up to 3 boosted pro ids for a search, newest boost first. Same filters as listProCards. */
+export async function listBoostedProIds(
+  supabase: SupabaseClient,
+  filters: { trade?: Trade | null; zone?: string | null } = {},
+): Promise<string[]> {
+  const { data, error } = await supabase.rpc("boosted_pro_ids", {
+    p_trade: filters.trade ?? null,
+    p_zone: filters.zone ?? null,
+  });
+  if (error) throw new Error(`No se pudieron cargar los destacados: ${error.message}`);
+  return ((data ?? []) as { pro_id: string }[]).map((r) => r.pro_id);
+}
+
+/** Whether a pro has an active paid boost. */
+export async function isProBoosted(supabase: SupabaseClient, id: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("is_pro_boosted", { p_pro: id });
+  if (error) throw new Error(`No se pudo cargar el estado del perfil: ${error.message}`);
+  return data === true;
+}

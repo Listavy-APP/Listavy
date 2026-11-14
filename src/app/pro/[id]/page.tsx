@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getProCard, getWorkPhotoUrls } from "@/lib/data/pros";
+import { getProCard, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { Avatar } from "@/components/Avatar";
@@ -36,6 +36,7 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
     );
   }
 
+  const boosted = await isProBoosted(supabase, pro.id);
   const photos = signedIn ? await getWorkPhotoUrls(supabase, pro.id) : [];
   const summary = await getProReviewSummary(supabase, pro.id);
   const reviews = await listProReviews(supabase, pro.id);
@@ -53,6 +54,8 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
         <Avatar name={pro.full_name} src={avatarUrl(supabase, pro.avatar_path)} />
         <h1>{pro.full_name ?? es.proDetail.title}</h1>
         <div className="badge">{es.search.verified}</div>
+        {boosted ? <div className="badge">{es.search.boostedLabel}</div> : null}
+        {boosted ? <p className="muted">{es.search.boostedProfile}</p> : null}
         <p className="sub">
           {es.trades[pro.trade]} · {pro.zone}
         </p>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listProCards } from "@/lib/data/pros";
+import { listBoostedProIds, listProCards } from "@/lib/data/pros";
 import { getProReviewSummary, type ReviewSummary } from "@/lib/data/reviews";
 import { es } from "@/lib/i18n/es";
 import { SD_ZONES, TRADES, isTrade, isZone } from "@/lib/domain/catalog";
@@ -24,12 +24,39 @@ export default async function SearchPage({
   // Anonymous visitors can browse. list_pro_cards returns only safe columns.
   const supabase = await createSupabaseServerClient();
   const pros = await listProCards(supabase, { trade, zone });
+  // Paid boosts: up to 3 pros, newest boost first, filtered the same way (migration 0036).
+  const boostedIds = await listBoostedProIds(supabase, { trade, zone });
+  const boostedSet = new Set(boostedIds);
+  const byId = new Map(pros.map((p) => [p.id, p] as const));
+  const boostedPros = boostedIds.map((id) => byId.get(id)).filter((p): p is (typeof pros)[number] => Boolean(p));
+  const organicPros = pros.filter((p) => !boostedSet.has(p.id));
   // One small aggregate per card. Published, non-held reviews only (migration 0030).
   const summaries = new Map<string, ReviewSummary>(
     await Promise.all(
       pros.map(async (p) => [p.id, await getProReviewSummary(supabase, p.id)] as const),
     ),
   );
+
+  const toPicker = (p: (typeof pros)[number], boosted: boolean) => {
+    const sm = summaries.get(p.id);
+    const reviewLabel =
+      !sm || sm.review_count === 0
+        ? es.reviews.noReviews
+        : `${es.reviews.average(sm.average ?? 0)} · ${
+            sm.review_count === 1 ? es.reviews.countOne : es.reviews.countMany(sm.review_count)
+          }`;
+    return {
+      id: p.id,
+      name: p.full_name,
+      trade: p.trade,
+      tradeLabel: es.trades[p.trade],
+      zone: p.zone,
+      priceLabel: `${es.search.priceRange}: ${es.money.dop(p.price_min_dop)} – ${es.money.dop(p.price_max_dop)}`,
+      reviewLabel,
+      avatarSrc: avatarUrl(supabase, p.avatar_path),
+      boosted,
+    };
+  };
 
   // Trade chips keep the chosen zone, so changing the trade never clears it.
   const chipHref = (t: string | null) => {
@@ -85,25 +112,8 @@ export default async function SearchPage({
         <p className="muted">{es.search.empty}</p>
       ) : (
         <ProPicker
-          pros={pros.map((p) => {
-            const sm = summaries.get(p.id);
-            const reviewLabel =
-              !sm || sm.review_count === 0
-                ? es.reviews.noReviews
-                : `${es.reviews.average(sm.average ?? 0)} · ${
-                    sm.review_count === 1 ? es.reviews.countOne : es.reviews.countMany(sm.review_count)
-                  }`;
-            return {
-              id: p.id,
-              name: p.full_name,
-              trade: p.trade,
-              tradeLabel: es.trades[p.trade],
-              zone: p.zone,
-              priceLabel: `${es.search.priceRange}: ${es.money.dop(p.price_min_dop)} – ${es.money.dop(p.price_max_dop)}`,
-              reviewLabel,
-              avatarSrc: avatarUrl(supabase, p.avatar_path),
-            };
-          })}
+          boosted={boostedPros.map((p) => toPicker(p, true))}
+          pros={organicPros.map((p) => toPicker(p, false))}
         />
       )}
     </section>
