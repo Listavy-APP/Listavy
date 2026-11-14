@@ -705,3 +705,8 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .record-row { display: grid; grid-template-columns: 9rem 1fr; gap: var(--s1); font-size: 0.9rem; }
 .record-row dt { color: var(--muted); }
 .record-row dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+
+/* /buscar: trade and zone are separate labelled filters (UI phase §3). */
+.search-form { gap: var(--s2); }
+.filter-group { display: flex; flex-direction: column; gap: var(--s1); }
+.filter-label { font-size: 0.95rem; font-weight: 600; color: var(--ink-2); }
