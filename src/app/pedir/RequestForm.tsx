@@ -9,7 +9,8 @@ import { TextArea } from "@/components/ui/TextArea";
 import { createJobRequest, setLocationConsent, uploadJobFile, type JobType } from "@/lib/data/jobs";
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
-import { SD_ZONES } from "@/lib/domain/catalog";
+import { cityOfZone } from "@/lib/domain/catalog";
+import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ProOption = { id: string; name: string | null; trade: string; zone: string };
@@ -19,7 +20,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
   const trade = props.pros[0].trade;
   const sameTrade = props.pros.every((p) => p.trade === trade);
 
-  const [zone, setZone] = useState<string>(props.pros[0].zone || SD_ZONES[0]);
+  const [zone, setZone] = useState<string>(props.pros[0].zone);
   const [jobType, setJobType] = useState<JobType>("repair");
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
@@ -35,6 +36,9 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
     if (!sameTrade) return setError(es.jobs.sameTradeHint);
     if (description.trim().length < 20) return setError(es.jobs.descriptionShort);
     if (photos.length < 1) return setError(es.jobs.photoRequired);
+    // Every chosen pro must serve the city of the job. The zone list follows the city.
+    const jobCity = cityOfZone(zone);
+    if (props.pros.some((p) => cityOfZone(p.zone) !== jobCity)) return setError(es.cityUi.mismatch);
 
     setBusy(true);
     try {
@@ -109,16 +113,13 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
       </ul>
       <p className="muted">{props.pros.length === 1 ? es.jobs.oneQuoteHint : es.jobs.manyQuotesHint(props.pros.length)}</p>
 
-      <label className="field">
-        <span>{es.jobs.zoneLabel}</span>
-        <select value={zone} onChange={(e) => setZone(e.target.value)}>
-          {SD_ZONES.map((z) => (
-            <option key={z} value={z}>
-              {z}
-            </option>
-          ))}
-        </select>
-      </label>
+      <CityZoneSelect
+        cityName="city"
+        zoneName="zone"
+        zoneLabel={es.jobs.zoneLabel}
+        defaultZone={zone}
+        onChange={(_, z) => setZone(z)}
+      />
 
       <Choice
         legend={es.jobs.typeLabel}

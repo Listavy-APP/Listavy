@@ -3,7 +3,8 @@ import { BackArrow } from "@/components/BackBar";
 import { getProCardsByIds, listBoostedProIds, listProCards } from "@/lib/data/pros";
 import { getProReviewSummary, type ReviewSummary } from "@/lib/data/reviews";
 import { es } from "@/lib/i18n/es";
-import { SD_ZONES, TRADES, isTrade, isZone } from "@/lib/domain/catalog";
+import { DEFAULT_CITY, TRADES, cityOfZone, isCity, isTrade, isZone, type City } from "@/lib/domain/catalog";
+import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listSavedProIds } from "@/lib/data/saved";
 import { avatarUrl } from "@/lib/storage/proFiles";
@@ -17,11 +18,17 @@ export const instant = false;
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ trade?: string; zone?: string; q?: string }>;
+  searchParams: Promise<{ trade?: string; city?: string; zone?: string; q?: string }>;
 }) {
   const params = await searchParams;
   const trade = params.trade && isTrade(params.trade) ? params.trade : null;
   const zone = params.zone && isZone(params.zone) ? params.zone : null;
+  // A chosen zone decides the city. Otherwise the city param, default Santo Domingo.
+  const city: City = zone
+    ? (cityOfZone(zone) ?? DEFAULT_CITY)
+    : params.city && isCity(params.city)
+      ? params.city
+      : DEFAULT_CITY;
   // Name search, case-insensitive. Capped so a long query cannot be used to probe the list.
   const q = (params.q ?? "").trim().slice(0, 80);
   const matchesName = (name: string | null) =>
@@ -32,10 +39,10 @@ export default async function SearchPage({
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id ?? null;
   const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
-  const organicAll = (await listProCards(supabase, { trade, zone })).filter((p) => matchesName(p.full_name));
+  const organicAll = (await listProCards(supabase, { trade, zone, city })).filter((p) => matchesName(p.full_name));
   // Paid boosts: up to 3 ids, newest boost first, filtered the same way (migration 0036).
   // Cards are fetched by id so the listProCards row limit cannot hide a boosted pro.
-  const boostedIds = await listBoostedProIds(supabase, { trade, zone });
+  const boostedIds = await listBoostedProIds(supabase, { trade, zone, city });
   const boostedPros = (await getProCardsByIds(supabase, boostedIds)).filter((p) => matchesName(p.full_name));
   const boostedSet = new Set(boostedPros.map((p) => p.id));
   const organicPros = organicAll.filter((p) => !boostedSet.has(p.id));
@@ -74,6 +81,7 @@ export default async function SearchPage({
     const sp = new URLSearchParams();
     if (t) sp.set("trade", t);
     if (zone) sp.set("zone", zone);
+    else if (city !== DEFAULT_CITY) sp.set("city", city);
     if (q) sp.set("q", q);
     const qs = sp.toString();
     return qs ? `/buscar?${qs}` : "/buscar";
@@ -115,17 +123,14 @@ export default async function SearchPage({
           </div>
         </div>
 
-        <label className="field">
-          <span>{es.search.zone}</span>
-          <select name="zone" defaultValue={zone ?? ""}>
-            <option value="">{es.search.allZones}</option>
-            {SD_ZONES.map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-        </label>
+        <CityZoneSelect
+          cityName="city"
+          zoneName="zone"
+          zoneLabel={es.search.zone}
+          defaultCity={city}
+          defaultZone={zone ?? undefined}
+          allZonesLabel={es.search.allZones}
+        />
         <button className="button" type="submit">
           {es.search.submit}
         </button>

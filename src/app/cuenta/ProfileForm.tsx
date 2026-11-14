@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { es } from "@/lib/i18n/es";
-import { SD_ZONES } from "@/lib/domain/catalog";
+import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { updateCustomerProfile } from "@/lib/data/profiles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -44,17 +44,14 @@ export function ProfileForm(props: { userId: string; fullName: string | null; zo
         {es.profile.nameLabel}
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoComplete="name" />
       </label>
-      <label className="field">
-        {es.profile.zoneLabel}
-        <select value={zone} onChange={(e) => setZone(e.target.value)}>
-          <option value="">—</option>
-          {SD_ZONES.map((z) => (
-            <option key={z} value={z}>
-              {z}
-            </option>
-          ))}
-        </select>
-      </label>
+      <CityZoneSelect
+        cityName="city"
+        zoneName="zone"
+        zoneLabel={es.profile.zoneLabel}
+        defaultZone={zone || undefined}
+        placeholder
+        onChange={(_, z) => setZone(z)}
+      />
       <button className="button" type="submit" disabled={busy}>
         {busy ? es.profile.saving : es.profile.save}
       </button>

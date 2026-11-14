@@ -5,7 +5,8 @@ import { useState, type FormEvent } from "react";
 import { Choice } from "@/components/ui/Choice";
 import { FilePick } from "@/components/ui/FilePick";
 import { createProApplication, type CompanyInput } from "@/lib/data/pros";
-import { SD_ZONES, TRADES, isTrade, isZone } from "@/lib/domain/catalog";
+import { TRADES, isTrade, isZone } from "@/lib/domain/catalog";
+import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -125,17 +126,7 @@ export function RegistrationForm() {
         </select>
       </label>
 
-      <label className="field">
-        <span>{es.registration.zone}</span>
-        <select name="zone" required defaultValue="">
-          <option value="" disabled>—</option>
-          {SD_ZONES.map((z) => (
-            <option key={z} value={z}>
-              {z}
-            </option>
-          ))}
-        </select>
-      </label>
+      <CityZoneSelect cityName="city" zoneName="zone" zoneLabel={es.registration.zone} placeholder />
 
       <div className="row">
         <label className="field">
