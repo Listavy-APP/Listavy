@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { RequestForm } from "./RequestForm";
 import { getProCard } from "@/lib/data/pros";
@@ -6,6 +5,7 @@ import { getClientStanding } from "@/lib/data/standing";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
+import { BackBar } from "@/components/BackBar";
 
 export const metadata = { title: es.jobs.requestTitle };
 export const instant = false;
@@ -40,14 +40,12 @@ export default async function RequestPage({
   if (standing.blocked) {
     return (
       <section className="stack">
+        <BackBar href="/buscar" />
         <h1>{es.jobs.requestTitle}</h1>
         <div className="panel stack">
           <b>{es.standing.blockedTitle}</b>
           <p>{es.standing.blockedBody}</p>
         </div>
-        <Link className="button secondary" href="/cuenta">
-          {es.common.back}
-        </Link>
       </section>
     );
   }
@@ -55,11 +53,9 @@ export default async function RequestPage({
   if (cards.length === 0) {
     return (
       <section className="stack">
+        <BackBar href="/buscar" />
         <h1>{es.jobs.requestTitle}</h1>
         <p className="muted">{es.jobs.noPro}</p>
-        <Link className="button secondary" href="/buscar">
-          {es.common.back}
-        </Link>
       </section>
     );
   }

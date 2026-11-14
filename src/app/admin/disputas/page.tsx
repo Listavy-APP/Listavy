@@ -5,6 +5,7 @@ import { DisputeDecision } from "./DisputeDecision";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listAdminDisputes, listEvidence, type DisputeRow } from "@/lib/data/disputes";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { BackBar } from "@/components/BackBar";
 
 export const metadata = { title: "Mediación de disputas" };
 
@@ -39,6 +40,7 @@ export default async function DisputesDeskPage() {
   return (
     <section className="stack">
       <AdminNav current="/admin/disputas" />
+      <BackBar href="/admin" />
       <h1>Mediación de disputas</h1>
       {disputes.length === 0 ? <p className="muted">No hay disputas.</p> : null}
       {disputes.map((d) => (

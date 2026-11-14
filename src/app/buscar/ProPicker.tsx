@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { SaveProButton } from "@/components/SaveProButton";
 import { useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { es } from "@/lib/i18n/es";
 
 export type PickerPro = {
   id: string;
+  available: boolean;
   name: string | null;
   trade: string;
   tradeLabel: string;
@@ -24,7 +26,17 @@ const MAX = 3;
  * Boosted pros (paid, max 3) appear first under their own line. Organic pros follow.
  * Selection is passed to /pedir as ?pro=<id>,<id>,... which the request page already accepts.
  */
-export function ProPicker({ pros, boosted = [] }: { pros: PickerPro[]; boosted?: PickerPro[] }) {
+export function ProPicker({
+  pros,
+  boosted = [],
+  userId = null,
+  savedIds = [],
+}: {
+  pros: PickerPro[];
+  boosted?: PickerPro[];
+  userId?: string | null;
+  savedIds?: string[];
+}) {
   const [picked, setPicked] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -68,7 +80,7 @@ export function ProPicker({ pros, boosted = [] }: { pros: PickerPro[]; boosted?:
             className={`button ${on ? "" : "secondary"}`}
             aria-pressed={on}
             aria-label={`${on ? es.picker.picked : es.picker.pick}: ${p.name ?? ""}`}
-            disabled={blocked}
+            disabled={blocked || !p.available}
             onClick={() => toggle(p)}
           >
             {on ? es.picker.picked : es.picker.pick}
@@ -76,6 +88,8 @@ export function ProPicker({ pros, boosted = [] }: { pros: PickerPro[]; boosted?:
           <Link className="button secondary" href={`/pro/${p.id}`}>
             {es.search.viewProfile}
           </Link>
+          {!p.available ? <p className="muted">{es.availability.unavailable}</p> : null}
+          <SaveProButton userId={userId} proId={p.id} initialSaved={savedIds.includes(p.id)} next="/buscar" />
         </div>
       </li>
     );

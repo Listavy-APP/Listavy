@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { SignOutButton } from "./SignOutButton";
 import { PhotoPicker } from "./PhotoPicker";
-import { ProfileForm } from "./ProfileForm";
 import { EmailForm } from "./EmailForm";
 import { DeleteAccount } from "./DeleteAccount";
+import { Icon } from "@/components/Icon";
+import { JobCard } from "@/components/JobCard";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listMyJobs, listMyReviews } from "@/lib/data/customer";
 import { getClientStanding } from "@/lib/data/standing";
@@ -62,48 +63,90 @@ export default async function ProfilePage() {
 
   return (
     <section className="stack">
-      <h1>{es.profile.title}</h1>
+      <div className="page-head">
+        <h1 className="sr-only">{es.profile.title}</h1>
+        <Link className="gear-btn" href="/ajustes" aria-label={es.settings.title}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+          </svg>
+        </Link>
+      </div>
+      <div className="account-hero">
+        <div className="account-banner" aria-hidden="true" />
+        <div className="account-avatar">
+          <PhotoPicker userId={profile.id} name={profile.full_name} photoUrl={photoUrl} photoPath={profile.avatar_path} />
+        </div>
+        <p className="account-hello">
+          {profile.full_name ? es.profile.hello(profile.full_name.split(" ")[0]) : es.profile.helloFallback}
+        </p>
+      </div>
       {standingNotice}
-      <p><a href="/avisos">{es.notifications.title}</a></p>
 
-      <h2>{es.profile.photoLabel}</h2>
-      <PhotoPicker
-        userId={profile.id}
-        name={profile.full_name}
-        photoUrl={photoUrl}
-        photoPath={profile.avatar_path}
-      />
 
-      <h2>{es.profile.nameLabel}</h2>
-      <ProfileForm userId={profile.id} fullName={profile.full_name} zone={profile.zone} />
+      <div className="hub-group">
+      <Link className="contact-row" href="/cuenta/perfil">
+        <span className="icon-box"><Icon name="user" /></span>
+        <span className="contact-label">{es.profile.editProfile}</span>
+        <span className="contact-value">{profile.full_name ?? "—"}</span>
+      </Link>
 
-      <dl className="details">
-        <dt>{es.profile.phoneLabel}</dt>
-        <dd>{formatPhoneDisplay(profile.phone)}</dd>
-      </dl>
-      <p className="muted">{es.profile.phoneHint}</p>
+      <Link className="contact-row" href="/cuenta/telefono">
+        <span className="icon-box"><Icon name="phone" /></span>
+        <span className="contact-label">{es.profile.phoneLabel}</span>
+        <span className="contact-value">{formatPhoneDisplay(profile.phone)}</span>
+      </Link>
 
-      <h2>{es.profile.emailLabel}</h2>
-      <EmailForm current={profile.email} verified={profile.email_verified_at !== null} />
+      <details className="contact-row">
+        <summary>
+          <span className="icon-box"><Icon name="mail" /></span>
+          <span className="contact-label">{es.profile.emailLabel}</span>
+          <span className="contact-value">{profile.email ?? "—"}</span>
+        </summary>
+        <EmailForm current={profile.email} verified={profile.email_verified_at !== null} />
+      </details>
 
+      <Link className="contact-row" href="/cuenta/guardados">
+        <span className="icon-box"><Icon name="heart" /></span>
+        <span className="contact-label">{es.saved.title}</span>
+      </Link>
+
+      <Link className="contact-row" href="/cuenta/direcciones">
+        <span className="icon-box"><Icon name="home" /></span>
+        <span className="contact-label">{es.addresses.title}</span>
+      </Link>
+
+      <Link className="contact-row" href="/ayuda">
+        <span className="icon-box"><Icon name="help" /></span>
+        <span className="contact-label">{es.help.title}</span>
+      </Link>
+
+      </div>
+      <div className="hub-band" />
+      <div className="hub-group">
       <h2>{es.profile.tripsTitle}</h2>
       {jobs.length === 0 ? (
         <p className="muted">{es.profile.noTrips}</p>
       ) : (
-        <ul className="list">
+        <div className="cards">
           {jobs.map((j) => (
-            <li key={j.id}>
-              <Link href={`/trabajos/${j.id}`}>
-                <strong>{es.trades[j.trade as keyof typeof es.trades] ?? j.trade}</strong> · {j.zone} · {formatDate(j.created_at)}
-              </Link>
-              <div className="muted">
-                {j.status === "accepted" && j.payment_status === "unpaid"
+            <JobCard
+              key={j.id}
+              href={`/trabajos/${j.id}`}
+              title={es.trades[j.trade as keyof typeof es.trades] ?? j.trade}
+              proName={j.pros?.profiles?.full_name ?? null}
+              zone={j.zone}
+              dateLabel={formatDate(j.created_at)}
+              statusLabel={
+                j.status === "accepted" && j.payment_status === "unpaid"
                   ? es.profile.jobStatusUnpaid
-                  : (es.profile.jobStatus[j.status as keyof typeof es.profile.jobStatus] ?? j.status)}
-              </div>
-            </li>
+                  : (es.profile.jobStatus[j.status as keyof typeof es.profile.jobStatus] ?? j.status)
+              }
+              amountDop={j.approved_quote?.amount_dop ?? null}
+              noProLabel={es.profile.jobProFallback}
+            />
           ))}
-        </ul>
+        </div>
       )}
 
       <h2>{es.profile.reviewsTitle}</h2>
@@ -120,6 +163,9 @@ export default async function ProfilePage() {
         </ul>
       )}
 
+      </div>
+      <div className="hub-band" />
+      <div className="hub-group">
       {profile.role === "pro" ? (
         <Link className="button secondary" href="/pro/solicitudes">
           {es.jobs.inboxTitle}
@@ -137,14 +183,14 @@ export default async function ProfilePage() {
         </Link>
       )}
 
-      <Link className="button secondary" href="/ajustes">
-        {es.settings.title}
-      </Link>
-
-      <h2 id="eliminar">{es.profile.deleteTitle}</h2>
-      <DeleteAccount />
+      </div>
+      <div className="hub-band" />
+      <div className="hub-group">
       <hr className="account-rule" />
       <SignOutButton />
+      <h2 id="eliminar">{es.profile.deleteTitle}</h2>
+      <DeleteAccount />
+      </div>
     </section>
   );
 }

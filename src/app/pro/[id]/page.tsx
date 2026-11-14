@@ -5,13 +5,24 @@ import { avatarUrl } from "@/lib/storage/proFiles";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { SaveProButton } from "@/components/SaveProButton";
+import { ReportProButton } from "@/components/ReportProButton";
+import { listSavedProIds } from "@/lib/data/saved";
 import { getProReviewSummary, listProReviews } from "@/lib/data/reviews";
 
 export const metadata = { title: es.proDetail.title };
 export const instant = false;
 
-export default async function ProDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab } = await searchParams;
+  const tabReviews = tab === "resenas";
   // Public page. Only approved pros resolve. Photos need sign-in.
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -36,6 +47,8 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
     );
   }
 
+  const userId = userData.user?.id ?? null;
+  const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
   const boosted = await isProBoosted(supabase, pro.id);
   const photos = signedIn ? await getWorkPhotoUrls(supabase, pro.id) : [];
   const summary = await getProReviewSummary(supabase, pro.id);
@@ -61,6 +74,24 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
         </p>
       </div>
 
+      <SaveProButton userId={userId} proId={pro.id} initialSaved={savedIds.includes(pro.id)} next={`/pro/${pro.id}`} />
+
+      <ReportProButton userId={userId} proId={pro.id} next={`/pro/${pro.id}`} />
+
+      <div className="stack">
+        <h2>{es.proBio.title}</h2>
+        {pro.bio ? <p>{pro.bio}</p> : <p className="muted">{es.proBio.empty}</p>}
+      </div>
+
+      <div className="stack">
+        <h2>{es.proChecklist.title}</h2>
+        <ul className="checklist">
+          <li className={pro.identity_verified ? "ok" : "muted"}>{pro.identity_verified ? "✓" : "–"} {es.proChecklist.identity}</li>
+          <li className={pro.email_verified ? "ok" : "muted"}>{pro.email_verified ? "✓" : "–"} {es.proChecklist.email}</li>
+          <li className={pro.phone_verified ? "ok" : "muted"}>{pro.phone_verified ? "✓" : "–"} {es.proChecklist.phone}</li>
+        </ul>
+      </div>
+
       <div className="price-block">
         <span className="muted">{es.search.priceRange}</span>
         <b>
@@ -68,6 +99,30 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
         </b>
       </div>
 
+      {pro.available ? (
+        <Link className="button" href={`/pedir?pro=${pro.id}`}>
+          {es.jobs.askQuote}
+        </Link>
+      ) : (
+        <>
+          <button className="button" type="button" disabled>
+            {es.availability.unavailableBtn}
+          </button>
+          <p className="muted">{es.availability.unavailable}</p>
+        </>
+      )}
+
+      <nav className="tabs" aria-label={es.proTabs.label}>
+        <Link className="tab" href={`/pro/${pro.id}`} aria-current={tabReviews ? undefined : "page"}>
+          {es.proTabs.work}
+        </Link>
+        <Link className="tab" href={`/pro/${pro.id}?tab=resenas`} aria-current={tabReviews ? "page" : undefined}>
+          {es.proTabs.reviews}
+        </Link>
+      </nav>
+
+      {tabReviews ? (
+      <>
       <h2>{es.reviews.title}</h2>
       {summary.review_count === 0 ? (
         <EmptyState title={es.reviews.noReviews} body={es.reviews.noReviewsBody} />
@@ -92,10 +147,9 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
         </div>
       )}
 
-      <Link className="button" href={`/pedir?pro=${pro.id}`}>
-        {es.jobs.askQuote}
-      </Link>
-
+      </>
+      ) : (
+      <>
       <h2>{es.proDetail.photos}</h2>
       {!signedIn ? (
         <div className="panel">
@@ -111,6 +165,8 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
             <img key={i} src={src} alt={`${es.proDetail.photos} ${i + 1}`} loading="lazy" />
           ))}
         </div>
+      )}
+      </>
       )}
     </section>
   );

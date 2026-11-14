@@ -102,9 +102,11 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       <p>{j.description}</p>
       <p className="muted">
         {j.job_type === "diagnostic" ? es.jobs.typeDiagnostic : es.jobs.typeRepair} ·{" "}
-        {j.status === "accepted" && j.payment_status === "unpaid"
-          ? es.jobs.statusAcceptedUnpaid
-          : (es.jobs.statusLabel[j.status as keyof typeof es.jobs.statusLabel] ?? j.status)}
+        <span className="status-pill">
+          {j.status === "accepted" && j.payment_status === "unpaid"
+            ? es.jobs.statusAcceptedUnpaid
+            : (es.jobs.statusLabel[j.status as keyof typeof es.jobs.statusLabel] ?? j.status)}
+        </span>
       </p>
 
       {j.voice_path ? <VoiceNote url={voiceUrl} /> : null}

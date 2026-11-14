@@ -15,13 +15,18 @@ export default function HomePage() {
       <h1>{es.home.title}</h1>
       <p className="lead">{es.home.subtitle}</p>
 
-      <Link className="search-bar" href="/buscar">
-        {es.home.searchPlaceholder}
-      </Link>
+      <form className="search-bar" role="search" action="/buscar" method="get">
+        <input
+          type="search"
+          name="q"
+          enterKeyHint="search"
+          placeholder={es.home.searchPlaceholder}
+          aria-label={es.home.searchPlaceholder}
+        />
+      </form>
 
       <div className="sec-title">
         <span>{es.home.servicesTitle}</span>
-        <Link href="/buscar">{es.home.seeAll}</Link>
       </div>
       <div className="cats">
         {TRADES.map((t) => (

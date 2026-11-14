@@ -7,6 +7,7 @@ export function LegalFooter() {
     <footer className="legal-footer">
       <Link href="/acerca">{es.legal.aboutLink}</Link>
       <Link href="/privacidad">{es.legal.privacyLink}</Link>
+      <Link href="/terminos">{es.legal.termsLink}</Link>
     </footer>
   );
 }
