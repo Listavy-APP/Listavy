@@ -144,6 +144,11 @@ export const es = {
     verifyFailed: "El código no es válido o ya venció. Pide uno nuevo.",
     back: "Volver",
   },
+  proTabs: {
+    work: "Trabajos",
+    reviews: "Reseñas",
+    label: "Secciones del perfil",
+  },
   profile: {
     title: "Mi cuenta",
     photoLabel: "Foto de perfil",

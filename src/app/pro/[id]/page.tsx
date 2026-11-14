@@ -10,8 +10,16 @@ import { getProReviewSummary, listProReviews } from "@/lib/data/reviews";
 export const metadata = { title: es.proDetail.title };
 export const instant = false;
 
-export default async function ProDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab } = await searchParams;
+  const tabReviews = tab === "resenas";
   // Public page. Only approved pros resolve. Photos need sign-in.
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -68,6 +76,17 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
         </b>
       </div>
 
+      <nav className="tabs" aria-label={es.proTabs.label}>
+        <Link className="tab" href={`/pro/${pro.id}`} aria-current={tabReviews ? undefined : "page"}>
+          {es.proTabs.work}
+        </Link>
+        <Link className="tab" href={`/pro/${pro.id}?tab=resenas`} aria-current={tabReviews ? "page" : undefined}>
+          {es.proTabs.reviews}
+        </Link>
+      </nav>
+
+      {tabReviews ? (
+      <>
       <h2>{es.reviews.title}</h2>
       {summary.review_count === 0 ? (
         <EmptyState title={es.reviews.noReviews} body={es.reviews.noReviewsBody} />
@@ -96,6 +115,9 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
         {es.jobs.askQuote}
       </Link>
 
+      </>
+      ) : (
+      <>
       <h2>{es.proDetail.photos}</h2>
       {!signedIn ? (
         <div className="panel">
@@ -111,6 +133,8 @@ export default async function ProDetailPage({ params }: { params: Promise<{ id: 
             <img key={i} src={src} alt={`${es.proDetail.photos} ${i + 1}`} loading="lazy" />
           ))}
         </div>
+      )}
+      </>
       )}
     </section>
   );
