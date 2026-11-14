@@ -72,7 +72,6 @@ export default async function ProfilePage() {
         </Link>
       </div>
       {standingNotice}
-      <p><a href="/avisos">{es.notifications.title}</a></p>
 
       <h2>{es.profile.photoLabel}</h2>
       <PhotoPicker
@@ -82,7 +81,6 @@ export default async function ProfilePage() {
         photoPath={profile.avatar_path}
       />
 
-      <h2>{es.profile.nameLabel}</h2>
       <ProfileForm userId={profile.id} fullName={profile.full_name} zone={profile.zone} />
 
       <dl className="details">
@@ -145,10 +143,10 @@ export default async function ProfilePage() {
         </Link>
       )}
 
-      <h2 id="eliminar">{es.profile.deleteTitle}</h2>
-      <DeleteAccount />
       <hr className="account-rule" />
       <SignOutButton />
+      <h2 id="eliminar">{es.profile.deleteTitle}</h2>
+      <DeleteAccount />
     </section>
   );
 }
