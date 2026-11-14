@@ -38,9 +38,6 @@ export default async function InboxPage() {
       {rows.map((r) => (
         <InviteCard key={r.id} quote={r} />
       ))}
-      <Link className="button secondary" href="/cuenta">
-        {es.common.back}
-      </Link>
     </section>
   );
 }

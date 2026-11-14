@@ -8,8 +8,9 @@ import { es } from "@/lib/i18n/es";
 export function BackBar({ href, label }: { href: string; label?: string }) {
   return (
     <div className="backbar">
-      <Link className="back" href={href} aria-label={es.common.back}>
-        ‹
+      <Link className="back" href={href}>
+        <span aria-hidden="true">‹</span>
+        {es.common.back}
       </Link>
       {label ? <span className="bt">{label}</span> : null}
     </div>
