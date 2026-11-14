@@ -83,14 +83,21 @@ export default async function ProfilePage() {
 
       <ProfileForm userId={profile.id} fullName={profile.full_name} zone={profile.zone} />
 
-      <dl className="details">
-        <dt>{es.profile.phoneLabel}</dt>
-        <dd>{formatPhoneDisplay(profile.phone)}</dd>
-      </dl>
-      <p className="muted">{es.profile.phoneHint}</p>
+      <details className="contact-row">
+        <summary>
+          <span className="contact-label">{es.profile.phoneLabel}</span>
+          <span className="contact-value">{formatPhoneDisplay(profile.phone)}</span>
+        </summary>
+        <p className="muted">{es.profile.phoneHint}</p>
+      </details>
 
-      <h2>{es.profile.emailLabel}</h2>
-      <EmailForm current={profile.email} verified={profile.email_verified_at !== null} />
+      <details className="contact-row">
+        <summary>
+          <span className="contact-label">{es.profile.emailLabel}</span>
+          <span className="contact-value">{profile.email ?? "—"}</span>
+        </summary>
+        <EmailForm current={profile.email} verified={profile.email_verified_at !== null} />
+      </details>
 
       <h2>{es.profile.tripsTitle}</h2>
       {jobs.length === 0 ? (
