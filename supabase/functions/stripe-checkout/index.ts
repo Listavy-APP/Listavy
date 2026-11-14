@@ -78,7 +78,22 @@ Deno.serve(async (req: Request) => {
 
   const isDiagnostic = job.job_type === "diagnostic";
 
-  const { data: pro } = await admin.from("pros").select("plan").eq("id", job.pro_id).single();
+  const { data: pro } = await admin.from("pros").select("plan, pro_free_until").eq("id", job.pro_id).single();
+  // A free Pro month (referral reward) counts as the Pro plan for commission.
+  const freeProActive = pro.pro_free_until != null && new Date(pro.pro_free_until) > new Date();
+  const proPlan = pro.plan === "pro" || freeProActive ? "pro" : "free";
+
+  // Referral discount (Invita y gana). Reserved for this job, so two jobs cannot share one reward.
+  // Returns 0 while the program is off.
+  const beforeReferralDop = isDiagnostic ? quoteDop : Math.max(0, quoteDop - creditDop);
+  const { data: discountData, error: discountErr } = await admin.rpc("reserve_referral_discount", {
+    p_job: job.id,
+    p_quote: quoteDop,
+    p_before: beforeReferralDop,
+  });
+  if (discountErr) return json({ error: "No se pudo revisar el descuento de referido." }, 502);
+  const discountDop = Number(discountData ?? 0);
+
   let split;
   try {
     split = splitPayment({
@@ -86,9 +101,11 @@ Deno.serve(async (req: Request) => {
       creditDop,
       tipDop: tipRaw,
       kind: isDiagnostic ? "diagnostic" : "repair",
-      plan: pro.plan,
+      plan: proPlan,
+      discountDop,
     });
   } catch (e) {
+    await admin.rpc("release_referral_reservation", { p_job: job.id });
     return json({ error: e instanceof Error ? e.message : "No se pudo calcular el pago." }, 400);
   }
 
@@ -113,6 +130,7 @@ Deno.serve(async (req: Request) => {
       cancelUrl: appUrl + "/trabajos/" + job.id + "?pago=cancelado",
     });
   } catch (e) {
+    await admin.rpc("release_referral_reservation", { p_job: job.id });
     return json({ error: "No se pudo iniciar el pago.", detail: e instanceof Error ? e.message : null }, 502);
   }
 
@@ -122,5 +140,6 @@ Deno.serve(async (req: Request) => {
     tip_dop: split.tipDop,
     amount_dop: split.amountDop,
     commission_dop: split.commissionDop,
+    referral_discount_dop: split.referralDiscountDop,
   });
 });

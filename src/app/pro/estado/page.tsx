@@ -52,6 +52,11 @@ export default async function ProStatusPage() {
       <BackBar href="/cuenta" />
       <h1>{es.proStatus.title}</h1>
       <p className="lead">{es.proStatus[pro.verification_status]}</p>
+      {pro.pro_free_until && new Date(pro.pro_free_until) > new Date() ? (
+        <p className="notice">
+          {es.referral.freeProUntil(new Date(pro.pro_free_until).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" }))}
+        </p>
+      ) : null}
       {pro.verification_status === "approved" && (
         <Link className="button" href={`/pro/${pro.id}`}>
           {es.search.viewProfile}

@@ -48,6 +48,8 @@ export interface Pro {
   verified_at: string | null;
   verified_by: string | null;
   plan: ProPlan;
+  /** Free Pro month from a referral reward (migration 0040). Null when none. */
+  pro_free_until: string | null;
   pro_type: ProType;
   created_at: string;
 }

@@ -286,3 +286,26 @@ test("registry: stripe resolves with USD; an unknown provider is refused", () =>
   assert.equal(s.currency, "USD");
   assert.throws(() => providerFor("azul", config), /Proveedor de pago desconocido: azul/);
 });
+
+test("createTransfer without a charge: no source_transaction, funded from the platform balance", async () => {
+  const { p, calls } = provider([{ data: { id: "tr_2" } }]);
+  const id = await p.createTransfer({
+    paymentId: "pay-2",
+    jobId: "job-2",
+    destination: "acct_pro",
+    amountMinor: 1100,
+    currency: "USD",
+    idempotencyKey: "release_pay-2",
+  });
+  assert.equal(id, "tr_2");
+  assert.equal(
+    calls[0].body,
+    new URLSearchParams([
+      ["amount", "1100"],
+      ["currency", "usd"],
+      ["destination", "acct_pro"],
+      ["transfer_group", "job-2"],
+      ["metadata[payment_id]", "pay-2"],
+    ]).toString(),
+  );
+});

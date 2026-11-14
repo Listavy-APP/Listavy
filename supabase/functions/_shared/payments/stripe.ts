@@ -177,14 +177,16 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
     },
 
     async createTransfer(input: TransferInput): Promise<string> {
-      const params = new URLSearchParams({
-        amount: String(input.amountMinor),
-        currency: input.currency.toLowerCase(),
-        destination: input.destination,
-        source_transaction: input.chargeId,
-        transfer_group: input.jobId,
-        "metadata[payment_id]": input.paymentId,
-      });
+      // With a charge, the transfer waits on that charge. Without one, it uses the platform balance.
+      const chargeLink: [string, string][] = input.chargeId ? [["source_transaction", input.chargeId]] : [];
+      const params = new URLSearchParams([
+        ["amount", String(input.amountMinor)],
+        ["currency", input.currency.toLowerCase()],
+        ["destination", input.destination],
+        ...chargeLink,
+        ["transfer_group", input.jobId],
+        ["metadata[payment_id]", input.paymentId],
+      ]);
       const created = await api("POST", "/v1/transfers", params, { "Idempotency-Key": input.idempotencyKey });
       return created.id;
     },

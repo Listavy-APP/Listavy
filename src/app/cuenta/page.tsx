@@ -5,6 +5,9 @@ import { SignOutButton } from "./SignOutButton";
 import { PhotoPicker } from "./PhotoPicker";
 import { EmailForm } from "./EmailForm";
 import { DeleteAccount } from "./DeleteAccount";
+import { ClaimReferral } from "@/components/ClaimReferral";
+import { ReferralSection } from "@/components/ReferralSection";
+import { referralProgramEnabled } from "@/lib/data/referrals";
 import { HashScroll } from "@/components/HashScroll";
 import { Icon } from "@/components/Icon";
 import { JobCard } from "@/components/JobCard";
@@ -50,6 +53,7 @@ export default async function ProfilePage() {
   ]);
 
   const standing = await getClientStanding(supabase);
+  const referralEnabled = await referralProgramEnabled(supabase);
   const standingNotice = standing.blocked ? (
     <div className="panel stack">
       <b>{es.standing.blockedTitle}</b>
@@ -83,6 +87,7 @@ export default async function ProfilePage() {
         </p>
       </div>
       {standingNotice}
+      {profile.role !== "pro" ? <ClaimReferral track="client" /> : null}
 
 
       <div className="hub-group">
@@ -172,6 +177,8 @@ export default async function ProfilePage() {
           {es.jobs.inboxTitle}
         </Link>
       ) : null}
+
+      {referralEnabled ? <ReferralSection supabase={supabase} uid={profile.id} role={profile.role} /> : null}
 
       <h2>{es.profile.proTitle}</h2>
       {profile.role === "pro" ? (
