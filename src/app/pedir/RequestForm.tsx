@@ -7,7 +7,7 @@ import { LocationConsent } from "@/components/LocationConsent";
 import { Choice } from "@/components/ui/Choice";
 import { FilePick } from "@/components/ui/FilePick";
 import { TextArea } from "@/components/ui/TextArea";
-import { createJobRequest, setLocationConsent, uploadJobFile, type JobType } from "@/lib/data/jobs";
+import { createJobRequest, setLocationConsent, uploadJobFile, type JobType, type RequestedType } from "@/lib/data/jobs";
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
 import { cityOfZone } from "@/lib/domain/catalog";
@@ -23,6 +23,8 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
 
   const [zone, setZone] = useState<string>(props.pros[0].zone);
   const [jobType, setJobType] = useState<JobType>("repair");
+  // Person / company choice (Phase 1). The server refuses a pro of the other type.
+  const [requestedType, setRequestedType] = useState<RequestedType>("any");
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [voice, setVoice] = useState<File | null>(null);
@@ -72,6 +74,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
         proIds: props.pros.map((p) => p.id),
         photoPaths,
         voicePath,
+        requestedProType: requestedType,
       });
       setCreatedJobId(jobId);
       setBusy(false);
@@ -134,6 +137,19 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
         onChange={setJobType}
       />
       <p className="muted">{jobType === "diagnostic" ? es.jobs.diagnosticHint : es.jobs.repairHint}</p>
+
+      <Choice
+        legend={es.typeRouting.requestLabel}
+        name="requestedType"
+        value={requestedType}
+        options={[
+          { value: "any", label: es.typeRouting.any },
+          { value: "individual", label: es.typeRouting.person },
+          { value: "company", label: es.typeRouting.company },
+        ]}
+        onChange={setRequestedType}
+      />
+      <p className="muted">{es.typeRouting.hints[requestedType]}</p>
 
       <TextArea
         label={es.jobs.descriptionLabel}

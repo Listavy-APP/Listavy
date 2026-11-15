@@ -585,6 +585,22 @@ export const es = {
     label: "Ciudad",
     mismatch: "Los profesionales elegidos no atienden esa ciudad. Elige otra zona o quita a un profesional.",
   },
+  typeRouting: {
+    requestLabel: "¿A quién buscas?",
+    any: "Cualquiera",
+    person: "Persona",
+    company: "Empresa",
+    hints: {
+      any: "Me da igual, quiero ver todas las opciones.",
+      individual: "Una persona que hace el trabajo.",
+      company: "Una empresa con equipo y respaldo.",
+    },
+    filterLabel: "Tipo",
+    filterAll: "Todos",
+    filterPersons: "Personas",
+    filterCompanies: "Empresas",
+    companyVerified: "Empresa verificada",
+  },
   admin: {
     navLabel: "Secciones de administración",
     navPayments: "Pagos",

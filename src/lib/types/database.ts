@@ -149,4 +149,7 @@ export interface ProCard {
   /** False when the pro has paused new requests. The server refuses requests to a pro with false. */
   available: boolean;
   is_demo: boolean;
+  /** 'company' pros carry the public razón social. The RNC is never on the card. */
+  pro_type: "individual" | "company";
+  razon_social: string | null;
 }
