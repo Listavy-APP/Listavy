@@ -8,6 +8,10 @@ export function LegalFooter() {
       <Link href="/acerca">{es.legal.aboutLink}</Link>
       <Link href="/privacidad">{es.legal.privacyLink}</Link>
       <Link href="/terminos">{es.legal.termsLink}</Link>
+      <Link href="/cookies">{es.legal.cookiesLink}</Link>
+      <Link href="/cancelacion">{es.legal.cancellationLink}</Link>
+      <Link href="/comunidad">{es.legal.communityLink}</Link>
+      <Link href="/pro/terminos">{es.legal.proTermsLink}</Link>
     </footer>
   );
 }

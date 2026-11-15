@@ -1043,3 +1043,9 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .brand-home { display: inline-flex; align-items: center; }
 .brand-lockup { height: 30px; width: auto; }
 .about-logo { display: block; width: min(300px, 100%); height: auto; margin: 0 auto var(--s2); }
+
+/* Legal: footer wraps on narrow screens; acceptance checkbox row. */
+.legal-footer { flex-wrap: wrap; row-gap: var(--s2); }
+.check-row { display: flex; align-items: flex-start; gap: var(--s2); font-size: 15px; line-height: 1.4; }
+.check-row input[type="checkbox"] { margin-top: 3px; flex: 0 0 auto; }
+.check-row a { font-weight: 600; text-decoration: underline; }
