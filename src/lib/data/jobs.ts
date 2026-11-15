@@ -96,6 +96,9 @@ function fail(error: { message: string } | null): void {
   if (error) throw new Error(error.message);
 }
 
+/** Person / company / any. Matches jobs.requested_pro_type (migration 0062). */
+export type RequestedType = "individual" | "company" | "any";
+
 export async function createJobRequest(
   supabase: SupabaseClient,
   input: {
@@ -106,6 +109,7 @@ export async function createJobRequest(
     proIds: string[];
     photoPaths: string[];
     voicePath: string | null;
+    requestedProType?: RequestedType;
   },
 ): Promise<string> {
   const { data, error } = await supabase.rpc("create_job_request", {
@@ -116,6 +120,7 @@ export async function createJobRequest(
     p_pro_ids: input.proIds,
     p_photo_paths: input.photoPaths,
     p_voice_path: input.voicePath,
+    p_requested_pro_type: input.requestedProType ?? "any",
   });
   fail(error);
   return data as string;

@@ -100,13 +100,14 @@ export async function createProApplication(
 /** Approved pros for a trade and/or zone. Uses the list_pro_cards function. */
 export async function listProCards(
   supabase: SupabaseClient,
-  filters: { trade?: Trade | null; zone?: string | null; city?: City } = {},
+  filters: { trade?: Trade | null; zone?: string | null; city?: City; proType?: ProType | null } = {},
 ): Promise<ProCard[]> {
   const { data, error } = await supabase.rpc("list_pro_cards", {
     p_trade: filters.trade ?? null,
     p_zone: filters.zone ?? null,
     p_pro_id: null,
     p_city: filters.city ?? DEFAULT_CITY,
+    p_pro_type: filters.proType ?? null,
   });
   if (error) throw new Error(`No se pudo buscar profesionales: ${error.message}`);
   return (data ?? []) as ProCard[];

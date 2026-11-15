@@ -18,7 +18,7 @@ export const instant = false;
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ trade?: string; city?: string; zone?: string; q?: string }>;
+  searchParams: Promise<{ trade?: string; city?: string; zone?: string; q?: string; type?: string }>;
 }) {
   const params = await searchParams;
   const trade = params.trade && isTrade(params.trade) ? params.trade : null;
@@ -29,6 +29,9 @@ export default async function SearchPage({
     : params.city && isCity(params.city)
       ? params.city
       : DEFAULT_CITY;
+  // Person / company filter (Phase 1). Unknown values mean "all".
+  const typeParam = params.type === "personas" || params.type === "empresas" ? params.type : null;
+  const proType = typeParam === "personas" ? "individual" : typeParam === "empresas" ? "company" : null;
   // Name search, case-insensitive. Capped so a long query cannot be used to probe the list.
   const q = (params.q ?? "").trim().slice(0, 80);
   const matchesName = (name: string | null) =>
@@ -39,11 +42,13 @@ export default async function SearchPage({
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id ?? null;
   const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
-  const organicAll = (await listProCards(supabase, { trade, zone, city })).filter((p) => matchesName(p.full_name));
+  const organicAll = (await listProCards(supabase, { trade, zone, city, proType }))
+    .filter((p) => matchesName(p.full_name));
   // Paid boosts: up to 3 ids, newest boost first, filtered the same way (migration 0036).
   // Cards are fetched by id so the listProCards row limit cannot hide a boosted pro.
   const boostedIds = await listBoostedProIds(supabase, { trade, zone, city });
-  const boostedPros = (await getProCardsByIds(supabase, boostedIds)).filter((p) => matchesName(p.full_name));
+  const boostedPros = (await getProCardsByIds(supabase, boostedIds))
+    .filter((p) => matchesName(p.full_name) && (!proType || p.pro_type === proType));
   const boostedSet = new Set(boostedPros.map((p) => p.id));
   const organicPros = organicAll.filter((p) => !boostedSet.has(p.id));
   const pros = [...boostedPros, ...organicPros];
@@ -73,16 +78,29 @@ export default async function SearchPage({
       reviewLabel,
       avatarSrc: avatarUrl(supabase, p.avatar_path),
       boosted,
+      isCompany: p.pro_type === "company",
+      companyName: p.pro_type === "company" ? p.razon_social : null,
     };
   };
 
   // Chips and the form keep the other filters, so changing one never clears the rest.
+  const typeHref = (t: "personas" | "empresas" | null) => {
+    const sp = new URLSearchParams();
+    if (trade) sp.set("trade", trade);
+    if (zone) sp.set("zone", zone);
+    else if (city !== DEFAULT_CITY) sp.set("city", city);
+    if (q) sp.set("q", q);
+    if (t) sp.set("type", t);
+    const qs = sp.toString();
+    return qs ? `/buscar?${qs}` : "/buscar";
+  };
   const chipHref = (t: string | null) => {
     const sp = new URLSearchParams();
     if (t) sp.set("trade", t);
     if (zone) sp.set("zone", zone);
     else if (city !== DEFAULT_CITY) sp.set("city", city);
     if (q) sp.set("q", q);
+    if (typeParam) sp.set("type", typeParam);
     const qs = sp.toString();
     return qs ? `/buscar?${qs}` : "/buscar";
   };
@@ -109,6 +127,15 @@ export default async function SearchPage({
 
         {/* Trade and zone are two separate filters. Trade chips set `trade` (hidden below). */}
         <input type="hidden" name="trade" value={trade ?? ""} />
+        <input type="hidden" name="type" value={typeParam ?? ""} />
+        <div className="filter-group" role="group" aria-label={es.typeRouting.filterLabel}>
+          <span className="filter-label">{es.typeRouting.filterLabel}</span>
+          <div className="chip-row">
+            <Link className={`chip${typeParam === null ? " on" : ""}`} href={typeHref(null)}>{es.typeRouting.filterAll}</Link>
+            <Link className={`chip${typeParam === "personas" ? " on" : ""}`} href={typeHref("personas")}>{es.typeRouting.filterPersons}</Link>
+            <Link className={`chip${typeParam === "empresas" ? " on" : ""}`} href={typeHref("empresas")}>{es.typeRouting.filterCompanies}</Link>
+          </div>
+        </div>
         <div className="filter-group" role="group" aria-label={es.search.trade}>
           <span className="filter-label">{es.search.trade}</span>
           <div className="chip-row">

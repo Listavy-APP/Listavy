@@ -70,7 +70,7 @@ export default async function RequestPage({
       ) : null}
     <RequestForm
       userId={userData.user.id}
-      pros={cards.map((c) => ({ id: c.id, name: c.full_name, trade: c.trade, zone: c.zone }))}
+      pros={cards.map((c) => ({ id: c.id, name: c.full_name, trade: c.trade, zone: c.zone, pro_type: c.pro_type }))}
     />
     </>
   );

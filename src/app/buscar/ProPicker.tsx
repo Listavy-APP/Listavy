@@ -17,6 +17,9 @@ export type PickerPro = {
   reviewLabel: string;
   avatarSrc: string | null;
   boosted?: boolean;
+  /** Company pros show the verified badge and their public razón social. */
+  isCompany?: boolean;
+  companyName?: string | null;
 };
 
 const MAX = 3;
@@ -70,7 +73,8 @@ export function ProPicker({
             </p>
           </div>
         </div>
-        <div className="badge">{es.search.verified}</div>
+        <div className="badge">{p.isCompany ? es.typeRouting.companyVerified : es.search.verified}</div>
+        {p.isCompany && p.companyName ? <p className="muted">{p.companyName}</p> : null}
         {p.boosted ? <div className="badge">{es.search.boostedLabel}</div> : null}
         <p className="card-price">{p.priceLabel}</p>
         <p className="muted">{p.reviewLabel}</p>

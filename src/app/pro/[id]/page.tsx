@@ -76,12 +76,15 @@ export default async function ProDetailPage({
           <Avatar name={pro.full_name} src={avatarUrl(supabase, pro.avatar_path)} />
         </div>
         <h1 className="pro-name">{pro.full_name ?? es.proDetail.title}</h1>
+        {pro.pro_type === "company" && pro.razon_social ? <p className="sub">{pro.razon_social}</p> : null}
         <p className="sub">
           {es.trades[pro.trade]} · {pro.zone}
         </p>
         <div className="pro-badges">
           {pro.is_demo ? <span className="badge demo-badge">{es.proDetail.demoBadge}</span> : null}
-          <span className="badge">{es.search.verified}</span>
+          <span className="badge">
+            {pro.pro_type === "company" ? es.typeRouting.companyVerified : es.search.verified}
+          </span>
           {boosted ? <span className="badge">{es.search.boostedLabel}</span> : null}
         </div>
         {boosted ? <p className="muted pro-note">{es.search.boostedProfile}</p> : null}
