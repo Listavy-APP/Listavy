@@ -406,6 +406,10 @@ export const es = {
   },
   proDetail: {
     title: "Perfil profesional",
+    statJobs: "Trabajos",
+    statRating: "Calificación",
+    statSince: "En Listavy",
+    statNew: "Nuevo",
     notFound: "Este profesional no está disponible.",
     photos: "Trabajos anteriores",
     noPhotos: "Todavía no hay fotos de trabajos.",
