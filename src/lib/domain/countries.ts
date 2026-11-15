@@ -110,7 +110,7 @@ export const PHONE_COUNTRIES: readonly PhoneCountry[] = [
   { code: "677", label: "+677 Islas Salomón", placeholder: G },
   { code: "692", label: "+692 Islas Marshall", placeholder: G },
   { code: "972", label: "+972 Israel", placeholder: G },
-  { code: "39", label: "+39 Italia / Ciudad del Vaticano", digits: [9, 10], placeholder: "312 345 6789" },
+  { code: "39", label: "+39 Italia", digits: [9, 10], placeholder: "312 345 6789" },
   { code: "81", label: "+81 Japón", placeholder: G },
   { code: "962", label: "+962 Jordania", placeholder: G },
   { code: "7", label: "+7 Rusia / Kazajistán", placeholder: G },
@@ -190,7 +190,6 @@ export const PHONE_COUNTRIES: readonly PhoneCountry[] = [
   { code: "94", label: "+94 Sri Lanka", placeholder: G },
   { code: "27", label: "+27 Sudáfrica", placeholder: G },
   { code: "249", label: "+249 Sudán", placeholder: G },
-  { code: "211", label: "+211 Sudán del Sur", placeholder: G },
   { code: "46", label: "+46 Suecia", placeholder: G },
   { code: "41", label: "+41 Suiza", placeholder: G },
   { code: "597", label: "+597 Surinam", placeholder: G },
@@ -221,6 +220,11 @@ export const PHONE_COUNTRIES: readonly PhoneCountry[] = [
   { code: "246", label: "+246 Territorio Británico del Océano Índico", placeholder: G },
   { code: "49", label: "+49 Alemania", digits: [10, 11], placeholder: "1512 3456789" },
   { code: "52", label: "+52 México", digits: [10, 10], placeholder: "55 1234 5678" },
+  { code: "966", label: "+966 Arabia Saudita", placeholder: G },
+  { code: "211", label: "+211 Sudán del Sur", placeholder: G },
+  { code: "379", label: "+379 Ciudad del Vaticano", placeholder: G },
+  { code: "672", label: "+672 Territorios externos de Australia (Isla Norfolk)", placeholder: G },
+  { code: "683", label: "+683 Niue", placeholder: G },
 ];
 
 /** Fallback digit range for codes without a known count: total length stays within E.164 (8 to 15). */
