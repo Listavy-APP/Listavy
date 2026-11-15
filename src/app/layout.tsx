@@ -22,14 +22,14 @@ export const metadata: Metadata = {
   title: { default: es.brand, template: `%s · ${es.brand}` },
   description: es.home.subtitle,
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
+  icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: es.brand, statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0f172a",
+  themeColor: "#0B132B",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
