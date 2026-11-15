@@ -600,6 +600,7 @@ export const es = {
     filterPersons: "Personas",
     filterCompanies: "Empresas",
     companyVerified: "Empresa verificada",
+    mismatch: "Estos profesionales no coinciden con el tipo que elegiste:",
   },
   admin: {
     navLabel: "Secciones de administración",

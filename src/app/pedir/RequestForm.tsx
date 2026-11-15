@@ -14,7 +14,7 @@ import { cityOfZone } from "@/lib/domain/catalog";
 import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-type ProOption = { id: string; name: string | null; trade: string; zone: string };
+type ProOption = { id: string; name: string | null; trade: string; zone: string; pro_type: "individual" | "company" };
 
 export function RequestForm(props: { userId: string; pros: ProOption[] }) {
   const router = useRouter();
@@ -25,6 +25,8 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
   const [jobType, setJobType] = useState<JobType>("repair");
   // Person / company choice (Phase 1). The server refuses a pro of the other type.
   const [requestedType, setRequestedType] = useState<RequestedType>("any");
+  // Pros whose type does not match the choice. The server refuses them too; this stops the request early.
+  const mismatched = requestedType === "any" ? [] : props.pros.filter((p) => p.pro_type !== requestedType);
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [voice, setVoice] = useState<File | null>(null);
@@ -37,6 +39,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
     e.preventDefault();
     setError(null);
     if (!sameTrade) return setError(es.jobs.sameTradeHint);
+    if (mismatched.length > 0) return setError(es.typeRouting.mismatch);
     if (description.trim().length < 20) return setError(es.jobs.descriptionShort);
     if (photos.length < 1) return setError(es.jobs.photoRequired);
     // Every chosen pro must serve the city of the job. The zone list follows the city.
@@ -150,6 +153,11 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
         onChange={setRequestedType}
       />
       <p className="muted">{es.typeRouting.hints[requestedType]}</p>
+      {mismatched.length > 0 ? (
+        <p className="error" role="alert">
+          {es.typeRouting.mismatch} {mismatched.map((p) => p.name ?? "—").join(", ")}
+        </p>
+      ) : null}
 
       <TextArea
         label={es.jobs.descriptionLabel}

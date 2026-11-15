@@ -84,6 +84,9 @@ declare
 begin
   if v_uid is null then raise exception 'Debes entrar primero.'; end if;
   if p_job_type not in ('repair', 'diagnostic') then raise exception 'Tipo de trabajo no válido.'; end if;
+  if p_requested_pro_type is null then
+    raise exception 'Elige si buscas persona, empresa o cualquiera.';
+  end if;
   if p_requested_pro_type not in ('individual', 'company', 'any') then
     raise exception 'Tipo de profesional no válido.';
   end if;
@@ -156,3 +159,7 @@ begin
   return v_job;
 end;
 $function$;
+
+-- 4. Grants: same lock-down as 0011. The drop above removed the old grants, so restore them.
+revoke execute on function public.create_job_request(text, text, text, text, uuid[], text[], text, text) from public, anon;
+grant execute on function public.create_job_request(text, text, text, text, uuid[], text[], text, text) to authenticated;
