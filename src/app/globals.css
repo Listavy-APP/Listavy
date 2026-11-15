@@ -420,6 +420,9 @@ a.button.danger:hover { color: var(--danger); }
 .pro-profile { gap: var(--s2); }
 .pro-hero { gap: var(--s1); padding-bottom: var(--s2); border-bottom: 1px solid #e2e8f0; }
 .pro-hero .account-avatar .avatar { width: 96px; height: 96px; font-size: 1.75rem; }
+.pro-stats { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; text-align: center; }
+.pro-stat { display: flex; flex-direction: column; gap: 2px; }
+.pro-stat b { font-size: 18px; }
 .pro-name { margin: 0; font-size: 22px; text-align: center; overflow-wrap: anywhere; }
 .pro-hero .sub { color: var(--muted); font-size: 14px; margin: 0; text-align: center; }
 .pro-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1); }

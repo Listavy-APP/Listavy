@@ -174,3 +174,15 @@ export async function isProBoosted(supabase: SupabaseClient, id: string): Promis
   if (error) throw new Error(`No se pudo cargar el estado del perfil: ${error.message}`);
   return data === true;
 }
+
+/** Completed jobs for a pro (public count) and the date the pro joined. */
+export async function getProStats(
+  supabase: SupabaseClient,
+  id: string,
+): Promise<{ completedJobs: number; joinedAt: string | null }> {
+  const { data: jobs, error: jErr } = await supabase.rpc("pro_completed_jobs", { p_pro: id });
+  if (jErr) throw new Error(`No se pudieron leer los trabajos: ${jErr.message}`);
+  const { data: pro, error: pErr } = await supabase.from("pros").select("created_at").eq("id", id).maybeSingle();
+  if (pErr) throw new Error(`No se pudo leer la fecha de alta: ${pErr.message}`);
+  return { completedJobs: Number(jobs ?? 0), joinedAt: (pro as { created_at: string } | null)?.created_at ?? null };
+}

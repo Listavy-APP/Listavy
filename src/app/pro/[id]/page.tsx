@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { BackArrow } from "@/components/BackBar";
-import { getProCard, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
+import { getProCard, getProStats, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { Avatar } from "@/components/Avatar";
@@ -54,6 +54,8 @@ export default async function ProDetailPage({
   const boosted = await isProBoosted(supabase, pro.id);
   const photos = signedIn ? await getWorkPhotoUrls(supabase, pro.id) : [];
   const summary = await getProReviewSummary(supabase, pro.id);
+  const stats = await getProStats(supabase, pro.id);
+  const yearsOnPlatform = stats.joinedAt ? Math.floor((Date.now() - new Date(stats.joinedAt).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
   const reviews = pro.is_demo ? [] : await listProReviews(supabase, pro.id);
   const demoReviews = pro.is_demo ? await listDemoReviews(supabase, pro.id) : [];
 
@@ -76,6 +78,20 @@ export default async function ProDetailPage({
           <Avatar name={pro.full_name} src={avatarUrl(supabase, pro.avatar_path)} />
         </div>
         <h1 className="pro-name">{pro.full_name ?? es.proDetail.title}</h1>
+        <div className="pro-stats" role="list">
+          <div className="pro-stat" role="listitem">
+            <b>{stats.completedJobs}</b>
+            <span className="muted">{es.proDetail.statJobs}</span>
+          </div>
+          <div className="pro-stat" role="listitem">
+            <b>{summary.average == null ? "—" : `${summary.average.toFixed(1)}★`}</b>
+            <span className="muted">{es.proDetail.statRating}</span>
+          </div>
+          <div className="pro-stat" role="listitem">
+            <b>{yearsOnPlatform < 1 ? es.proDetail.statNew : yearsOnPlatform}</b>
+            <span className="muted">{es.proDetail.statSince}</span>
+          </div>
+        </div>
         {pro.pro_type === "company" && pro.razon_social ? <p className="sub">{pro.razon_social}</p> : null}
         <p className="sub">
           {es.trades[pro.trade]} · {pro.zone}
