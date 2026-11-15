@@ -161,6 +161,7 @@ export const es = {
     jobs: "Mis trabajos como profesional",
     payouts: "Mis pagos",
     publicProfile: "Mi perfil público",
+    requestService: "Pedir un servicio",
     availability: "Disponibilidad",
     photoHint: "Tu foto aparece en tu perfil público.",
   },

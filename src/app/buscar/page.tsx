@@ -42,13 +42,15 @@ export default async function SearchPage({
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id ?? null;
   const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
+  // A pro does not see their own card. The self-hire guard (0065) refuses it at request time too.
+  const notMe = (id: string) => id !== userId;
   const organicAll = (await listProCards(supabase, { trade, zone, city, proType }))
-    .filter((p) => matchesName(p.full_name));
+    .filter((p) => matchesName(p.full_name) && notMe(p.id));
   // Paid boosts: up to 3 ids, newest boost first, filtered the same way (migration 0036).
   // Cards are fetched by id so the listProCards row limit cannot hide a boosted pro.
   const boostedIds = await listBoostedProIds(supabase, { trade, zone, city });
   const boostedPros = (await getProCardsByIds(supabase, boostedIds))
-    .filter((p) => matchesName(p.full_name) && (!proType || p.pro_type === proType));
+    .filter((p) => matchesName(p.full_name) && (!proType || p.pro_type === proType) && notMe(p.id));
   const boostedSet = new Set(boostedPros.map((p) => p.id));
   const organicPros = organicAll.filter((p) => !boostedSet.has(p.id));
   const pros = [...boostedPros, ...organicPros];

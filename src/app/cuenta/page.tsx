@@ -165,6 +165,9 @@ export default async function ProfilePage() {
               <span className="contact-label">{es.proHub.publicProfile}</span>
             </Link>
           ) : null}
+          <Link className="contact-row" href="/buscar">
+            <span className="contact-label">{es.proHub.requestService}</span>
+          </Link>
           <Link className="contact-row" href="/pro/estado">
             <span className="contact-label">{es.proHub.availability}</span>
           </Link>
