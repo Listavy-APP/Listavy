@@ -4,7 +4,8 @@
 -- 2. job_notifications: in-app check-ins to the client, with read/unread and a one-tap answer.
 --    One row per (job, trigger), so a job gets at most three check-ins.
 -- 3. run_job_checkins(): scheduled every 15 minutes with pg_cron. It creates due check-ins.
---    Sends nothing outside 08:00-19:59 Santo Domingo time, and at most one check-in per client per day.
+--    Sends nothing outside 08:00-19:59 Santo Domingo time, and at most one arrival/mid-job check-in per client per day.
+--    Overrun is exempt from the daily cap. At most one check-in per job per trigger (unique job_id, kind).
 -- 4. Triggers: arrival (start_job, or window start passed with no start), mid-job (halfway through the
 --    quoted window, still in progress), overrun (window end passed, still in progress).
 -- No WhatsApp sending here. WhatsApp waits for the Meta sender (Step 5).
@@ -224,16 +225,13 @@ begin
       end if;
 
       -- Overrun: the quoted window has ended and the job is still open.
+      -- Not limited by the one-per-day cap: it is the safety net, so it is never delayed a day.
+      -- Still at most one per job, by unique (job_id, kind).
       if v_now > r.window_end then
         insert into public.job_notifications (job_id, recipient_id, kind, body)
         select r.id, r.homeowner_id, 'overrun',
                'Tu trabajo debía terminar a las ' ||
                to_char(r.window_end at time zone 'America/Santo_Domingo', 'HH12:MI AM') || '. ¿Sigue en curso?'
-         where not exists (
-           select 1 from public.job_notifications n
-            where n.recipient_id = r.homeowner_id
-              and (n.created_at at time zone 'America/Santo_Domingo')::date = v_local::date
-         )
         on conflict (job_id, kind) do nothing;
         if found then v_count := v_count + 1; end if;
       end if;
