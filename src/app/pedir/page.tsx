@@ -62,6 +62,7 @@ export default async function RequestPage({
 
   return (
     <>
+      <BackBar href="/buscar" />
       {standing.warning ? (
         <div className="panel stack">
           <b>{es.standing.warningTitle}</b>

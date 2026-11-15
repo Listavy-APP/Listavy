@@ -27,8 +27,8 @@ const EMPTY: Draft = { id: null, label: es.addresses.types[0], street: "", zone:
 /**
  * Saved addresses (stored only). Owner-only RLS on the table is the security boundary;
  * the user_id filter here is for clarity, not access control.
- * Setting a default clears the old one first, then sets the new one, so the
- * one-default-per-user unique index is never violated.
+ * Setting a default runs as one database transaction (set_default_address, migration 0066),
+ * so the one-default-per-user unique index is never violated and no half-set state is left.
  */
 export function AddressManager(props: { userId: string; addresses: SavedAddress[] }) {
   const router = useRouter();
@@ -90,14 +90,9 @@ export function AddressManager(props: { userId: string; addresses: SavedAddress[
     setError(null);
     try {
       const supabase = createSupabaseBrowserClient();
-      const { error: clearErr } = await supabase
-        .from("addresses")
-        .update({ is_default: false })
-        .eq("user_id", props.userId)
-        .eq("is_default", true);
-      if (clearErr) throw clearErr;
-      const { error: setErr } = await supabase.from("addresses").update({ is_default: true }).eq("id", id);
-      if (setErr) throw setErr;
+      // One transaction in the database (migration 0066): owner check, clear the old default, set the new one.
+      const { error: rpcErr } = await supabase.rpc("set_default_address", { p_address: id });
+      if (rpcErr) throw rpcErr;
       router.refresh();
     } catch {
       setError(es.addresses.saveFailed);
