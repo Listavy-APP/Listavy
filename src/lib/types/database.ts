@@ -7,7 +7,7 @@
 
 export type Role = "homeowner" | "pro" | "admin";
 export type Trade = "plumber" | "electrician" | "ac_technician" | "painter" | "locksmith" | "carpenter" | "blacksmith";
-export type VerificationStatus = "pending" | "approved" | "suspended";
+export type VerificationStatus = "pending" | "approved" | "suspended" | "rejected";
 export type ProPlan = "free" | "pro";
 export type ProType = "individual" | "company";
 export type JobStatus =
@@ -42,6 +42,7 @@ export interface Profile {
 
 export interface Pro {
   id: string;
+  rejection_reason?: string | null;
   trade: Trade;
   zone: string;
   price_min_dop: number;

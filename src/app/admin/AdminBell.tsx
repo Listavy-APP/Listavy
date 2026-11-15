@@ -115,7 +115,7 @@ export async function AdminBell() {
           <section className="stack">
             <b>Solicitudes de profesionales ({s.pending_pro_applications})</b>
             {((pros.data ?? []) as { id: string; created_at: string }[]).map((p) => (
-              <Link key={p.id} className="bell-row" href="/admin">
+              <Link key={p.id} className="bell-row" href="/admin/pendientes">
                 <span>Solicitud pendiente</span>
                 <span className="muted">{when(p.created_at)}</span>
               </Link>
