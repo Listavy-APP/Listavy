@@ -5,6 +5,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { normalizePhone } from "@/lib/data/auth";
 import { PhoneField } from "@/components/PhoneField";
 import { DEFAULT_PHONE_COUNTRY, composePhone, phoneLengthError } from "@/lib/domain/countries";
+import { formatPhoneDisplay } from "@/lib/domain/phone";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -16,9 +17,14 @@ type Step = "phone" | "code";
  * 2. verifyOtp({ type: "phone_change" }) confirms it; GoTrue then sets auth.users.phone,
  *    and trigger on_auth_user_phone_changed (migration 0043) copies it to profiles.phone.
  * Nothing changes until step 2 succeeds.
+ *
+ * The "current phone" line lives here, not in the server page. The server copy only refreshes
+ * after router.refresh() returns, so on success this component sets the verified number itself
+ * and the old number never shows after the change.
  */
-export function PhoneChangeForm() {
+export function PhoneChangeForm({ initialPhone }: { initialPhone: string | null }) {
   const router = useRouter();
+  const [currentPhone, setCurrentPhone] = useState<string | null>(initialPhone);
   const [step, setStep] = useState<Step>("phone");
   const [country, setCountry] = useState(DEFAULT_PHONE_COUNTRY);
   const [local, setLocal] = useState("");
@@ -86,6 +92,7 @@ export function PhoneChangeForm() {
         setBusy(false);
         return;
       }
+      setCurrentPhone(pending);
       setDone(true);
       router.refresh();
     } catch {
@@ -95,9 +102,17 @@ export function PhoneChangeForm() {
     }
   }
 
+  const currentLine = (
+    <p>
+      <span className="muted">{es.phoneChange.current}: </span>
+      {formatPhoneDisplay(currentPhone)}
+    </p>
+  );
+
   if (done) {
     return (
       <div className="stack">
+        {currentLine}
         <p className="ok">{es.phoneChange.done}</p>
         <button className="button secondary" type="button" onClick={() => router.push("/cuenta")}>
           {es.phoneChange.back}
@@ -108,33 +123,39 @@ export function PhoneChangeForm() {
 
   if (step === "code") {
     return (
-      <form className="stack" onSubmit={onVerify}>
-        <label className="field">
-          {es.phoneChange.code}
-          <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} />
-        </label>
-        <button className="button" type="submit" disabled={busy}>
-          {es.phoneChange.verify}
-        </button>
-        {error ? <p className="error" role="alert">{error}</p> : null}
-      </form>
+      <div className="stack">
+        {currentLine}
+        <form className="stack" onSubmit={onVerify}>
+          <label className="field">
+            {es.phoneChange.code}
+            <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} />
+          </label>
+          <button className="button" type="submit" disabled={busy}>
+            {es.phoneChange.verify}
+          </button>
+          {error ? <p className="error" role="alert">{error}</p> : null}
+        </form>
+      </div>
     );
   }
 
   return (
-    <form className="stack" onSubmit={onSend}>
-      <PhoneField
-        label={es.phoneChange.newPhone}
-        countryLabel={es.phoneField.countryLabel}
-        country={country}
-        local={local}
-        onCountry={setCountry}
-        onLocal={setLocal}
-      />
-      <button className="button" type="submit" disabled={busy}>
-        {es.phoneChange.sendCode}
-      </button>
-      {error ? <p className="error" role="alert">{error}</p> : null}
-    </form>
+    <div className="stack">
+      {currentLine}
+      <form className="stack" onSubmit={onSend}>
+        <PhoneField
+          label={es.phoneChange.newPhone}
+          countryLabel={es.phoneField.countryLabel}
+          country={country}
+          local={local}
+          onCountry={setCountry}
+          onLocal={setLocal}
+        />
+        <button className="button" type="submit" disabled={busy}>
+          {es.phoneChange.sendCode}
+        </button>
+        {error ? <p className="error" role="alert">{error}</p> : null}
+      </form>
+    </div>
   );
 }
