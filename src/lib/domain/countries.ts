@@ -44,14 +44,18 @@ export function countryCodeOf(digits: string): string | null {
  */
 export function phoneLengthError(country: string, local: string): string | null {
   const trimmed = local.trim();
-  if (trimmed.startsWith("+")) return null;
-  const digits = trimmed.replace(/\D/g, "").length;
-  const entry = PHONE_COUNTRIES.find((c) => c.code === country);
+  // Full number typed with "+": the country comes from its own digits, not the selector.
+  // Unknown codes are not in the list, so only the E.164 check applies to them.
+  const isFull = trimmed.startsWith("+");
+  const allDigits = trimmed.replace(/\D/g, "");
+  const code = isFull ? countryCodeOf(allDigits) : country;
+  const entry = PHONE_COUNTRIES.find((c) => c.code === code);
   if (!entry) return null;
+  const digits = isFull ? allDigits.length - entry.code.length : allDigits.length;
   const [min, max] = entry.digits;
   if (digits >= min && digits <= max) return null;
   const expected = min === max ? `${min}` : `${min} o ${max}`;
-  return `El número para +${country} debe tener ${expected} dígitos. Revisa el número.`;
+  return `El número para +${entry.code} debe tener ${expected} dígitos. Revisa el número.`;
 }
 
 /** Placeholder for the selected country's number field. */
