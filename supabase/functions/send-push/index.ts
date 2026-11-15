@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3";
 
 // Sends a Web Push to every admin with a stored subscription. Called only by the
-// notify_admins() DB function, which posts the shared PUSH_SECRET in x-push-secret.
+// notify_admins() DB function, which posts the vault push_secret in x-push-secret.
 // Required secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:...). The shared push secret
 // lives in Vault (push_secret) and is checked by verify_push_secret().
 // Expired or unsubscribed endpoints (404/410) are removed.
