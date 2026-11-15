@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { AdminNav } from "../AdminNav";
 import { connection } from "next/server";
 import { ModerationButtons } from "./ModerationButtons";
+import { ReplyModerationButtons } from "./ReplyModerationButtons";
 import { ClearLimitButton } from "./ClearLimitButton";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listAdminReviews } from "@/lib/data/reviews";
@@ -46,6 +47,16 @@ export default async function ReviewModerationPage() {
           {r.comment ? <p>{r.comment}</p> : <p className="muted">Sin comentario</p>}
           {r.status_reason ? <p className="muted">Motivo: {r.status_reason}</p> : null}
           <ModerationButtons reviewId={r.id} status={r.status} />
+          {r.reply ? (
+            <div className="stack">
+              <p>
+                <b>Respuesta del profesional</b> · estado: {r.reply.status}
+                {r.reply.flag_reasons.length > 0 ? ` · marcada: ${r.reply.flag_reasons.join(", ")}` : ""}
+              </p>
+              <p>{r.reply.body}</p>
+              <ReplyModerationButtons reviewId={r.id} status={r.reply.status} />
+            </div>
+          ) : null}
           <div className="stack">
             <span className="muted">Cliente de esta reseña (límite por calificaciones bajas)</span>
             <ClearLimitButton clientId={r.reviewer_id} />
