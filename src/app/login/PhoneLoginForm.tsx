@@ -6,11 +6,14 @@ import { PhoneField } from "@/components/PhoneField";
 import { DEFAULT_PHONE_COUNTRY, composePhone, phoneLengthError } from "@/lib/domain/countries";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { recordLegalAcceptance } from "@/lib/data/legal";
+import { AcceptLegal } from "@/components/AcceptLegal";
 
 type Step = "phone" | "code";
 
 export function PhoneLoginForm({ next }: { next: string }) {
   const [step, setStep] = useState<Step>("phone");
+  const [accepted, setAccepted] = useState(false);
   const [country, setCountry] = useState(DEFAULT_PHONE_COUNTRY);
   const [local, setLocal] = useState("");
   const phoneInput = composePhone(country, local);
@@ -33,6 +36,10 @@ export function PhoneLoginForm({ next }: { next: string }) {
     const normalized = normalizePhone(phoneInput);
     if (!normalized) {
       setError(es.login.invalidPhone);
+      return;
+    }
+    if (!accepted) {
+      setError(es.legal.acceptRequired);
       return;
     }
     inFlight.current = true;
@@ -69,7 +76,10 @@ export function PhoneLoginForm({ next }: { next: string }) {
       setBusy(false);
     }, 10000);
     try {
-      await verifyWhatsAppCode(createSupabaseBrowserClient(), phone, code);
+      const supabase = createSupabaseBrowserClient();
+      await verifyWhatsAppCode(supabase, phone, code);
+      // Recorded before leaving, so the acceptance row exists for the account that was just created or entered.
+      await recordLegalAcceptance(supabase, ["terms", "privacy"]);
       setError(null);
       // Full load, so the server reads the new session cookie. Client router state can be stale.
       window.location.assign(next);
@@ -131,6 +141,7 @@ export function PhoneLoginForm({ next }: { next: string }) {
         onLocal={setLocal}
       />
       <p className="muted">{es.phoneField.hint}</p>
+      <AcceptLegal kind="client" checked={accepted} onChange={setAccepted} />
       {error && <p className="error" role="alert">{error}</p>}
       <button className="button" type="submit" disabled={busy}>
         {busy ? es.login.sending : es.login.sendCode}

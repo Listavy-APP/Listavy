@@ -7,6 +7,8 @@ import { useState, type FormEvent } from "react";
 import { Choice } from "@/components/ui/Choice";
 import { FilePick } from "@/components/ui/FilePick";
 import { createProApplication, type CompanyInput } from "@/lib/data/pros";
+import { recordLegalAcceptance } from "@/lib/data/legal";
+import { AcceptLegal } from "@/components/AcceptLegal";
 import { TRADES, isTrade, isZone } from "@/lib/domain/catalog";
 import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { es } from "@/lib/i18n/es";
@@ -26,6 +28,7 @@ export function RegistrationForm() {
   const [workFiles, setWorkFiles] = useState<File[]>([]);
   const [companyDocFile, setCompanyDocFile] = useState<File | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [accepted, setAccepted] = useState(false);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -55,6 +58,7 @@ export function RegistrationForm() {
       if (!RNC_PATTERN.test(rnc)) return setError(es.registration.invalidRnc);
       if (!companyDocFile) return setError(es.registration.needCompanyDoc);
     }
+    if (!accepted) return setError(es.legal.acceptRequired);
 
     setBusy(true);
     try {
@@ -74,7 +78,10 @@ export function RegistrationForm() {
         };
       }
 
-      await createProApplication(createSupabaseBrowserClient(), {
+      const supabase = createSupabaseBrowserClient();
+      // Recorded before the application is sent. If this fails, no application is created.
+      await recordLegalAcceptance(supabase, ["pro_terms", "community"]);
+      await createProApplication(supabase, {
         fullName,
         trade,
         zone,
@@ -202,6 +209,7 @@ export function RegistrationForm() {
         </fieldset>
       )}
 
+      <AcceptLegal kind="pro" checked={accepted} disabled={busy} onChange={setAccepted} />
       {error && <p className="error" role="alert">{error}</p>}
 
       <button className="button" type="submit" disabled={busy}>
