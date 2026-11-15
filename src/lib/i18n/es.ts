@@ -226,6 +226,7 @@ export const es = {
     save: "Guardar",
     saved: "Guardado",
     empty: "Aún no tienes profesionales guardados.",
+    emptyPro: "Aún no guardas profesionales. Esta lista es para clientes que buscan un profesional.",
     failed: "No se pudo actualizar. Inténtalo de nuevo.",
   },
   proTabs: {
