@@ -26,6 +26,7 @@ create table if not exists public.job_notifications (
   answer        text check (answer in ('yes', 'no', 'ok', 'running', 'finished', 'problem')),
   answered_at   timestamptz,
   problem_reported_at timestamptz,
+  problem_resolved_at timestamptz,
   unique (job_id, kind)
 );
 
@@ -86,6 +87,52 @@ revoke execute on function public.mark_job_notification_read(uuid) from public, 
 grant execute on function public.answer_job_checkin(uuid, text) to authenticated;
 grant execute on function public.mark_job_notification_read(uuid) to authenticated;
 
+-- Admin view of reported problems. Admins only (TOTP session, via is_admin()).
+create or replace function public.admin_list_checkin_problems()
+returns table (id uuid, job_id uuid, kind text, answer text, body text, problem_reported_at timestamptz,
+               client_name text, trade text, zone text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_admin() then raise exception 'No autorizado.'; end if;
+  return query
+    select n.id, n.job_id, n.kind, n.answer, n.body, n.problem_reported_at,
+           p.full_name, j.trade, j.zone
+      from public.job_notifications n
+      join public.jobs j on j.id = n.job_id
+      join public.profiles p on p.id = n.recipient_id
+     where n.problem_reported_at is not null
+       and n.problem_resolved_at is null
+     order by n.problem_reported_at desc
+     limit 100;
+end;
+$$;
+
+create or replace function public.admin_resolve_checkin_problem(p_notification uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare v_job uuid;
+begin
+  if not public.is_admin() then raise exception 'No autorizado.'; end if;
+  update public.job_notifications set problem_resolved_at = now()
+   where id = p_notification and problem_reported_at is not null and problem_resolved_at is null
+  returning job_id into v_job;
+  if v_job is null then raise exception 'No hay un problema abierto con ese aviso.'; end if;
+  perform public.admin_log('checkin_problem_resolved', v_job, jsonb_build_object('notification', p_notification));
+end;
+$$;
+
+revoke execute on function public.admin_list_checkin_problems() from public, anon;
+revoke execute on function public.admin_resolve_checkin_problem(uuid) from public, anon;
+grant execute on function public.admin_list_checkin_problems() to authenticated;
+grant execute on function public.admin_resolve_checkin_problem(uuid) to authenticated;
+
 -- 3. start_job: same body as 0011, plus started_at and the arrival check-in. -------------
 create or replace function public.start_job(p_job uuid)
 returns void
@@ -94,7 +141,6 @@ as $$
 declare
   j record;
   v_code text;
-  v_trade_body text;
 begin
   select * into j from public.jobs where id = p_job for update;
   if not found or j.pro_id is distinct from (select auth.uid()) then raise exception 'Solo el profesional asignado puede iniciar.'; end if;

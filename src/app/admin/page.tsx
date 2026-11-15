@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { AdminNav } from "./AdminNav";
 import { AuditLog } from "./AuditLog";
+import { CheckinProblems } from "./CheckinProblems";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BackBar } from "@/components/BackBar";
@@ -160,6 +161,7 @@ export default async function AdminDashboardPage() {
         ))
       )}
       <AuditLog />
+      <CheckinProblems />
     </section>
   );
 }
