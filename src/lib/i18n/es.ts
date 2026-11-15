@@ -360,6 +360,21 @@ export const es = {
     title: "Estado de mi solicitud",
     pending: "Tu solicitud está en revisión. Te avisaremos cuando esté lista.",
     approved: "Tu perfil está aprobado y visible para los propietarios.",
+    expectations: {
+      waitTitle: "Lo que esperamos de ti",
+      waitItems: [
+        "Mantén tu teléfono disponible — te avisamos en la app.",
+        "Sube fotos reales de tu trabajo. No uses fotos de internet ni de catálogos.",
+        "Revisa que tu cédula sea legible y coincida con tu nombre.",
+      ],
+      promiseTitle: "Lo que puedes esperar de nosotros",
+      promiseItems: [
+        "Nuestro tiempo de revisión es de 2 días laborables.",
+        "Puedes reenviar tu solicitud corregida sin límite de reenvíos.",
+        "Ninguna solicitud se aprueba automáticamente. Una persona la revisa.",
+        "Te avisamos la decisión en la app.",
+      ],
+    },
     boost: {
       title: "Destacar mi perfil",
       intro: "Tu perfil aparece en la sección Destacados de la búsqueda, con la etiqueta Destacado. No garantiza trabajos ni cambia tu comisión.",

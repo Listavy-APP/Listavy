@@ -57,6 +57,22 @@ export default async function ProStatusPage() {
           {es.referral.freeProUntil(new Date(pro.pro_free_until).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" }))}
         </p>
       ) : null}
+      {pro.verification_status === "pending" && (
+        <section className="panel stack">
+          <h2>{es.proStatus.expectations.waitTitle}</h2>
+          <ul>
+            {es.proStatus.expectations.waitItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <h2>{es.proStatus.expectations.promiseTitle}</h2>
+          <ul>
+            {es.proStatus.expectations.promiseItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )}
       {pro.verification_status === "approved" && (
         <Link className="button" href={`/pro/${pro.id}`}>
           {es.search.viewProfile}
