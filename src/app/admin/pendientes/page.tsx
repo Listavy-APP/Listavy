@@ -44,7 +44,7 @@ export default async function AdminPendingProsPage() {
 
   const { data: rows, error } = await supabase
     .from("pros")
-    .select("id, trade, zone, city, price_min_dop, price_max_dop, created_at, pro_type, profiles!inner(full_name, phone)")
+    .select("id, trade, zone, city, price_min_dop, price_max_dop, created_at, pro_type, profiles:profiles!pros_id_fkey(full_name, phone)")
     .eq("verification_status", "pending")
     .order("created_at", { ascending: false });
   if (error) throw new Error(`No se pudieron leer las solicitudes: ${error.message}`);
