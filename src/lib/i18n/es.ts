@@ -153,6 +153,7 @@ export const es = {
     signOut: "Cerrar sesión",
     becomePro: "Quiero ofrecer mis servicios",
     proStatus: "Estado de mi solicitud",
+    adminLink: "Administración",
   },
   proHub: {
     title: "Mi cuenta profesional",
