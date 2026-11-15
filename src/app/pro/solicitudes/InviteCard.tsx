@@ -92,6 +92,12 @@ export function InviteCard({ quote }: { quote: Quote }) {
       <p className="muted">
         {es.jobs.oneOfThree}
       </p>
+      <p className="muted">
+        {es.jobs.receivedOn(new Date(quote.invited_at).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" }))}
+      </p>
+      <Link className="button secondary" href={`/trabajos/${job.id}`}>
+        {es.jobs.viewDetail}
+      </Link>
 
       {quote.status === "invited" && !expired && (
         <form className="stack" onSubmit={onQuote}>

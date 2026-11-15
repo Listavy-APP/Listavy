@@ -14,6 +14,7 @@ const MAX_BYTES = 2 * 1024 * 1024;
 export function PhotoPicker(props: {
   userId: string;
   name: string | null;
+  hint?: string;
   photoUrl: string | null;
   photoPath: string | null;
 }) {
@@ -117,7 +118,7 @@ export function PhotoPicker(props: {
           </div>
         </div>
       ) : null}
-      <p className="muted">{es.profile.photoHint}</p>
+      <p className="muted">{props.hint ?? es.profile.photoHint}</p>
       {message ? <p className="ok">{message}</p> : null}
       {error ? <p className="error">{error}</p> : null}
     </div>

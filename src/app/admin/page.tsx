@@ -76,7 +76,7 @@ export default async function AdminDashboardPage() {
       .neq("stage", "closed")
       .order("evidence_due_at", { ascending: true, nullsFirst: false })
       .limit(50),
-    supabase.from("payments").select("status, pro_payout_dop, released_at, release_after"),
+    supabase.from("payments").select("status, pro_payout_dop, keep_pro_payout_dop, released_at, release_after"),
     supabase.from("reviews").select("id", { count: "exact", head: true }).eq("status", "hidden"),
     supabase.rpc("count_open_pro_reports"),
     supabase.from("boosts").select("id", { count: "exact", head: true }).eq("status", "active").gt("ends_at", nowIso),
@@ -89,13 +89,16 @@ export default async function AdminDashboardPage() {
   const paymentRows = (payments.data ?? []) as {
     status: string;
     pro_payout_dop: number | null;
+    keep_pro_payout_dop: number | null;
     released_at: string | null;
     release_after: string | null;
   }[];
   const held = paymentRows.filter((p) => p.status === "held");
   const released = paymentRows.filter((p) => p.status === "released");
-  const heldSum = held.reduce((a, p) => a + (p.pro_payout_dop ?? 0), 0);
-  const releasedSum = released.reduce((a, p) => a + (p.pro_payout_dop ?? 0), 0);
+  const payoutOf = (p: { pro_payout_dop: number | null; keep_pro_payout_dop: number | null }) =>
+    p.keep_pro_payout_dop ?? p.pro_payout_dop ?? 0;
+  const heldSum = held.reduce((a, p) => a + payoutOf(p), 0);
+  const releasedSum = released.reduce((a, p) => a + payoutOf(p), 0);
   const dueNow = held.filter((p) => p.release_after && p.release_after <= nowIso).length;
 
   const refCounts = tally(referrals.data as { status: string }[] | null, (r) => r.status);

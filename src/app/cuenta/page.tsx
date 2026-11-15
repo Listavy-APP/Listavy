@@ -12,6 +12,7 @@ import { HashScroll } from "@/components/HashScroll";
 import { Icon } from "@/components/Icon";
 import { JobCard } from "@/components/JobCard";
 import { getCurrentProfile } from "@/lib/data/profiles";
+import { getMyPro } from "@/lib/data/pros";
 import { listMyJobs, listMyReviews } from "@/lib/data/customer";
 import { getClientStanding } from "@/lib/data/standing";
 import { customerPhotoUrl } from "@/lib/storage/customerFiles";
@@ -25,7 +26,7 @@ export const metadata = { title: es.profile.title };
 export const instant = false;
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
 }
 
 export default async function ProfilePage() {
@@ -52,9 +53,11 @@ export default async function ProfilePage() {
     customerPhotoUrl(supabase, profile.avatar_path),
   ]);
 
-  const standing = await getClientStanding(supabase);
+  const isPro = profile.role === "pro";
+  const myPro = isPro ? await getMyPro(supabase) : null;
+  const standing = isPro ? null : await getClientStanding(supabase);
   const referralEnabled = await referralProgramEnabled(supabase);
-  const standingNotice = standing.blocked ? (
+  const standingNotice = !standing ? null : standing.blocked ? (
     <div className="panel stack">
       <b>{es.standing.blockedTitle}</b>
       <p>{es.standing.blockedBody}</p>
@@ -80,7 +83,13 @@ export default async function ProfilePage() {
       <div className="account-hero">
         <div className="account-banner" aria-hidden="true" />
         <div className="account-avatar">
-          <PhotoPicker userId={profile.id} name={profile.full_name} photoUrl={photoUrl} photoPath={profile.avatar_path} />
+          <PhotoPicker
+            userId={profile.id}
+            name={profile.full_name}
+            photoUrl={photoUrl}
+            photoPath={profile.avatar_path}
+            hint={isPro ? es.proHub.photoHint : undefined}
+          />
         </div>
         <p className="account-hello">
           {profile.full_name ? es.profile.hello(profile.full_name.split(" ")[0]) : es.profile.helloFallback}
@@ -117,10 +126,12 @@ export default async function ProfilePage() {
         <span className="contact-label">{es.saved.title}</span>
       </Link>
 
-      <Link className="contact-row" href="/cuenta/direcciones">
-        <span className="icon-box"><Icon name="home" /></span>
-        <span className="contact-label">{es.addresses.title}</span>
-      </Link>
+      {!isPro ? (
+        <Link className="contact-row" href="/cuenta/direcciones">
+          <span className="icon-box"><Icon name="home" /></span>
+          <span className="contact-label">{es.addresses.title}</span>
+        </Link>
+      ) : null}
 
       <Link className="contact-row" href="/ayuda">
         <span className="icon-box"><Icon name="help" /></span>
@@ -129,6 +140,32 @@ export default async function ProfilePage() {
 
       </div>
       <div className="hub-band" />
+      {isPro ? (
+        <div className="hub-group">
+          <h2>{es.proHub.title}</h2>
+          <Link className="contact-row" href="/pro/solicitudes">
+            <span className="contact-label">{es.proHub.requests}</span>
+          </Link>
+          <Link className="contact-row" href="/trabajos">
+            <span className="contact-label">{es.proHub.jobs}</span>
+          </Link>
+          <Link className="contact-row" href="/pro/pagos">
+            <span className="contact-label">{es.proHub.payouts}</span>
+          </Link>
+          {myPro?.verification_status === "approved" ? (
+            <Link className="contact-row" href={`/pro/${myPro.id}`}>
+              <span className="contact-label">{es.proHub.publicProfile}</span>
+            </Link>
+          ) : null}
+          <Link className="contact-row" href="/pro/estado">
+            <span className="contact-label">{es.proHub.availability}</span>
+          </Link>
+          <Link className="contact-row" href="/pro/estado">
+            <span className="contact-label">{es.account.proStatus}</span>
+          </Link>
+        </div>
+      ) : null}
+      {!isPro ? (
       <div className="hub-group">
       <h2>{es.profile.tripsTitle}</h2>
       {jobs.length === 0 ? (
@@ -170,26 +207,20 @@ export default async function ProfilePage() {
       )}
 
       </div>
+      ) : null}
       <div className="hub-band" />
       <div className="hub-group">
-      {profile.role === "pro" ? (
-        <Link className="button secondary" href="/pro/solicitudes">
-          {es.jobs.inboxTitle}
-        </Link>
-      ) : null}
 
       {referralEnabled ? <ReferralSection supabase={supabase} uid={profile.id} role={profile.role} /> : null}
 
-      <h2>{es.profile.proTitle}</h2>
-      {profile.role === "pro" ? (
-        <Link className="button secondary" href="/pro/estado">
-          {es.account.proStatus}
-        </Link>
-      ) : (
-        <Link className="button secondary" href="/pro/registro">
-          {es.account.becomePro}
-        </Link>
-      )}
+      {!isPro ? (
+        <>
+          <h2>{es.profile.proTitle}</h2>
+          <Link className="button secondary" href="/pro/registro">
+            {es.account.becomePro}
+          </Link>
+        </>
+      ) : null}
 
       </div>
       <div className="hub-band" />

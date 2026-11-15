@@ -108,7 +108,7 @@ export default async function ProDetailPage({
         <h2>{es.proChecklist.title}</h2>
         <ul className="checklist">
           <li className={pro.identity_verified ? "ok" : "muted"}>{pro.identity_verified ? "✓" : "–"} {es.proChecklist.identity}</li>
-          <li className={pro.email_verified ? "ok" : "muted"}>{pro.email_verified ? "✓" : "–"} {es.proChecklist.email}</li>
+          {pro.email_verified ? <li className="ok">✓ {es.proChecklist.email}</li> : null}
           <li className={pro.phone_verified ? "ok" : "muted"}>{pro.phone_verified ? "✓" : "–"} {es.proChecklist.phone}</li>
         </ul>
       </div>
@@ -129,10 +129,10 @@ export default async function ProDetailPage({
 
       <div className="pro-section">
         <nav className="tabs" aria-label={es.proTabs.label}>
-          <Link className="tab" href={`/pro/${pro.id}`} aria-current={tabReviews ? undefined : "page"}>
+          <Link className="tab" href={`/pro/${pro.id}`} scroll={false} aria-current={tabReviews ? undefined : "page"}>
             {es.proTabs.work}
           </Link>
-          <Link className="tab" href={`/pro/${pro.id}?tab=resenas`} aria-current={tabReviews ? "page" : undefined}>
+          <Link className="tab" href={`/pro/${pro.id}?tab=resenas`} scroll={false} aria-current={tabReviews ? "page" : undefined}>
             {es.proTabs.reviews}
           </Link>
         </nav>

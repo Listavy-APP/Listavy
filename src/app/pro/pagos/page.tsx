@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
@@ -15,9 +16,10 @@ type PayoutRow = {
   id: string;
   status: string;
   pro_payout_dop: number | null;
+  keep_pro_payout_dop: number | null;
   released_at: string | null;
   created_at: string;
-  jobs: { trade: string; zone: string; pro_id: string } | { trade: string; zone: string; pro_id: string }[] | null;
+  jobs: { id: string; trade: string; zone: string; pro_id: string } | { id: string; trade: string; zone: string; pro_id: string }[] | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -45,16 +47,18 @@ export default async function ProPayoutsPage() {
 
   const { data, error } = await supabase
     .from("payments")
-    .select("id, status, pro_payout_dop, released_at, created_at, jobs!inner(trade, zone, pro_id)")
+    .select("id, status, pro_payout_dop, keep_pro_payout_dop, released_at, created_at, jobs!inner(id, trade, zone, pro_id)")
     .eq("purpose", "job")
     .eq("jobs.pro_id", userData.user.id)
     .order("created_at", { ascending: false })
     .limit(100);
 
   // Joined rows come back as objects at runtime; the generated types read them as arrays.
+  // After a partial refund, keep_pro_payout_dop is the amount the pro actually keeps. Use it when set.
   const rows = ((data ?? []) as unknown as PayoutRow[]).map((r) => ({
     ...r,
     job: Array.isArray(r.jobs) ? r.jobs[0] : r.jobs,
+    amount: r.keep_pro_payout_dop ?? r.pro_payout_dop,
   }));
 
   return (
@@ -76,8 +80,15 @@ export default async function ProPayoutsPage() {
               <div className="muted">
                 {r.job?.zone ?? "—"} · {formatDate(r.released_at ?? r.created_at)}
               </div>
-              {r.pro_payout_dop !== null ? (
-                <div className="job-card-amount">RD${r.pro_payout_dop.toLocaleString("es-DO")}</div>
+              {r.job ? (
+                <Link className="muted" href={`/trabajos/${r.job.id}`}>
+                  {es.proPayouts.jobRef(r.job.id)}
+                </Link>
+              ) : null}
+              {r.amount !== null ? (
+                <div className="job-card-amount">
+                  {r.status === "released" ? es.proPayouts.received : null} RD${r.amount.toLocaleString("es-DO")}
+                </div>
               ) : null}
             </li>
           ))}

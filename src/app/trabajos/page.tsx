@@ -14,7 +14,7 @@ export const metadata = { title: es.trabajos.title };
 export const instant = false;
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
 }
 
 function JobList({ jobs, showPro }: { jobs: CustomerJob[]; showPro: boolean }) {
