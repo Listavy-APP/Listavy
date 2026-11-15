@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { AdminNav } from "./AdminNav";
+import { AuditLog } from "./AuditLog";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BackBar } from "@/components/BackBar";
@@ -158,6 +159,7 @@ export default async function AdminDashboardPage() {
           <Stat key={status} label={status} value={n} href="/admin/referidos" />
         ))
       )}
+      <AuditLog />
     </section>
   );
 }

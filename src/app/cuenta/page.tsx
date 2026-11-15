@@ -138,6 +138,12 @@ export default async function ProfilePage() {
         <span className="contact-label">{es.help.title}</span>
       </Link>
 
+      {profile.role === "admin" ? (
+        <Link className="contact-row" href="/admin">
+          <span className="contact-label">{es.account.adminLink}</span>
+        </Link>
+      ) : null}
+
       </div>
       <div className="hub-band" />
       {isPro ? (

@@ -36,6 +36,8 @@ export interface Profile {
   zone: string | null;
   /** Private bucket customer-avatars. Null means monogram. */
   avatar_path: string | null;
+  /** Only for role 'admin'. 'super_admin' can manage admins (migration 0061). */
+  admin_role: "admin" | "super_admin" | null;
 }
 
 export interface Pro {
