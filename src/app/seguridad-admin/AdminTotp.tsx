@@ -47,6 +47,8 @@ export function AdminTotpEnroll() {
       const { data, error: err } = await supabase.auth.mfa.enroll({
         factorType: "totp",
         friendlyName: `Listavy admin ${Date.now()}`,
+        // The auth server builds the otpauth URI and QR from the issuer. Set it explicitly.
+        issuer: "Listavy",
       });
       if (err || !data) {
         console.error("mfa.enroll", err);
@@ -79,12 +81,14 @@ export function AdminTotpEnroll() {
       <h1>Activa la verificación en dos pasos</h1>
       <p className="muted">Escanea el código QR con tu app de autenticación (Google Authenticator, Authy o similar). Luego escribe el código de 6 dígitos.</p>
       {qr ? (
-        <>
-          {/* Supabase returns the QR as an SVG data URI. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qr} alt="Código QR para la app de autenticación" width={200} height={200} />
-          {secret ? <p className="muted">¿No puedes escanear? Clave manual: <code>{secret}</code></p> : null}
-        </>
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={qr} alt="Código QR para la app de autenticación" width={200} height={200} />
+      ) : null}
+      {secret ? (
+        <p className="muted">
+          {qr ? "¿No puedes escanear? " : "No se pudo mostrar el código QR. "}
+          Escribe esta clave en tu app: <code>{secret}</code>
+        </p>
       ) : null}
       <form className="stack" onSubmit={onVerify}>
         <label className="field">
