@@ -13,6 +13,8 @@ const ACTION_LABELS: Record<string, string> = {
   dispute_decided: "Disputa decidida",
   pro_approved: "Profesional aprobado",
   pro_rejected: "Profesional rechazado",
+  payout_released: "Pago liberado al profesional",
+  refund_processed: "Reembolso procesado",
 };
 
 const dateFmt = new Intl.DateTimeFormat("es-DO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Santo_Domingo" });
