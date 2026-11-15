@@ -6,8 +6,8 @@
 --      so a push failure cannot block the business write that fired it.
 --   3. Triggers for the five admin events. Each fires on the row write itself.
 --
--- Requires: vault secret 'push_secret' (same value as the send-push function's PUSH_SECRET).
--- If the secret is missing, notify_admins() is a no-op.
+-- Requires: vault secret 'push_secret'. send-push checks the posted value with verify_push_secret(),
+-- so no PUSH_SECRET dashboard secret is needed. If the vault secret is missing, notify_admins() is a no-op.
 
 create table if not exists public.push_subscriptions (
   id          uuid primary key default gen_random_uuid(),
@@ -33,6 +33,20 @@ create policy push_subscriptions_own_insert on public.push_subscriptions for ins
 drop policy if exists push_subscriptions_own_delete on public.push_subscriptions;
 create policy push_subscriptions_own_delete on public.push_subscriptions for delete
   using (user_id = (select auth.uid()));
+
+-- 1a. Gate for send-push. Same pattern as verify_release_secret. Service role only.
+create or replace function public.verify_push_secret(p_secret text)
+returns boolean
+language sql
+security definer
+set search_path = ''
+as $$
+  select p_secret is not null
+     and p_secret = (select decrypted_secret from vault.decrypted_secrets where name = 'push_secret' limit 1);
+$$;
+
+revoke execute on function public.verify_push_secret(text) from public, anon, authenticated;
+grant execute on function public.verify_push_secret(text) to service_role;
 
 -- 1b. Notify every admin. Fire-and-forget via pg_net.
 create or replace function public.notify_admins(p_title text, p_body text, p_url text)
@@ -103,14 +117,15 @@ create trigger push_pro_reported after insert on public.pro_reports
 create or replace function public.push_on_review_hidden() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
+  -- Notify once: skip an update that was already hidden.
+  if tg_op = 'UPDATE' and old.status = 'hidden' then return new; end if;
   perform public.notify_admins('Reseña oculta por lenguaje', 'Una reseña necesita revisión.', '/admin/resenas');
   return new;
 end; $$;
 
 drop trigger if exists push_review_hidden on public.reviews;
 create trigger push_review_hidden after insert or update of status on public.reviews
-  for each row when (new.status = 'hidden' and new.flag_reasons @> array['lenguaje']::text[]
-                     and (tg_op = 'INSERT' or old.status is distinct from 'hidden'))
+  for each row when (new.status = 'hidden' and new.flag_reasons @> array['lenguaje']::text[])
   execute function public.push_on_review_hidden();
 
 -- (5) New pro application submitted.

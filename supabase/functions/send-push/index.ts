@@ -3,26 +3,16 @@ import webpush from "npm:web-push@3";
 
 // Sends a Web Push to every admin with a stored subscription. Called only by the
 // notify_admins() DB function, which posts the shared PUSH_SECRET in x-push-secret.
-// Required secrets: PUSH_SECRET, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:...).
+// Required secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:...). The shared push secret
+// lives in Vault (push_secret) and is checked by verify_push_secret().
 // Expired or unsubscribed endpoints (404/410) are removed.
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-function constantTimeEqual(a: string, b: string) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "Método no permitido." }, 405);
-
-  const expected = Deno.env.get("PUSH_SECRET") ?? "";
-  const given = req.headers.get("x-push-secret") ?? "";
-  if (!expected || !constantTimeEqual(given, expected)) return json({ error: "No autorizado." }, 401);
 
   const body = (await req.json().catch(() => null)) as { title?: string; body?: string; url?: string } | null;
   if (!body?.title || !body?.body) return json({ error: "Falta título o texto." }, 400);
@@ -36,6 +26,11 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
+
+  const { data: allowed } = await admin.rpc("verify_push_secret", {
+    p_secret: req.headers.get("x-push-secret") ?? "",
+  });
+  if (allowed !== true) return json({ error: "No autorizado." }, 401);
 
   const { data: subs, error } = await admin
     .from("push_subscriptions")
