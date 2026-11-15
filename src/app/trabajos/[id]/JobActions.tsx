@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPhoneDisplay } from "@/lib/domain/phone";
 import { EmptyState } from "@/components/EmptyState";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -92,7 +93,7 @@ export function JobActions(props: {
     <div className="stack">
       {props.contactPhone ? (
         <p className="ok">
-          {es.jobs.contactLabel}: <a href={`tel:${props.contactPhone}`}>{props.contactPhone}</a>
+          {es.jobs.contactLabel}: <a href={`tel:${props.contactPhone}`}>{formatPhoneDisplay(props.contactPhone)}</a>
         </p>
       ) : (
         <p className="muted">{es.jobs.contactHidden}</p>

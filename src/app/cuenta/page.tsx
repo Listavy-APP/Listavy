@@ -26,7 +26,7 @@ export const metadata = { title: es.profile.title };
 export const instant = false;
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
 }
 
 export default async function ProfilePage() {

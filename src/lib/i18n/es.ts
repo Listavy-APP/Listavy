@@ -373,6 +373,7 @@ export const es = {
     title: "Estado de mi solicitud",
     pending: "Tu solicitud está en revisión. Te avisaremos cuando esté lista.",
     approved: "Tu perfil está aprobado y visible para los propietarios.",
+    approvedHidden: "Tu perfil está aprobado, pero no aparece para nuevas solicitudes mientras tu disponibilidad esté desactivada.",
     expectations: {
       waitTitle: "Lo que esperamos de ti",
       waitItems: [
@@ -445,6 +446,15 @@ export const es = {
     sending: "Enviando…",
     send: "Enviar solicitud",
     oneOfThree: "Eres 1 de hasta 3 profesionales consultados.",
+    receivedOn: (date: string) => `Recibida el ${date}`,
+    dateLabel: "Fecha",
+    totalLabel: "Total aprobado",
+    yourPayoutLabel: "Tu pago",
+    paidLabel: "Pagado",
+    refundedLabel: (n: number) => `reembolsado RD$${n.toLocaleString("es-DO")}`,
+    payReleased: "Liberado",
+    payHeld: "Retenido",
+    viewDetail: "Ver detalle",
     respondBy: (d: string) => `Responde antes de ${d}`,
     diagnosticPriceLabel: "Precio de la visita (RD$500 a RD$1,000)",
     amountLabel: "Precio fijo (RD$)",

@@ -16,6 +16,9 @@ import { avatarUrl } from "@/lib/storage/proFiles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
 
+const jobDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
+
 export const metadata = { title: es.jobs.jobTitle };
 export const instant = false;
 
@@ -86,6 +89,34 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const disputeEvidence = await listEvidence(supabase, disputes.map((d) => d.id));
 
   const contactPhone = await getContactPhone(supabase, id);
+
+  // Total and payment info. Amounts come from the approved quote and the job payment row.
+  const approvedAmount = quotes.find((q) => q.id === j.approved_quote_id)?.amount_dop ?? null;
+  const { data: paymentRow } = await supabase
+    .from("payments")
+    .select("status, amount_dop, pro_payout_dop, keep_pro_payout_dop, keep_dop, refunded_minor")
+    .eq("job_id", id)
+    .eq("purpose", "job")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  type PayRow = {
+    status: string;
+    amount_dop: number | null;
+    pro_payout_dop: number | null;
+    keep_pro_payout_dop: number | null;
+    keep_dop: number | null;
+    refunded_minor: number | null;
+  };
+  const pr = paymentRow as PayRow | null;
+  // The pro sees what they keep (after any partial refund). The client sees what they paid.
+  const payment = pr && pr.amount_dop !== null
+    ? {
+        amount: role === "pro" ? (pr.keep_pro_payout_dop ?? pr.pro_payout_dop ?? 0) : pr.amount_dop,
+        statusLabel: pr.status === "released" ? es.jobs.payReleased : pr.status === "held" ? es.jobs.payHeld : pr.status,
+        refundedDop: role === "homeowner" && pr.refunded_minor ? Math.round(pr.refunded_minor / 100) : 0,
+      }
+    : null;
   const completionCode =
     role === "pro" && j.status === "in_progress" ? await getCompletionCode(supabase, id) : null;
 
@@ -100,6 +131,27 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         {es.trades[j.trade as keyof typeof es.trades] ?? j.trade} · {j.zone}
       </h1>
       <p>{j.description}</p>
+      <dl className="job-facts">
+        <div>
+          <dt className="muted">{es.jobs.dateLabel}</dt>
+          <dd>{jobDate(j.created_at)}</dd>
+        </div>
+        {approvedAmount !== null ? (
+          <div>
+            <dt className="muted">{es.jobs.totalLabel}</dt>
+            <dd>RD${approvedAmount.toLocaleString("es-DO")}</dd>
+          </div>
+        ) : null}
+        {payment ? (
+          <div>
+            <dt className="muted">{role === "pro" ? es.jobs.yourPayoutLabel : es.jobs.paidLabel}</dt>
+            <dd>
+              RD${payment.amount.toLocaleString("es-DO")} · {payment.statusLabel}
+              {payment.refundedDop > 0 ? ` · ${es.jobs.refundedLabel(payment.refundedDop)}` : ""}
+            </dd>
+          </div>
+        ) : null}
+      </dl>
       <p className="muted">
         {j.job_type === "diagnostic" ? es.jobs.typeDiagnostic : es.jobs.typeRepair} ·{" "}
         <span className="status-pill">
