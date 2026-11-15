@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { es } from "@/lib/i18n/es";
 import { BackBar } from "@/components/BackBar";
@@ -7,6 +8,7 @@ export default function AboutPage() {
     <section className="stack about">
       <BackBar href="/" />
       <div className="about-section">
+        <Image src="/brand/listavy-logo-full.png" alt="Listavy. Verified pros. A better home." width={498} height={150} className="about-logo" priority />
         <h1>{es.legal.aboutTitle}</h1>
         <p className="lead">{es.legal.aboutBody}</p>
         <p>{es.legal.operator}</p>

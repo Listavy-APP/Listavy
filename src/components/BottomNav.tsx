@@ -1,3 +1,4 @@
+import Image from "next/image";
 "use client";
 
 import Link from "next/link";
@@ -18,14 +19,8 @@ function TabIcon({ href }: { href: (typeof TABS)[number]["href"] }) {
   const common = { width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
   switch (href) {
     case "/":
-      // Listavy mark: navy circle, white L, cyan check.
-      return (
-        <svg width={32} height={32} viewBox="0 0 32 32" aria-hidden="true">
-          <circle cx="16" cy="16" r="16" fill="#0f172a" />
-          <path d="M11 8.5v11h6.5" fill="none" stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-          <polyline points="17.5,15.5 19.6,17.6 23.5,12.8" fill="none" stroke="#06b6d4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
+      // Official Listavy app icon.
+      return <Image src="/icon-192.png" width={32} height={32} alt="" aria-hidden="true" />;
     case "/buscar":
       return (
         <svg {...common}>
