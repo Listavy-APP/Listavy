@@ -1,33 +1,54 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
-import { getCurrentProfile } from "@/lib/data/profiles";
-import { getReserveBalance, listAdminPayments, listDeductions, listOwedRecoveries } from "@/lib/data/admin";
-import { es } from "@/lib/i18n/es";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminNav } from "./AdminNav";
-import { RecordList } from "./RecordList";
-import { ResolveReportButton } from "./ResolveReportButton";
+import { getCurrentProfile } from "@/lib/data/profiles";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BackBar } from "@/components/BackBar";
 
-export const metadata = { title: es.admin.title };
+export const metadata = { title: "Resumen de administración" };
 
 // Session-dependent page: read at request time, never cached.
 export const instant = false;
 
-function usd(minor: number): string {
-  return `US$${(minor / 100).toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function dop(amount: number): string {
+  return `RD$${amount.toLocaleString("es-DO", { maximumFractionDigits: 0 })}`;
 }
 
-function dateOnly(iso: string | null): string {
+function dateTime(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleString("es-DO", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Santo_Domingo",
+  });
 }
 
-function short(id: string | null): string {
-  return id ? `${id.slice(0, 8)}…` : "—";
+function tally<T>(rows: T[] | null, key: (r: T) => string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const r of rows ?? []) out[key(r)] = (out[key(r)] ?? 0) + 1;
+  return out;
 }
 
-export default async function AdminPayoutsPage() {
+function Stat({ label, value, href }: { label: string; value: string | number; href?: string }) {
+  const body = (
+    <>
+      <span className="stat-label">{label}</span>
+      <span className="stat-value">{value}</span>
+    </>
+  );
+  return href ? (
+    <Link className="stat" href={href}>
+      {body}
+    </Link>
+  ) : (
+    <div className="stat">{body}</div>
+  );
+}
+
+export default async function AdminDashboardPage() {
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -36,117 +57,103 @@ export default async function AdminPayoutsPage() {
   const profile = await getCurrentProfile(supabase);
   if (!profile || profile.role !== "admin") notFound();
 
-  const [payments, reserve, owed, deductions, reportsRes, openRes] = await Promise.all([
-    listAdminPayments(supabase),
-    getReserveBalance(supabase),
-    listOwedRecoveries(supabase),
-    listDeductions(supabase),
-    supabase.rpc("list_pro_reports"),
+  const nowIso = new Date().toISOString();
+  const [
+    pendingPros,
+    jobs,
+    openDisputes,
+    payments,
+    hiddenReviews,
+    openReports,
+    activeBoosts,
+    referrals,
+  ] = await Promise.all([
+    supabase.from("pros").select("id", { count: "exact", head: true }).eq("verification_status", "pending"),
+    supabase.from("jobs").select("status"),
+    supabase
+      .from("disputes")
+      .select("id, job_id, stage, evidence_due_at")
+      .neq("stage", "closed")
+      .order("evidence_due_at", { ascending: true, nullsFirst: false })
+      .limit(50),
+    supabase.from("payments").select("status, pro_payout_dop, released_at, release_after"),
+    supabase.from("reviews").select("id", { count: "exact", head: true }).eq("status", "hidden"),
     supabase.rpc("count_open_pro_reports"),
+    supabase.from("boosts").select("id", { count: "exact", head: true }).eq("status", "active").gt("ends_at", nowIso),
+    supabase.from("referrals").select("status"),
   ]);
-  const openReports = Number(openRes.data ?? 0);
-  const reports = (reportsRes.data ?? []) as {
+
+  const jobCounts = tally(jobs.data as { status: string }[] | null, (r) => r.status);
+  const jobTotal = (jobs.data ?? []).length;
+
+  const paymentRows = (payments.data ?? []) as {
+    status: string;
+    pro_payout_dop: number | null;
+    released_at: string | null;
+    release_after: string | null;
+  }[];
+  const held = paymentRows.filter((p) => p.status === "held");
+  const released = paymentRows.filter((p) => p.status === "released");
+  const heldSum = held.reduce((a, p) => a + (p.pro_payout_dop ?? 0), 0);
+  const releasedSum = released.reduce((a, p) => a + (p.pro_payout_dop ?? 0), 0);
+  const dueNow = held.filter((p) => p.release_after && p.release_after <= nowIso).length;
+
+  const refCounts = tally(referrals.data as { status: string }[] | null, (r) => r.status);
+
+  const disputes = (openDisputes.data ?? []) as {
     id: string;
-    pro_id: string;
-    pro_name: string | null;
-    reason: string;
-    details: string | null;
-    created_at: string;
-    resolved_at: string | null;
+    job_id: string;
+    stage: string;
+    evidence_due_at: string | null;
   }[];
 
   return (
     <section className="stack">
       <AdminNav current="/admin" />
       <BackBar href="/" />
-      <h1>{es.admin.title}</h1>
-      <p className="muted">{es.admin.subtitle}</p>
+      <h1>Resumen de administración</h1>
+      <p className="muted">Solo lectura. Cada sección abre su propia pantalla para actuar.</p>
 
-      <div className="stat">
-        <span className="stat-label">{es.admin.reserveBalance}</span>
-        <span className="stat-value">{es.money.dop(reserve)}</span>
-      </div>
+      <h2>Profesionales</h2>
+      <Stat label="Pendientes de aprobación" value={pendingPros.count ?? 0} />
 
-      <h2>{es.admin.reportsTitle}</h2>
-      <p className="muted">{es.admin.openReports(openReports)}</p>
-      {reports.length === 0 ? (
-        <p className="muted">{es.admin.reportsEmpty}</p>
+      <h2>Trabajos por estado</h2>
+      <Stat label="Total de trabajos" value={jobTotal} />
+      {Object.keys(jobCounts).length === 0 ? (
+        <p className="muted">Sin trabajos.</p>
       ) : (
-        <RecordList
-          items={reports.map((r) => ({
-            key: r.id,
-            title: r.pro_name ?? short(r.pro_id),
-            rows: [
-              [es.admin.colReason, es.report.reasons[r.reason as keyof typeof es.report.reasons] ?? r.reason],
-              [es.admin.colDetails, r.details ?? "—"],
-              [es.admin.colDate, dateOnly(r.created_at)],
-              [es.admin.colReportState, r.resolved_at ? es.admin.resolved : <ResolveReportButton reportId={r.id} />],
-            ],
-          }))}
-        />
+        Object.entries(jobCounts).map(([status, n]) => <Stat key={status} label={status} value={n} />)
       )}
 
-      <h2>{es.admin.recoveriesTitle}</h2>
-      {owed.length === 0 ? (
-        <p className="muted">{es.admin.recoveriesEmpty}</p>
-      ) : (
-        <RecordList
-          items={owed.map((r) => ({
-            key: r.id,
-            title: r.pro_name ?? short(r.pro_id),
-            rows: [
-              [es.admin.colOwed, es.money.dop(r.amount_dop)],
-              [es.admin.colSettled, es.money.dop(r.settled_dop)],
-              [es.admin.colPending, es.money.dop(r.amount_dop - r.settled_dop)],
-              [es.admin.colDate, dateOnly(r.created_at)],
-            ],
-          }))}
-        />
-      )}
+      <h2>Disputas abiertas</h2>
+      <Stat label="Abiertas" value={disputes.length} href="/admin/disputas" />
+      {disputes.slice(0, 5).map((d) => (
+        <p key={d.id} className="muted">
+          Trabajo {d.job_id.slice(0, 8)}… · etapa {d.stage} · plazo de evidencia {dateTime(d.evidence_due_at)}
+        </p>
+      ))}
 
-      <h2>{es.admin.paymentsTitle}</h2>
-      {payments.length === 0 ? (
-        <p className="muted">{es.admin.paymentsEmpty}</p>
-      ) : (
-        <RecordList
-          items={payments.map((p) => ({
-            key: p.id,
-            title: `${es.admin.statuses[p.status]} · ${short(p.job_id)}`,
-            rows: [
-              [es.admin.colAmount, `${usd(p.amount_minor)} / ${es.money.dop(p.amount_dop)}`],
-              [es.admin.colCommission, es.money.dop(p.commission_dop)],
-              [es.admin.colPayout, es.money.dop(p.pro_payout_dop)],
-              [es.admin.colRecovery, p.recovery_netted_dop > 0 ? es.money.dop(p.recovery_netted_dop) : "—"],
-              [
-                es.admin.colKept,
-                p.keep_dop === null
-                  ? "—"
-                  : `${es.money.dop(p.keep_dop)} / ${es.money.dop(p.keep_pro_payout_dop ?? 0)} + ${es.money.dop(p.keep_commission_dop ?? 0)}`,
-              ],
-              [es.admin.colRefunded, p.refunded_minor > 0 ? usd(p.refunded_minor) : "—"],
-              [es.admin.colStripe, `PI ${short(p.stripe_payment_intent_id)} · TR ${short(p.stripe_transfer_id)}`],
-              [es.admin.colDate, dateOnly(p.created_at)],
-              [es.admin.colRelease, dateOnly(p.released_at ?? p.release_after)],
-            ],
-          }))}
-        />
-      )}
+      <h2>Pagos</h2>
+      <Stat label="Retenidos" value={`${held.length} · ${dop(heldSum)}`} href="/admin/pagos" />
+      <Stat label="Vencidos para liberar" value={dueNow} href="/admin/pagos" />
+      <Stat label="Liberados" value={`${released.length} · ${dop(releasedSum)}`} href="/admin/pagos" />
 
-      <h2>{es.admin.deductionsTitle}</h2>
-      {deductions.length === 0 ? (
-        <p className="muted">{es.admin.deductionsEmpty}</p>
+      <h2>Reseñas</h2>
+      <Stat label="Ocultas para revisión" value={hiddenReviews.count ?? 0} href="/admin/resenas" />
+
+      <h2>Reportes de profesionales</h2>
+      <Stat label="Sin resolver" value={Number(openReports.data ?? 0)} href="/admin/pagos" />
+
+      <h2>Destacados</h2>
+      <Stat label="Promociones activas" value={activeBoosts.count ?? 0} href="/admin/destacados" />
+
+      <h2>Referidos</h2>
+      {Object.keys(refCounts).length === 0 ? (
+        <p className="muted">Sin referidos.</p>
       ) : (
-        <RecordList
-          items={deductions.map((d) => ({
-            key: d.id,
-            title: `${short(d.payment_id)} · ${short(d.recovery_id)}`,
-            rows: [
-              [es.admin.colAmount, es.money.dop(d.amount_dop)],
-              [es.admin.colDate, dateOnly(d.created_at)],
-              [es.admin.colState, d.reversed_at ? es.admin.deductionReversed : es.admin.deductionApplied],
-            ],
-          }))}
-        />
+        Object.entries(refCounts).map(([status, n]) => (
+          <Stat key={status} label={status} value={n} href="/admin/referidos" />
+        ))
       )}
     </section>
   );
