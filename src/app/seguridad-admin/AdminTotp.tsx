@@ -1,8 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+/**
+ * auth-js returns the QR as a raw SVG string prefixed with "data:image/svg+xml;utf-8,".
+ * Raw SVG in a data URI breaks on characters such as '#', so re-encode it as base64.
+ */
+function qrDataUri(raw: string): string {
+  const svg = raw.replace(/^data:image\/svg\+xml;utf-8,/, "");
+  const bytes = new TextEncoder().encode(svg);
+  let bin = "";
+  bytes.forEach((b) => (bin += String.fromCharCode(b)));
+  return `data:image/svg+xml;base64,${btoa(bin)}`;
+}
 
 /** Enroll a TOTP factor (QR code), then verify the first code once. Admins only; the page checks role. */
 export function AdminTotpEnroll() {
@@ -14,21 +26,35 @@ export function AdminTotpEnroll() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Guard against a second run (React Strict Mode runs effects twice in development).
+  const started = useRef(false);
+
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     (async () => {
       const supabase = createSupabaseBrowserClient();
-      // Remove unverified leftovers from an earlier attempt, then start a fresh enrollment.
-      const { data: factors } = await supabase.auth.mfa.listFactors();
-      for (const f of factors?.totp ?? []) {
-        if (f.status !== "verified") await supabase.auth.mfa.unenroll({ factorId: f.id });
+      // Remove unverified leftovers from an earlier attempt. Errors here are non-fatal.
+      const { data: factors, error: listErr } = await supabase.auth.mfa.listFactors();
+      if (listErr) console.warn("listFactors", listErr);
+      for (const f of factors?.all ?? []) {
+        if (f.factor_type === "totp" && f.status !== "verified") {
+          const { error: unErr } = await supabase.auth.mfa.unenroll({ factorId: f.id });
+          if (unErr) console.warn("unenroll", unErr);
+        }
       }
-      const { data, error: err } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Listavy admin" });
+      // Unique name per attempt, so a leftover factor cannot collide with this one.
+      const { data, error: err } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName: `Listavy admin ${Date.now()}`,
+      });
       if (err || !data) {
-        setError("No se pudo iniciar la configuración. Recarga la página.");
+        console.error("mfa.enroll", err);
+        setError(`No se pudo iniciar la configuración: ${err?.message ?? "respuesta vacía"}${err?.code ? ` (${err.code})` : ""}`);
         return;
       }
       setFactorId(data.id);
-      setQr(data.totp.qr_code);
+      setQr(qrDataUri(data.totp.qr_code));
       setSecret(data.totp.secret);
     })();
   }, []);
