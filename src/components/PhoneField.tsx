@@ -1,4 +1,4 @@
-import { PHONE_COUNTRIES } from "@/lib/domain/countries";
+import { PHONE_COUNTRIES, phonePlaceholder } from "@/lib/domain/countries";
 
 /**
  * Country code select plus a local number field. The parent composes the value with composePhone().
@@ -11,7 +11,6 @@ export function PhoneField({
   local,
   onCountry,
   onLocal,
-  placeholder,
 }: {
   label: string;
   countryLabel: string;
@@ -19,7 +18,6 @@ export function PhoneField({
   local: string;
   onCountry: (code: string) => void;
   onLocal: (value: string) => void;
-  placeholder: string;
 }) {
   return (
     <div className="stack">
@@ -37,7 +35,7 @@ export function PhoneField({
           type="tel"
           inputMode="tel"
           autoComplete="tel-national"
-          placeholder={placeholder}
+          placeholder={phonePlaceholder(country)}
           value={local}
           onChange={(e) => onLocal(e.target.value)}
           required

@@ -3,7 +3,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { normalizePhone, sendWhatsAppCode, verifyWhatsAppCode } from "@/lib/data/auth";
 import { PhoneField } from "@/components/PhoneField";
-import { DEFAULT_PHONE_COUNTRY, composePhone } from "@/lib/domain/countries";
+import { DEFAULT_PHONE_COUNTRY, composePhone, phoneLengthError } from "@/lib/domain/countries";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -25,6 +25,11 @@ export function PhoneLoginForm({ next }: { next: string }) {
     e.preventDefault();
     if (inFlight.current) return;
     setError(null);
+    const lengthError = phoneLengthError(country, local);
+    if (lengthError) {
+      setError(lengthError);
+      return;
+    }
     const normalized = normalizePhone(phoneInput);
     if (!normalized) {
       setError(es.login.invalidPhone);
@@ -124,7 +129,6 @@ export function PhoneLoginForm({ next }: { next: string }) {
         local={local}
         onCountry={setCountry}
         onLocal={setLocal}
-        placeholder="809 555 1234"
       />
       <p className="muted">{es.phoneField.hint}</p>
       {error && <p className="error" role="alert">{error}</p>}
