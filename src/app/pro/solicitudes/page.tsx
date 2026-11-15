@@ -32,7 +32,7 @@ export default async function InboxPage() {
 
   return (
     <section className="stack">
-      <BackBar href="/trabajos" />
+      <BackBar href="/cuenta" />
       <h1>{es.jobs.inboxTitle}</h1>
       {open.length === 0 ? <p className="muted">{es.jobs.inboxEmpty}</p> : null}
       {rows.map((r) => (
