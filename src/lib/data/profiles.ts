@@ -7,7 +7,7 @@ import type { Profile } from "@/lib/types/database";
  */
 
 const PROFILE_COLUMNS =
-  "id, role, full_name, phone, created_at, email, email_verified_at, zone, avatar_path";
+  "id, role, full_name, phone, created_at, email, email_verified_at, zone, avatar_path, admin_role";
 
 export async function getCurrentProfile(supabase: SupabaseClient): Promise<Profile | null> {
   const { data: userData, error: userError } = await supabase.auth.getUser();

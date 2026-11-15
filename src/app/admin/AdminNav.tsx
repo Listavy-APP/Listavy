@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { es } from "@/lib/i18n/es";
+import { getCurrentProfile } from "@/lib/data/profiles";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const LINKS = [
   { href: "/admin", label: "Resumen" },
@@ -10,11 +12,15 @@ const LINKS = [
   { href: "/admin/referidos", label: es.referral.navLabel },
 ] as const;
 
-/** Admin section nav. `current` is the active href. */
-export function AdminNav({ current }: { current: string }) {
+const SUPER_LINKS = [{ href: "/admin/administradores", label: "Administradores" }] as const;
+
+/** Admin section nav. `current` is the active href. Super-admin links show only to super admins. */
+export async function AdminNav({ current }: { current: string }) {
+  const profile = await getCurrentProfile(await createSupabaseServerClient());
+  const links = profile?.admin_role === "super_admin" ? [...LINKS, ...SUPER_LINKS] : LINKS;
   return (
     <nav className="chip-row admin-nav" aria-label={es.admin.navLabel}>
-      {LINKS.map((l) => (
+      {links.map((l) => (
         <Link key={l.href} className={`chip${l.href === current ? " on" : ""}`} href={l.href} aria-current={l.href === current ? "page" : undefined}>
           {l.label}
         </Link>
