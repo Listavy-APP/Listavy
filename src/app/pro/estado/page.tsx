@@ -1,3 +1,4 @@
+import { ResubmitButton } from "./ResubmitButton";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMyPro } from "@/lib/data/pros";
@@ -56,6 +57,13 @@ export default async function ProStatusPage() {
           ? es.proStatus.approvedHidden
           : es.proStatus[pro.verification_status]}
       </p>
+      {pro.verification_status === "rejected" && (
+        <section className="panel stack">
+          <b>{es.proStatus.rejectedReason}</b>
+          <p>{pro.rejection_reason ?? ""}</p>
+          <ResubmitButton proId={pro.id} />
+        </section>
+      )}
       {pro.pro_free_until && new Date(pro.pro_free_until) > new Date() ? (
         <p className="notice">
           {es.referral.freeProUntil(new Date(pro.pro_free_until).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" }))}

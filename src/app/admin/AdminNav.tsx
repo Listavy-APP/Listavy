@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const LINKS = [
   { href: "/admin", label: "Resumen" },
+  { href: "/admin/pendientes", label: es.adminPending.title },
   { href: "/admin/pagos", label: es.admin.navPayments },
   { href: "/admin/disputas", label: es.admin.navDisputes },
   { href: "/admin/resenas", label: es.admin.navReviews },
