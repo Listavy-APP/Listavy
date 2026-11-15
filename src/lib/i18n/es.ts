@@ -585,6 +585,10 @@ export const es = {
     label: "Ciudad",
     mismatch: "Los profesionales elegidos no atienden esa ciudad. Elige otra zona o quita a un profesional.",
   },
+  phoneField: {
+    countryLabel: "Código de país",
+    hint: "Elige tu país y escribe el número sin el código.",
+  },
   admin: {
     navLabel: "Secciones de administración",
     navPayments: "Pagos",
