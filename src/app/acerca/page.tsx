@@ -16,7 +16,6 @@ export default function AboutPage() {
       <div className="about-section">
         <h2>{es.legal.contactTitle}</h2>
         <p>{es.legal.contactEmail}</p>
-        <p>{es.legal.contactAddress}</p>
       </div>
       <div className="about-section">
         <h2>{es.legal.creditsTitle}</h2>

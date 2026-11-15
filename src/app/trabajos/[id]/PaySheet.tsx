@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { tipCapDop, tipForPercentDop } from "@/lib/domain/commission";
+import { recordLegalAcceptance } from "@/lib/data/legal";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -41,7 +43,10 @@ export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: nu
     setError(null);
     setBusy(true);
     try {
-      const { data, error: fnError } = await createSupabaseBrowserClient().functions.invoke("stripe-checkout", {
+      // Paying confirms the cancellation policy. Recorded first; if it fails, no checkout starts.
+      const supabase = createSupabaseBrowserClient();
+      await recordLegalAcceptance(supabase, ["cancellation"]);
+      const { data, error: fnError } = await supabase.functions.invoke("stripe-checkout", {
         body: { job_id: props.jobId, tip_dop: tip },
       });
       if (fnError || !data?.url) throw new Error(es.jobs.payFailed);
@@ -103,6 +108,13 @@ export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: nu
         {tipError ? <p className="error" role="alert">{tipError}</p> : <p className="muted">{es.jobs.payTipHint}</p>}
       </div>
 
+      <div className="stack">
+        <span className="field-label">{es.legal.cancelSummaryTitle}</span>
+        <p className="muted">{es.legal.cancelSummaryFee}</p>
+        <p className="muted">{es.legal.cancelSummaryEscrow}</p>
+        <Link href="/cancelacion">{es.legal.cancelSummaryLink}</Link>
+        <p className="muted">{es.legal.cancelSummaryConfirm}</p>
+      </div>
       {error ? <p className="error" role="alert">{error}</p> : null}
       <button className="button" type="button" disabled={busy || tipError !== null || total <= 0} onClick={pay}>
         {busy ? es.jobs.sending : es.jobs.payAmount(total)}
