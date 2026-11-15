@@ -2,7 +2,7 @@ import type { LegalDocument } from "./types";
 
 /**
  * Cancellation policy. Rendered at /cancelacion by LegalDocumentView. Status stays "draft" until counsel approves.
- * The fee and grace period below are the approved terms. The cancellation code must match them before go-live.
+ * Cancellation before work starts is a full refund with no fee. Keep this text in line with the refund logic.
  * Source: Additional policies, adapted to Listavy (draft approved by Fabian, 2026-11-15). Not reviewed by counsel.
  */
 export const CANCELLATION_POLICY: LegalDocument = {
@@ -21,7 +21,7 @@ export const CANCELLATION_POLICY: LegalDocument = {
       title: "Si el cliente cancela",
       paragraphs: [
         "**Antes de que un profesional acepte.** Si ningún profesional ha aceptado el trabajo (etapas \"solicitado\" o \"cotizado\"), la cancelación es gratuita. Usted recibe un reembolso completo del monto pagado.",
-        "**Después de que un profesional aceptó, antes de empezar el trabajo.** Si el profesional ya aceptó y usted cancela antes de que empiece el trabajo, usted recibe un reembolso del monto pagado menos una tarifa de cancelación de RD$500. La tarifa se le paga al profesional, como compensación por el tiempo reservado. Listavy no cobra comisión sobre la tarifa de cancelación. No hay tarifa si usted cancela dentro de las 2 horas siguientes a la aceptación del profesional.",
+        "**Después de que un profesional aceptó, antes de que empiece el trabajo.** Si el profesional ya aceptó y usted cancela antes de que empiece el trabajo, usted recibe un reembolso completo del monto pagado. No hay tarifa de cancelación.",
         "**Después de que el trabajo empezó.** Si el trabajo ya está en curso, la cancelación se maneja como una disputa. Usted abre una disputa y el administrador decide el reembolso parcial según el trabajo realizado, igual que en el proceso de disputas de los Términos de Uso. El pago queda congelado mientras la disputa está abierta.",
       ],
     },
@@ -37,13 +37,13 @@ export const CANCELLATION_POLICY: LegalDocument = {
       title: "No-show (no presentarse)",
       paragraphs: [
         "**El profesional no se presenta.** Si el profesional no llega ni empieza el trabajo en el tiempo acordado, el cliente recibe un reembolso completo. Cuenta como una cancelación del profesional.",
-        "**El cliente no está disponible.** Si el profesional llega y el cliente no está presente ni ha dado instrucciones para poder hacer el trabajo, se trata como una cancelación del cliente (aplica la tarifa de cancelación si corresponde) o como una disputa, según el caso.",
+        "**El cliente no está disponible.** Si el profesional llega y el cliente no está presente ni ha dado instrucciones para poder hacer el trabajo, se trata como una cancelación del cliente antes de que empiece el trabajo (reembolso completo, sin tarifa) o como una disputa, según el caso.",
       ],
     },
     {
-      title: "Cómo se procesan los reembolsos y las tarifas",
+      title: "Cómo se procesan los reembolsos",
       paragraphs: [
-        "Listavy guarda el dinero del trabajo desde la reserva, así que la tarifa de cancelación se descuenta directamente del reembolso al cliente. No se hace ningún cobro adicional a su tarjeta. La tarifa se le transfiere al profesional por el mismo mecanismo de pago que los pagos por trabajos. Listavy no cobra comisión sobre un trabajo cancelado.",
+        "Una cancelación antes de que empiece el trabajo recibe un reembolso completo. No se hace ningún cobro adicional a su tarjeta. Listavy no cobra comisión sobre un trabajo cancelado.",
       ],
     },
     {

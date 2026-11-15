@@ -908,7 +908,7 @@ export const es = {
     acceptProJoiner: "y las",
     acceptRequired: "Marque la casilla para continuar.",
     cancelSummaryTitle: "Antes de pagar",
-    cancelSummaryFee: "Si cancela después de que el profesional acepte, se descuenta una tarifa de cancelación de RD$500. No hay tarifa dentro de las 2 horas siguientes a la aceptación.",
+    cancelSummaryFee: "Si cancela antes de que empiece el trabajo, recibe un reembolso completo. No hay tarifa de cancelación.",
     cancelSummaryEscrow: "Su pago queda en custodia hasta que apruebe el trabajo.",
     cancelSummaryLink: "Ver la política de cancelación completa",
     cancelSummaryConfirm: "Al pagar, acepta la política de cancelación.",

@@ -16,6 +16,9 @@ create table if not exists public.legal_acceptances (
 
 create index if not exists legal_acceptances_user_idx on public.legal_acceptances (user_id, accepted_at desc);
 
+-- One row per user, document and version. Enforced by the database, so concurrent writes cannot duplicate.
+alter table public.legal_acceptances add constraint legal_acceptances_user_doc_version_key unique (user_id, document, version);
+
 alter table public.legal_acceptances enable row level security;
 
 drop policy if exists legal_acceptances_own_select on public.legal_acceptances;
@@ -39,13 +42,10 @@ begin
   if p_document not in ('privacy', 'terms', 'cookies', 'cancellation', 'community', 'pro_terms') then
     raise exception 'Documento no válido.';
   end if;
-  -- One row per document and version. Repeat sign-ins and repeat payments add nothing.
+  -- Repeat sign-ins and repeat payments add nothing (unique constraint).
   insert into public.legal_acceptances (user_id, document, version)
-  select uid, p_document, p_version
-   where not exists (
-     select 1 from public.legal_acceptances
-      where user_id = uid and document = p_document and version = p_version
-   );
+  values (uid, p_document, p_version)
+  on conflict (user_id, document, version) do nothing;
 end;
 $$;
 
