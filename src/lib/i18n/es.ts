@@ -154,6 +154,15 @@ export const es = {
     becomePro: "Quiero ofrecer mis servicios",
     proStatus: "Estado de mi solicitud",
   },
+  proHub: {
+    title: "Mi cuenta profesional",
+    requests: "Solicitudes",
+    jobs: "Mis trabajos como profesional",
+    payouts: "Mis pagos",
+    publicProfile: "Mi perfil público",
+    availability: "Disponibilidad",
+    photoHint: "Tu foto aparece en tu perfil público.",
+  },
   addresses: {
     title: "Mis direcciones",
     hint: "Se guardan solo en tu cuenta. Por ahora no se usan al pedir un trabajo.",
@@ -210,9 +219,11 @@ export const es = {
     note: "Solo lectura. Aquí ves los pagos de tus trabajos.",
     empty: "Aún no tienes pagos de trabajos.",
     failed: "No se pudieron cargar tus pagos. Inténtalo de nuevo.",
-    released: "Pagado",
+    released: "Liberado",
     held: "Pendiente de liberar",
     disputed: "En disputa",
+    jobRef: (id: string) => `Trabajo ${id.slice(0, 8)}…`,
+    received: "Recibido",
   },
   availability: {
     label: "Disponible para nuevas solicitudes",
