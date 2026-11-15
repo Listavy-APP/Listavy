@@ -91,6 +91,13 @@ export async function listProReviews(supabase: SupabaseClient, proId: string): P
 }
 
 /** The review for one job, if any. RLS limits reads to the reviewer, the pro, and admins. */
+// review_responses.review_id is unique, so PostgREST returns the embed as one object
+// (or null), not an array. Accept both shapes.
+function firstOrNull<T>(v: T | T[] | null | undefined): T | null {
+  if (Array.isArray(v)) return v[0] ?? null;
+  return v ?? null;
+}
+
 export async function getJobReview(supabase: SupabaseClient, jobId: string): Promise<ReviewRow | null> {
   const { data, error } = await supabase
     .from("reviews")
@@ -101,9 +108,9 @@ export async function getJobReview(supabase: SupabaseClient, jobId: string): Pro
     .maybeSingle();
   if (error) throw new Error(`No se pudo leer la reseña: ${error.message}`);
   if (!data) return null;
-  type Row = Omit<ReviewRow, "reviewer_name" | "response"> & { review_responses: ReviewResponseRow[] | null };
+  type Row = Omit<ReviewRow, "reviewer_name" | "response"> & { review_responses: ReviewResponseRow | ReviewResponseRow[] | null };
   const r = data as unknown as Row;
-  return { ...r, reviewer_name: null, response: r.review_responses?.[0] ?? null };
+  return { ...r, reviewer_name: null, response: firstOrNull(r.review_responses) };
 }
 
 export async function hasClientRating(supabase: SupabaseClient, jobId: string): Promise<boolean> {
@@ -239,10 +246,10 @@ export async function listAdminReviews(supabase: SupabaseClient): Promise<AdminR
   type Row = Omit<ReviewRow, "reviewer_name" | "response"> & {
     flag_reasons: string[];
     review_flags: { reason: string }[] | null;
-    review_responses: { id: string; body: string; status: string; flag_reasons: string[] }[] | null;
+    review_responses: { id: string; body: string; status: string; flag_reasons: string[] } | { id: string; body: string; status: string; flag_reasons: string[] }[] | null;
   };
   return ((data ?? []) as unknown as Row[]).map((r) => {
-    const reply = (r.review_responses ?? [])[0] ?? null;
+    const reply = firstOrNull(r.review_responses);
     return {
       ...r,
       reviewer_name: null,
