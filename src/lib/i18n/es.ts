@@ -118,6 +118,7 @@ export const es = {
     loginCta: "Entrar con tu teléfono",
     searchPlaceholder: "Buscar plomero, electricista, A/C…",
     servicesTitle: "Servicios",
+    servicesMenu: "Todos los servicios",
     seeAll: "Ver todos",
     searchCta: "Buscar profesionales",
     accountCta: "Mi cuenta",

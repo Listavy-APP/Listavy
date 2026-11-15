@@ -60,6 +60,17 @@ export default async function HomePage() {
       <div className="sec-title">
         <span>{es.home.servicesTitle}</span>
       </div>
+      <details className="svc-menu">
+        <summary>{es.home.servicesMenu}</summary>
+        <ul>
+          {TRADES.map((t) => (
+            <li key={t}>
+              <Link href={`/buscar?trade=${t}`}>{es.trades[t]}</Link>
+            </li>
+          ))}
+        </ul>
+      </details>
+
       <div className="cats">
         {TRADES.map((t) => (
           <Link key={t} className="cat" href={`/buscar?trade=${t}`}>

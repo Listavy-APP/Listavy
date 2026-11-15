@@ -178,6 +178,15 @@ export async function submitClientRating(
   if (error) throw new Error(error.message);
 }
 
+export async function moderateReviewResponse(
+  supabase: SupabaseClient,
+  reviewId: string,
+  action: "publish" | "hide",
+): Promise<void> {
+  const { error } = await supabase.rpc("moderate_review_response", { p_review: reviewId, p_action: action });
+  if (error) throw new Error(error.message);
+}
+
 export async function moderateReview(
   supabase: SupabaseClient,
   reviewId: string,
@@ -205,6 +214,8 @@ export function reviewHasContactDetails(text: string): boolean {
 export interface AdminReviewRow extends ReviewRow {
   flag_reasons: string[];
   held: boolean;
+  /** Pro reply with its own hold state (admin queue only). */
+  reply: { id: string; body: string; status: string; flag_reasons: string[] } | null;
 }
 
 /** Admin queue: every review, with flag reasons and whether a dispute holds it. Admin-only by RLS. */
@@ -212,7 +223,7 @@ export async function listAdminReviews(supabase: SupabaseClient): Promise<AdminR
   const { data, error } = await supabase
     .from("reviews")
     .select(
-      "id, job_id, reviewer_id, pro_id, rating, quality, punctuality, cleanliness, comment, status, status_reason, created_at, updated_at, review_flags(reason)",
+      "id, job_id, reviewer_id, pro_id, rating, quality, punctuality, cleanliness, comment, status, status_reason, flag_reasons, created_at, updated_at, review_flags(reason), review_responses(id, body, status, flag_reasons)",
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -226,15 +237,21 @@ export async function listAdminReviews(supabase: SupabaseClient): Promise<AdminR
   const heldJobs = new Set((openDisputes ?? []).map((d: { job_id: string }) => d.job_id));
 
   type Row = Omit<ReviewRow, "reviewer_name" | "response"> & {
+    flag_reasons: string[];
     review_flags: { reason: string }[] | null;
+    review_responses: { id: string; body: string; status: string; flag_reasons: string[] }[] | null;
   };
-  return ((data ?? []) as unknown as Row[]).map((r) => ({
-    ...r,
-    reviewer_name: null,
-    response: null,
-    flag_reasons: (r.review_flags ?? []).map((f) => f.reason),
-    held: heldJobs.has(r.job_id),
-  }));
+  return ((data ?? []) as unknown as Row[]).map((r) => {
+    const reply = (r.review_responses ?? [])[0] ?? null;
+    return {
+      ...r,
+      reviewer_name: null,
+      response: null,
+      flag_reasons: [...new Set([...(r.flag_reasons ?? []), ...(r.review_flags ?? []).map((f) => f.reason)])],
+      held: heldJobs.has(r.job_id),
+      reply,
+    };
+  });
 }
 
 export interface DemoReviewRow {
