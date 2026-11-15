@@ -58,6 +58,11 @@ export default async function ProDetailPage({
   const yearsOnPlatform = stats.joinedAt ? Math.floor((Date.now() - new Date(stats.joinedAt).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
   const reviews = pro.is_demo ? [] : await listProReviews(supabase, pro.id);
   const demoReviews = pro.is_demo ? await listDemoReviews(supabase, pro.id) : [];
+  // Demo pros keep their reviews in demo_reviews, which pro_review_summary does not read.
+  const headerAverage =
+    pro.is_demo && demoReviews.length > 0
+      ? demoReviews.reduce((sum, r) => sum + r.rating, 0) / demoReviews.length
+      : summary.average;
 
   return (
     <section className="stack pro-profile">
@@ -84,7 +89,7 @@ export default async function ProDetailPage({
             <span className="muted">{es.proDetail.statJobs}</span>
           </div>
           <div className="pro-stat" role="listitem">
-            <b>{summary.average == null ? "—" : `${summary.average.toFixed(1)}★`}</b>
+            <b>{headerAverage == null ? "—" : `${headerAverage.toFixed(1)}★`}</b>
             <span className="muted">{es.proDetail.statRating}</span>
           </div>
           <div className="pro-stat" role="listitem">
