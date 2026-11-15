@@ -2,7 +2,8 @@ import Link from "next/link";
 import { es } from "@/lib/i18n/es";
 
 const LINKS = [
-  { href: "/admin", label: es.admin.navPayments },
+  { href: "/admin", label: "Resumen" },
+  { href: "/admin/pagos", label: es.admin.navPayments },
   { href: "/admin/disputas", label: es.admin.navDisputes },
   { href: "/admin/resenas", label: es.admin.navReviews },
   { href: "/admin/destacados", label: es.admin.navBoosts },
