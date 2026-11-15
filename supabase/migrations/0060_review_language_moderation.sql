@@ -18,8 +18,9 @@ returns boolean
 language sql immutable
 set search_path = ''
 as $$
-  select lower(translate(coalesce(p_text, ''), 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunaeiouun'))
-         ~ '\m(mierda|mierdas|puta|putas|puto|putos|pendejo|pendeja|pendejos|pendejas|cabron|cabrones|cono|carajo|hijueputa|hijoeputa|joder|maricon|maricones|marica|maricas|mamon|mamona|gonorrea|culero|culera)\M';
+  -- ñ is NOT folded: 'coño' must not collide with 'cono' (cone).
+  select lower(translate(coalesce(p_text, ''), 'áéíóúüÁÉÍÓÚÜ', 'aeiouuaeiouu'))
+         ~ '\m(mierda|mierdas|puta|putas|puto|putos|pendejo|pendeja|pendejos|pendejas|cabron|cabrones|coño|coñazo|coñaso|mmg|carajo|hijueputa|hijoeputa|joder|maricon|maricones|mariconazo|mariconaso|marica|maricas|mamon|mamona|gonorrea|culero|culera)\M';
 $$;
 
 -- 3. Submit review: hold on language hit. ---------------------------------------------
