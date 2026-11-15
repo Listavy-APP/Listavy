@@ -232,7 +232,7 @@ export async function listAdminReviews(supabase: SupabaseClient): Promise<AdminR
   const { data: openDisputes, error: dErr } = await supabase
     .from("disputes")
     .select("job_id")
-    .neq("stage", "closed");
+    .eq("status", "open");
   if (dErr) throw new Error(`No se pudieron leer las disputas: ${dErr.message}`);
   const heldJobs = new Set((openDisputes ?? []).map((d: { job_id: string }) => d.job_id));
 
