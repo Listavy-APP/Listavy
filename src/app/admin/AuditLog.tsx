@@ -10,6 +10,7 @@ const ACTION_LABELS: Record<string, string> = {
   review_remove: "Reseña eliminada",
   reply_publish: "Respuesta publicada",
   reply_hide: "Respuesta ocultada",
+  dispute_decided: "Disputa decidida",
 };
 
 const dateFmt = new Intl.DateTimeFormat("es-DO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Santo_Domingo" });
