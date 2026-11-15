@@ -2,6 +2,8 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { normalizePhone, sendWhatsAppCode, verifyWhatsAppCode } from "@/lib/data/auth";
+import { PhoneField } from "@/components/PhoneField";
+import { DEFAULT_PHONE_COUNTRY, composePhone, phoneLengthError } from "@/lib/domain/countries";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -9,7 +11,9 @@ type Step = "phone" | "code";
 
 export function PhoneLoginForm({ next }: { next: string }) {
   const [step, setStep] = useState<Step>("phone");
-  const [phoneInput, setPhoneInput] = useState("+1 ");
+  const [country, setCountry] = useState(DEFAULT_PHONE_COUNTRY);
+  const [local, setLocal] = useState("");
+  const phoneInput = composePhone(country, local);
   const [phone, setPhone] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -21,6 +25,11 @@ export function PhoneLoginForm({ next }: { next: string }) {
     e.preventDefault();
     if (inFlight.current) return;
     setError(null);
+    const lengthError = phoneLengthError(country, local);
+    if (lengthError) {
+      setError(lengthError);
+      return;
+    }
     const normalized = normalizePhone(phoneInput);
     if (!normalized) {
       setError(es.login.invalidPhone);
@@ -113,19 +122,15 @@ export function PhoneLoginForm({ next }: { next: string }) {
   return (
     <form className="stack" onSubmit={onSendCode}>
       <h1>{es.login.title}</h1>
-      <label className="field">
-        <span>{es.login.phoneLabel}</span>
-        <input
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="+1 809 555 1234"
-          value={phoneInput}
-          onChange={(e) => setPhoneInput(e.target.value)}
-          required
-        />
-      </label>
-      <p className="muted">{es.login.phoneHint}</p>
+      <PhoneField
+        label={es.login.phoneLabel}
+        countryLabel={es.phoneField.countryLabel}
+        country={country}
+        local={local}
+        onCountry={setCountry}
+        onLocal={setLocal}
+      />
+      <p className="muted">{es.phoneField.hint}</p>
       {error && <p className="error" role="alert">{error}</p>}
       <button className="button" type="submit" disabled={busy}>
         {busy ? es.login.sending : es.login.sendCode}

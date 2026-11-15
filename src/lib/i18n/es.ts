@@ -602,6 +602,10 @@ export const es = {
     companyVerified: "Empresa verificada",
     mismatch: "Estos profesionales no coinciden con el tipo que elegiste:",
   },
+  phoneField: {
+    countryLabel: "Código de país",
+    hint: "Elige tu país y escribe el número sin el código.",
+  },
   admin: {
     navLabel: "Secciones de administración",
     navPayments: "Pagos",

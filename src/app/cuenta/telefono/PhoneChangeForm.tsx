@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { normalizePhone } from "@/lib/data/auth";
+import { PhoneField } from "@/components/PhoneField";
+import { DEFAULT_PHONE_COUNTRY, composePhone, phoneLengthError } from "@/lib/domain/countries";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -18,7 +20,9 @@ type Step = "phone" | "code";
 export function PhoneChangeForm() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("phone");
-  const [phoneInput, setPhoneInput] = useState("+1 ");
+  const [country, setCountry] = useState(DEFAULT_PHONE_COUNTRY);
+  const [local, setLocal] = useState("");
+  const phoneInput = composePhone(country, local);
   const [pending, setPending] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,6 +35,11 @@ export function PhoneChangeForm() {
     e.preventDefault();
     if (inFlight.current) return;
     setError(null);
+    const lengthError = phoneLengthError(country, local);
+    if (lengthError) {
+      setError(lengthError);
+      return;
+    }
     const normalized = normalizePhone(phoneInput);
     if (!normalized) {
       setError(es.login.invalidPhone);
@@ -114,10 +123,14 @@ export function PhoneChangeForm() {
 
   return (
     <form className="stack" onSubmit={onSend}>
-      <label className="field">
-        {es.phoneChange.newPhone}
-        <input inputMode="tel" autoComplete="tel" value={phoneInput} onChange={(e) => setPhoneInput(e.target.value)} />
-      </label>
+      <PhoneField
+        label={es.phoneChange.newPhone}
+        countryLabel={es.phoneField.countryLabel}
+        country={country}
+        local={local}
+        onCountry={setCountry}
+        onLocal={setLocal}
+      />
       <button className="button" type="submit" disabled={busy}>
         {es.phoneChange.sendCode}
       </button>
