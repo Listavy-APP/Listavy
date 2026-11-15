@@ -1027,3 +1027,14 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 /* Demo (showcase) profile */
 .demo-banner { border: 1px solid var(--line, #d0d0d0); background: var(--surface-2, #f6f6f6); }
 .demo-badge { background: transparent; border: 1px solid currentColor; }
+
+.admin-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.admin-bell { position: relative; }
+.admin-bell > summary { list-style: none; }
+.admin-bell > summary::-webkit-details-marker { display: none; }
+.bell { position: relative; display: inline-flex; padding: 8px; cursor: pointer; color: var(--ink); }
+.bell-badge { position: absolute; top: 0; right: 0; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; color: #fff; }
+.bell-badge.urgent { background: #dc2626; }
+.bell-badge.attention { background: #d97706; }
+.bell-panel { position: absolute; right: 0; z-index: 10; width: min(360px, 90vw); max-height: 70vh; overflow-y: auto; }
+.bell-row { display: flex; justify-content: space-between; gap: var(--s1); padding: 8px 0; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: 14px; }
