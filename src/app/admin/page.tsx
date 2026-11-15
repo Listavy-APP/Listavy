@@ -5,6 +5,7 @@ import { AdminNav } from "./AdminNav";
 import { AuditLog } from "./AuditLog";
 import { CheckinProblems } from "./CheckinProblems";
 import { AdminBell } from "./AdminBell";
+import { AdminPushButton } from "@/components/AdminPushButton";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BackBar } from "@/components/BackBar";
@@ -122,6 +123,7 @@ export default async function AdminDashboardPage() {
         <AdminBell />
       </div>
       <p className="muted">Solo lectura. Cada sección abre su propia pantalla para actuar.</p>
+      <AdminPushButton />
 
       <h2>Profesionales</h2>
       <Stat label="Pendientes de aprobación" value={pendingPros.count ?? 0} />
