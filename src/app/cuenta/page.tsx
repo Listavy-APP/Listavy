@@ -53,9 +53,11 @@ export default async function ProfilePage() {
     customerPhotoUrl(supabase, profile.avatar_path),
   ]);
 
+  // Dual role: an approved pro who has also requested services sees the client sections too.
   const isPro = profile.role === "pro";
+  const clientView = !isPro || jobs.length > 0;
   const myPro = isPro ? await getMyPro(supabase) : null;
-  const standing = isPro ? null : await getClientStanding(supabase);
+  const standing = clientView ? await getClientStanding(supabase) : null;
   const referralEnabled = await referralProgramEnabled(supabase);
   const standingNotice = !standing ? null : standing.blocked ? (
     <div className="panel stack">
@@ -96,7 +98,7 @@ export default async function ProfilePage() {
         </p>
       </div>
       {standingNotice}
-      {profile.role !== "pro" ? <ClaimReferral track="client" /> : null}
+      {clientView ? <ClaimReferral track="client" /> : null}
 
 
       <div className="hub-group">
@@ -126,7 +128,7 @@ export default async function ProfilePage() {
         <span className="contact-label">{es.saved.title}</span>
       </Link>
 
-      {!isPro ? (
+      {clientView ? (
         <Link className="contact-row" href="/cuenta/direcciones">
           <span className="icon-box"><Icon name="home" /></span>
           <span className="contact-label">{es.addresses.title}</span>
@@ -171,7 +173,7 @@ export default async function ProfilePage() {
           </Link>
         </div>
       ) : null}
-      {!isPro ? (
+      {clientView ? (
       <div className="hub-group">
       <h2>{es.profile.tripsTitle}</h2>
       {jobs.length === 0 ? (
