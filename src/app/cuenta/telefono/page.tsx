@@ -4,7 +4,6 @@ import { BackBar } from "@/components/BackBar";
 import { PhoneChangeForm } from "./PhoneChangeForm";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { es } from "@/lib/i18n/es";
-import { formatPhoneDisplay } from "@/lib/domain/phone";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata = { title: es.phoneChange.title };
@@ -24,11 +23,7 @@ export default async function PhoneChangePage() {
       <BackBar href="/cuenta" />
       <h1 className="page-title">{es.phoneChange.title}</h1>
       <p className="muted">{es.phoneChange.hint}</p>
-      <p>
-        <span className="muted">{es.phoneChange.current}: </span>
-        {formatPhoneDisplay(profile?.phone ?? null)}
-      </p>
-      <PhoneChangeForm />
+      <PhoneChangeForm initialPhone={profile?.phone ?? null} />
     </section>
   );
 }
