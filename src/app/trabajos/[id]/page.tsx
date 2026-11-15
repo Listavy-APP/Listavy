@@ -198,7 +198,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         role={role}
         jobStatus={j.status}
         paid={j.payment_status === "paid"}
-        disputeOpen={disputes.some((d) => d.stage !== "closed")}
+        disputeOpen={disputes.some((d) => d.status === "open")}
         review={jobReview}
         hasClientRating={clientRated}
       />
