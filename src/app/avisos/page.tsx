@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { listMyNotifications } from "@/lib/data/disputes";
+import { listMyCheckins } from "@/lib/data/jobNotifications";
+import { CheckinCard } from "./CheckinCard";
 import { EmptyState } from "@/components/EmptyState";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -31,6 +33,7 @@ export default async function NotificationsPage() {
   if (!userData.user) redirect("/login");
 
   const rows = await listMyNotifications(supabase);
+  const checkins = await listMyCheckins(supabase);
   // Disputes whose evidence window is still open (same rule as DisputePanel). RLS: job parties and admins.
   const { data: disputeRows } = await supabase
     .from("disputes")
@@ -70,7 +73,15 @@ export default async function NotificationsPage() {
           ))}
         </div>
       ) : null}
-      {rows.length === 0 ? (
+      {checkins.length > 0 ? (
+        <div className="stack">
+          <h2>{es.checkins.title}</h2>
+          {checkins.map((c) => (
+            <CheckinCard key={c.id} checkin={c} />
+          ))}
+        </div>
+      ) : null}
+      {rows.length === 0 && checkins.length === 0 ? (
         <EmptyState title={es.notifications.empty} body={es.notifications.emptyBody} actionHref="/buscar" actionLabel={es.search.title} />
       ) : null}
       {rows.map((n) => (
