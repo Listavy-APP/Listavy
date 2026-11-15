@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
-import { getProCardsByIds } from "@/lib/data/pros";
+import { getMyPro, getProCardsByIds } from "@/lib/data/pros";
 import { listSavedProIds } from "@/lib/data/saved";
 import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
@@ -21,6 +21,7 @@ export default async function SavedProsPage() {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) redirect("/login?next=/cuenta/guardados");
 
+  const myPro = await getMyPro(supabase);
   const ids = await listSavedProIds(supabase, userData.user.id);
   const pros = ids.length > 0 ? await getProCardsByIds(supabase, ids) : [];
 
@@ -29,7 +30,12 @@ export default async function SavedProsPage() {
       <BackBar href="/cuenta" />
       <h1 className="page-title">{es.saved.title}</h1>
       {pros.length === 0 ? (
-        <EmptyState title={es.saved.title} body={es.saved.empty} actionHref="/buscar" actionLabel={es.search.title} />
+        <EmptyState
+          title={es.saved.title}
+          body={myPro ? es.saved.emptyPro : es.saved.empty}
+          actionHref="/buscar"
+          actionLabel={es.search.title}
+        />
       ) : (
         <div className="cards">
           {pros.map((p) => (

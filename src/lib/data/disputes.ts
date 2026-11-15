@@ -90,16 +90,23 @@ export interface NotificationRow {
   kind: "notice" | "reminder" | "decision" | "recovery_request";
   body: string;
   created_at: string;
+  /** Job the notice is about (via its dispute). Null if the dispute is gone. */
+  job_id: string | null;
 }
 
 export async function listMyNotifications(supabase: SupabaseClient): Promise<NotificationRow[]> {
   const { data, error } = await supabase
     .from("dispute_notifications")
-    .select("id, kind, body, created_at")
+    .select("id, kind, body, created_at, disputes(job_id)")
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) throw new Error(error.message);
-  return (data ?? []) as NotificationRow[];
+  // To-one embed comes back as an object at runtime; the generated types may read it as an array.
+  type Raw = Omit<NotificationRow, "job_id"> & { disputes: { job_id: string } | { job_id: string }[] | null };
+  return ((data ?? []) as unknown as Raw[]).map((n) => {
+    const d = Array.isArray(n.disputes) ? n.disputes[0] : n.disputes;
+    return { id: n.id, kind: n.kind, body: n.body, created_at: n.created_at, job_id: d?.job_id ?? null };
+  });
 }
 
 export async function listJobDisputes(supabase: SupabaseClient, jobId: string): Promise<DisputeRow[]> {

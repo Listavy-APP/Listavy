@@ -80,6 +80,11 @@ export default async function NotificationsPage() {
             {new Date(n.created_at).toLocaleString("es-DO", { timeZone: "America/Santo_Domingo", dateStyle: "medium", timeStyle: "short" })}
           </p>
           <p>{n.body}</p>
+          {n.job_id ? (
+            <Link className="button secondary" href={`/trabajos/${n.job_id}`}>
+              {es.notifications.disputeAction}
+            </Link>
+          ) : null}
         </article>
       ))}
     </section>
