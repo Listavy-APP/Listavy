@@ -55,7 +55,7 @@ export async function listClientsByName(supabase: SupabaseClient, query: string)
   const { data, error } = await supabase
     .from("profiles")
     .select("id, full_name")
-    .eq("role", "homeowner")
+    .neq("role", "admin")
     .ilike("full_name", `%${q.replace(/[%_]/g, "")}%`)
     .limit(20);
   if (error) throw new Error(error.message);

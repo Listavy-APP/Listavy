@@ -225,8 +225,10 @@ as $function$
 begin
   if not public.is_admin() then raise exception 'No autorizado.'; end if;
   if p_client = (select auth.uid()) then raise exception 'No puedes suspender tu propia cuenta.'; end if;
-  if not exists (select 1 from public.profiles where id = p_client and role = 'homeowner') then
-    raise exception 'Solo se pueden suspender cuentas de cliente.';
+  -- Any non-admin account can be suspended as a client. A pro who also books jobs is covered.
+  -- The trigger blocks only new job requests, not pro work.
+  if not exists (select 1 from public.profiles where id = p_client and role <> 'admin') then
+    raise exception 'Cuenta no encontrada o es de administrador.';
   end if;
   if length(trim(coalesce(p_reason, ''))) < 10 then raise exception 'Escribe un motivo de al menos 10 caracteres.'; end if;
   if public.is_client_suspended(p_client) then raise exception 'La cuenta ya está suspendida.'; end if;
