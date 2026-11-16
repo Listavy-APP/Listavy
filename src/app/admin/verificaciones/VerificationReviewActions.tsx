@@ -7,12 +7,24 @@ import { reviewVerification } from "@/lib/data/verification";
 import { esVerification as t } from "@/lib/i18n/verification";
 
 /** Approve (with dates from the document) or reject (with a reason). Goes through admin_review_verification. */
-export function VerificationReviewActions({ id, needsIssue, needsExpiry }: { id: string; needsIssue: boolean; needsExpiry: boolean }) {
+export function VerificationReviewActions({
+  id,
+  needsIssue,
+  needsExpiry,
+  isCompany,
+}: {
+  id: string;
+  needsIssue: boolean;
+  needsExpiry: boolean;
+  isCompany: boolean;
+}) {
   const router = useRouter();
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [issueDate, setIssueDate] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [estado, setEstado] = useState("");
+  const [rmNumber, setRmNumber] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,6 +69,12 @@ export function VerificationReviewActions({ id, needsIssue, needsExpiry }: { id:
       {needsExpiry ? (
         <label className="field"><span>{t.admin.expiryDate}</span><input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} /></label>
       ) : null}
+      {isCompany ? (
+        <>
+          <label className="field"><span>{t.admin.dgiiEstado}</span><input type="text" maxLength={40} value={estado} onChange={(e) => setEstado(e.target.value)} /></label>
+          <label className="field"><span>{t.admin.rmNumber}</span><input type="text" maxLength={40} value={rmNumber} onChange={(e) => setRmNumber(e.target.value)} /></label>
+        </>
+      ) : null}
       <div className="row">
         <button
           className="button"
@@ -64,7 +82,10 @@ export function VerificationReviewActions({ id, needsIssue, needsExpiry }: { id:
           disabled={busy}
           onClick={() => {
             if (window.confirm(t.admin.confirmApprove)) {
-              run({ id, decision: "approved", issueDate: issueDate || null, expiresAt: expiresAt || null });
+              const details: Record<string, string> = {};
+              if (estado.trim()) details.estado = estado.trim();
+              if (rmNumber.trim()) details.rm_number = rmNumber.trim();
+              run({ id, decision: "approved", issueDate: issueDate || null, expiresAt: expiresAt || null, details });
             }
           }}
         >

@@ -87,14 +87,27 @@ export async function submitVerification(supabase: SupabaseClient, input: Submit
 
 export type ReviewInput =
   | { id: string; decision: "rejected"; reason: string }
-  | { id: string; decision: "approved"; issueDate: string | null; expiresAt: string | null };
+  | {
+      id: string;
+      decision: "approved";
+      issueDate: string | null;
+      expiresAt: string | null;
+      /** Recorded on the row, e.g. { estado: "Activo" } for DGII or { rm_number: "..." } for the Registro Mercantil. */
+      details?: Record<string, string>;
+    };
 
 /** Approve or reject one row through the RPC. The RPC enforces the stage rules and writes the Bitácora. */
 export async function reviewVerification(supabase: SupabaseClient, input: ReviewInput): Promise<void> {
   const args =
     input.decision === "rejected"
       ? { p_id: input.id, p_decision: "rejected", p_reason: input.reason }
-      : { p_id: input.id, p_decision: "approved", p_issue_date: input.issueDate, p_expires_at: input.expiresAt };
+      : {
+          p_id: input.id,
+          p_decision: "approved",
+          p_issue_date: input.issueDate,
+          p_expires_at: input.expiresAt,
+          p_details: input.details ?? {},
+        };
   const { error } = await supabase.rpc("admin_review_verification", args);
   if (error) throw new Error(error.message);
 }

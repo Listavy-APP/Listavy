@@ -48,7 +48,8 @@ create policy pro_verifications_insert_own on public.pro_verifications for inser
 --   buena_conducta: issue_date within the last 30 days (Listavy rule, from the PGR certificate date).
 --                   expires_at = issue_date + 6 months (Listavy renewal policy, not a PGR rule).
 --   company_registry: expires_at required (RM certificate, 2-year cycle).
---   insurance, sie_licence: expires_at required when the document shows one.
+--   insurance: expires_at required (a policy always has an expiry).
+--   sie_licence: expires_at required only when the licence shows one.
 --   company_entity: expires_at = today + 1 year (annual DGII re-check, Listavy policy).
 -- ---------------------------------------------------------------------------
 create or replace function public.admin_review_verification(
@@ -107,8 +108,13 @@ begin
     v_expires := p_expires_at;
   elsif v_row.stage = 'company_entity' then
     v_expires := current_date + interval '1 year';
-  elsif v_row.stage in ('insurance', 'sie_licence') then
-    v_expires := p_expires_at;  -- required when the document shows one; null means no expiry on the document
+  elsif v_row.stage = 'insurance' then
+    if p_expires_at is null or p_expires_at <= current_date then
+      raise exception 'La póliza requiere una fecha de vencimiento futura.';
+    end if;
+    v_expires := p_expires_at;
+  elsif v_row.stage = 'sie_licence' then
+    v_expires := p_expires_at;  -- required when the licence shows one; null means no expiry on the document
   else
     v_expires := null;          -- identity, infotep_certificate, representative
   end if;

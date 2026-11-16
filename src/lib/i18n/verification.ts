@@ -61,5 +61,7 @@ export const esVerification = {
     fail: "No se pudo completar la acción.",
     confirmApprove: "¿Aprobar esta verificación?",
     recordDgiiNote: "Consulta DGII (RNC) hecha el día de hoy: estado Activo.",
+    dgiiEstado: "Estado DGII (RNC)",
+    rmNumber: "Número de Registro Mercantil",
   },
 };

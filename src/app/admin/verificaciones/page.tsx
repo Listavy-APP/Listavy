@@ -39,7 +39,12 @@ export default async function AdminVerificationsPage() {
           <p className="muted">{new Date(row.created_at).toLocaleString("es-DO", { timeZone: "America/Santo_Domingo" })}</p>
           {url ? <p><a href={url} target="_blank" rel="noreferrer">{t.admin.document}</a></p> : null}
           <p><Link href={`/pro/${row.pro_id}`}>Ver perfil</Link></p>
-          <VerificationReviewActions id={row.id} needsIssue={needsIssueInput(row.stage)} needsExpiry={needsExpiryInput(row.stage)} />
+          <VerificationReviewActions
+            id={row.id}
+            needsIssue={needsIssueInput(row.stage)}
+            needsExpiry={needsExpiryInput(row.stage)}
+            isCompany={row.stage.startsWith("company_") || row.stage === "representative"}
+          />
         </article>
       ))}
     </section>
