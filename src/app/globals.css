@@ -548,6 +548,10 @@ legend {
   cursor: pointer;
 }
 .contact-row { border-bottom: 1px solid var(--line, #e2e8f0); }
+/* Email row: label keeps its width, value takes the rest and truncates. Scoped to this row. */
+a.contact-row.contact-row-email .contact-label { flex: 0 0 auto; white-space: nowrap; }
+a.contact-row.contact-row-email .contact-value { flex: 1 1 0; min-width: 0; max-width: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contact-row-email::after { flex: none; }
 .contact-row summary {
   display: flex;
   justify-content: space-between;
