@@ -118,3 +118,62 @@ export async function listJobDisputes(supabase: SupabaseClient, jobId: string): 
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as DisputeRow[];
 }
+
+// ---------------------------------------------------------------------------
+// Dispute photo evidence (migration 0075). Bucket: dispute-evidence (private).
+// ---------------------------------------------------------------------------
+
+export const DISPUTE_PHOTO_BUCKET = "dispute-evidence";
+export const DISPUTE_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
+export const DISPUTE_PHOTO_MAX_PER_AUTHOR = 6;
+
+export interface DisputePhotoRow {
+  id: string;
+  dispute_id: string;
+  author_id: string;
+  side: "homeowner" | "pro";
+  storage_path: string;
+  created_at: string;
+}
+
+const PHOTO_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+
+export async function listDisputePhotos(supabase: SupabaseClient, disputeIds: string[]): Promise<DisputePhotoRow[]> {
+  if (disputeIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("dispute_evidence_photos")
+    .select("id, dispute_id, author_id, side, storage_path, created_at")
+    .in("dispute_id", disputeIds)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as DisputePhotoRow[];
+}
+
+/** Uploads one photo into the caller's folder for this dispute. Returns the storage path. */
+export async function uploadDisputePhoto(
+  supabase: SupabaseClient,
+  uid: string,
+  disputeId: string,
+  file: File,
+): Promise<string> {
+  const ext = PHOTO_EXT[file.type];
+  if (!ext) throw new Error("Usa una foto en JPG, PNG o WebP.");
+  if (file.size > DISPUTE_PHOTO_MAX_BYTES) throw new Error("La foto supera 8 MB.");
+  const path = `${uid}/${disputeId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage
+    .from(DISPUTE_PHOTO_BUCKET)
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (error) throw new Error(`No se pudo subir la foto: ${error.message}`);
+  return path;
+}
+
+export async function registerDisputePhoto(supabase: SupabaseClient, disputeId: string, path: string): Promise<void> {
+  fail((await supabase.rpc("submit_dispute_photo", { p_dispute: disputeId, p_path: path })).error);
+}
+
+/** Short-lived link for a dispute photo. The storage policy decides who may read it. */
+export async function disputePhotoUrl(supabase: SupabaseClient, path: string, seconds = 3600): Promise<string | null> {
+  const { data, error } = await supabase.storage.from(DISPUTE_PHOTO_BUCKET).createSignedUrl(path, seconds);
+  if (error) return null;
+  return data.signedUrl;
+}

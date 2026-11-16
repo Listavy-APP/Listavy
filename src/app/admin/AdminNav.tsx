@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { es } from "@/lib/i18n/es";
 import { esVerification } from "@/lib/i18n/verification";
+import { esTrust } from "@/lib/i18n/trust";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -13,6 +14,8 @@ const LINKS = [
   { href: "/admin/destacados", label: es.admin.navBoosts },
   { href: "/admin/referidos", label: es.referral.navLabel },
   { href: "/admin/verificaciones", label: esVerification.admin.navLabel },
+  { href: "/admin/fotos", label: esTrust.adminPhotos.navLabel },
+  { href: "/admin/clientes", label: esTrust.adminClients.navLabel },
 ] as const;
 
 const SUPER_LINKS = [{ href: "/admin/administradores", label: "Administradores" }] as const;

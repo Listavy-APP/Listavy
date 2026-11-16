@@ -2,9 +2,26 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { openDispute, submitEvidence, type DisputeRow, type EvidenceRow } from "@/lib/data/disputes";
+import {
+  DISPUTE_PHOTO_MAX_PER_AUTHOR,
+  openDispute,
+  registerDisputePhoto,
+  submitEvidence,
+  uploadDisputePhoto,
+  type DisputeRow,
+  type EvidenceRow,
+} from "@/lib/data/disputes";
 import { es } from "@/lib/i18n/es";
+import { esTrust } from "@/lib/i18n/trust";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+/** A dispute photo with a signed link, prepared on the server. */
+export interface DisputePhotoView {
+  id: string;
+  dispute_id: string;
+  side: "homeowner" | "pro";
+  url: string | null;
+}
 
 /** Deadline text that never splits "5:47 p. m." across lines. */
 function formatDue(iso: string): string {
@@ -23,20 +40,45 @@ function Statement({ side, text }: { side: "homeowner" | "pro"; text: string }) 
   );
 }
 
+function PhotoStrip({ photos, label }: { photos: DisputePhotoView[]; label: string }) {
+  if (photos.length === 0) return null;
+  return (
+    <div className="photo-grid" aria-label={label}>
+      {photos.map((p) => (
+        <figure key={p.id} className="photo-tile">
+          {p.url ? (
+            <a href={p.url} target="_blank" rel="noreferrer" aria-label={esTrust.disputePhotos.openPhoto}>
+              {/* Signed URL, private bucket. next/image cannot optimize signed URLs. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt={label} loading="lazy" />
+            </a>
+          ) : (
+            <div className="photo-missing" aria-hidden="true" />
+          )}
+        </figure>
+      ))}
+    </div>
+  );
+}
+
 export function DisputePanel({
   jobId,
+  uid,
   role,
   approvedAt,
   jobStatus,
   disputes,
   evidence,
+  photos,
 }: {
   jobId: string;
+  uid: string;
   role: "homeowner" | "pro";
   approvedAt: string | null;
   jobStatus: string;
   disputes: DisputeRow[];
   evidence: EvidenceRow[];
+  photos: DisputePhotoView[];
 }) {
   const router = useRouter();
   const supabase = createSupabaseBrowserClient();
@@ -95,6 +137,22 @@ export function DisputePanel({
   const others = evidence.filter((e) => e.dispute_id === current.id && e.side !== role);
   const stillOpen = current.stage === "evidence" && current.evidence_due_at !== null && new Date(current.evidence_due_at).getTime() > now;
   const showOthers = current.stage !== "evidence" && current.stage !== "filed";
+  const disputePhotos = photos.filter((p) => p.dispute_id === current.id);
+  const myPhotos = disputePhotos.filter((p) => p.side === role);
+  const otherPhotos = disputePhotos.filter((p) => p.side !== role);
+  const canAttach = stillOpen && mine !== undefined && myPhotos.length < DISPUTE_PHOTO_MAX_PER_AUTHOR;
+
+  async function attachPhotos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const room = DISPUTE_PHOTO_MAX_PER_AUTHOR - myPhotos.length;
+    const batch = Array.from(files).slice(0, room);
+    await run(async () => {
+      for (const file of batch) {
+        const path = await uploadDisputePhoto(supabase, uid, current.id, file);
+        await registerDisputePhoto(supabase, current.id, path);
+      }
+    });
+  }
 
   return (
     <section className="panel dispute-card stack">
@@ -112,6 +170,28 @@ export function DisputePanel({
           <div className="stack">
             <p className="muted">{es.disputes.evidenceSent}</p>
             <Statement side={role} text={mine.statement} />
+            <PhotoStrip photos={myPhotos} label={esTrust.disputePhotos.ownLabel} />
+            <h3>{esTrust.disputePhotos.title}</h3>
+            <p className="muted">{esTrust.disputePhotos.help}</p>
+            {error ? <p className="error">{error}</p> : null}
+            {canAttach ? (
+              <label className="button secondary">
+                {busy ? esTrust.disputePhotos.uploading : esTrust.disputePhotos.addPhotos}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  hidden
+                  disabled={busy}
+                  onChange={(e) => {
+                    void attachPhotos(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            ) : (
+              <p className="muted">{esTrust.disputePhotos.limitReached}</p>
+            )}
           </div>
         ) : (
           <div className="stack">
@@ -136,6 +216,8 @@ export function DisputePanel({
             <Statement key={`${e!.side}-${e!.created_at}`} side={e!.side} text={e!.statement} />
           ))
         : null}
+      {showOthers ? <PhotoStrip photos={otherPhotos} label={esTrust.disputePhotos.counterpartLabel} /> : null}
+      {showOthers ? <PhotoStrip photos={myPhotos} label={esTrust.disputePhotos.ownLabel} /> : null}
 
       {current.decision_reason ? (
         <div className="dispute-decision">
