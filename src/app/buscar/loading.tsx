@@ -1,10 +1,18 @@
-import { SkeletonBlock, SkeletonCards } from "@/components/Skeleton";
-
-export default function Loading() {
+/** Branded skeleton cards while /buscar results load. */
+export default function SearchLoading() {
   return (
-    <section className="stack">
-      <SkeletonBlock height={28} width="55%" />
-      <SkeletonCards count={3} />
+    <section className="stack" aria-busy="true" aria-live="polite">
+      <div className="skeleton-bar" />
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="skeleton-card">
+          <span className="skeleton-photo" />
+          <span className="skeleton-lines">
+            <span className="skeleton-line w70" />
+            <span className="skeleton-line w50" />
+            <span className="skeleton-line w40" />
+          </span>
+        </div>
+      ))}
     </section>
   );
 }

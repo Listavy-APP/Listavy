@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { CaptureReferral } from "@/components/CaptureReferral";
 import { BottomNav } from "@/components/BottomNav";
 import { LegalFooter } from "@/components/LegalFooter";
+import { Loader } from "@/components/Loader";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { es } from "@/lib/i18n/es";
 import "./globals.css";
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <CaptureReferral />
         <RegisterServiceWorker />
         <main className="page">
+          <Loader />
           <AppHeader />
           {children}
           <LegalFooter />
