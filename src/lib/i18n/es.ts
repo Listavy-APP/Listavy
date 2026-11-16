@@ -221,7 +221,7 @@ export const es = {
     signOut: "Cerrar sesión",
     becomePro: "Quiero ofrecer mis servicios",
     proStatus: "Estado de mi solicitud",
-    adminLink: "Administración",
+    adminLink: "Admin Panel",
   },
   proHub: {
     title: "Mi cuenta profesional",
