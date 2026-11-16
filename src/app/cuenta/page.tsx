@@ -142,6 +142,7 @@ export default async function ProfilePage() {
 
       {profile.role === "admin" ? (
         <Link className="contact-row" href="/admin">
+          <span className="icon-box"><Icon name="shield" /></span>
           <span className="contact-label">{es.account.adminLink}</span>
         </Link>
       ) : null}
