@@ -4,6 +4,8 @@ import { BackArrow } from "@/components/BackBar";
 import { getProCard, getProStats, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
+import { customerPhotoUrl } from "@/lib/storage/customerFiles";
+import { getCurrentProfile } from "@/lib/data/profiles";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -50,6 +52,11 @@ export default async function ProDetailPage({
   }
 
   const userId = userData.user?.id ?? null;
+  // The owner reached this page from the account hub: back returns there. Everyone else came from search.
+  const isOwner = userId !== null && userId === pro.id;
+  const backHref = isOwner ? "/cuenta" : "/buscar";
+  // Owner-only fallback: the account photo is private (customer-avatars, owner or admin only).
+  const ownerAccountPhoto = isOwner && !pro.avatar_path ? await customerPhotoUrl(supabase, (await getCurrentProfile(supabase))?.avatar_path ?? null) : null;
   const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
   const boosted = await isProBoosted(supabase, pro.id);
   const photos = signedIn ? await getWorkPhotoUrls(supabase, pro.id) : [];
@@ -67,7 +74,7 @@ export default async function ProDetailPage({
   return (
     <section className="stack pro-profile">
       <div className="backbar">
-        <Link className="back" href="/buscar" aria-label={es.common.back}><BackArrow /></Link>
+        <Link className="back" href={backHref} aria-label={es.common.back}><BackArrow /></Link>
         <span className="bt">{es.proDetail.title}</span>
       </div>
 
@@ -80,7 +87,7 @@ export default async function ProDetailPage({
       <div className="account-hero pro-hero">
         <div className="account-banner" aria-hidden="true" />
         <div className="account-avatar">
-          <Avatar name={pro.full_name} src={avatarUrl(supabase, pro.avatar_path)} />
+          <Avatar name={pro.full_name} src={avatarUrl(supabase, pro.avatar_path) ?? ownerAccountPhoto} />
         </div>
         <h1 className="pro-name">{pro.full_name ?? es.proDetail.title}</h1>
         <div className="pro-stats" role="list">

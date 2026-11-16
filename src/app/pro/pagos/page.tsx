@@ -63,7 +63,7 @@ export default async function ProPayoutsPage() {
 
   return (
     <section className="stack">
-      <BackBar href="/pro/estado" />
+      <BackBar href="/cuenta" />
       <h1 className="page-title">{es.proPayouts.title}</h1>
       <p className="muted">{es.proPayouts.note}</p>
       {error ? <p className="error">{es.proPayouts.failed}</p> : null}

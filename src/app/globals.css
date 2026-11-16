@@ -808,6 +808,7 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
   left: 50%;
   bottom: calc(12px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
+  pointer-events: none;
   width: calc(100% - 32px);
   max-width: 440px;
   height: 64px;
@@ -825,6 +826,7 @@ button.chip:disabled { opacity: 0.5; cursor: default; }
   z-index: 10;
 }
 .bottom-nav-tab {
+  pointer-events: auto;
   height: 52px;
   display: flex;
   align-items: center;

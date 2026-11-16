@@ -7,6 +7,7 @@ import { es } from "@/lib/i18n/es";
 import { EmptyState } from "@/components/EmptyState";
 import { JobCard } from "@/components/JobCard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { BackBar } from "@/components/BackBar";
 
 export const metadata = { title: es.trabajos.title };
 
@@ -55,6 +56,7 @@ export default async function TrabajosPage() {
 
   return (
     <section className="stack">
+      <BackBar href="/cuenta" />
       <h1>{es.trabajos.title}</h1>
       {clientJobs.length === 0 && proJobs.length === 0 ? (
         <EmptyState title={es.trabajos.emptyTitle} body={es.trabajos.empty} actionHref="/buscar" actionLabel={es.trabajos.findPro} />
