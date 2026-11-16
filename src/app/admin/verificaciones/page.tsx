@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import Link from "next/link";
-import { AdminNav } from "../AdminNav";
 import { VerificationReviewActions } from "./VerificationReviewActions";
 import { BackBar } from "@/components/BackBar";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -28,7 +27,6 @@ export default async function AdminVerificationsPage() {
 
   return (
     <section className="stack">
-      <AdminNav current="/admin/verificaciones" />
       <BackBar href="/admin" />
       <h1>{t.admin.title}</h1>
       {cards.length === 0 ? <p className="muted">{t.admin.empty}</p> : null}

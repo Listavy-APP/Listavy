@@ -1,5 +1,4 @@
 import { notFound, redirect } from "next/navigation";
-import { AdminNav } from "../AdminNav";
 import { connection } from "next/server";
 import { DisputeDecision } from "./DisputeDecision";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -39,7 +38,6 @@ export default async function DisputesDeskPage() {
 
   return (
     <section className="stack">
-      <AdminNav current="/admin/disputas" />
       <BackBar href="/admin" />
       <h1>Mediación de disputas</h1>
       {disputes.length === 0 ? <p className="muted">No hay disputas.</p> : null}

@@ -4,7 +4,6 @@ import { getCurrentProfile } from "@/lib/data/profiles";
 import { listAdminReferrals, type AdminReferral } from "@/lib/data/referrals";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminNav } from "../AdminNav";
 import { RevokeReferralButton } from "./RevokeReferralButton";
 
 export const metadata = { title: es.referral.admin.title };
@@ -36,7 +35,6 @@ export default async function AdminReferralsPage() {
 
   return (
     <section className="stack">
-      <AdminNav current="/admin/referidos" />
       <h1>{es.referral.admin.title}</h1>
       <p className="muted">{es.referral.admin.subtitle}</p>
 

@@ -4,7 +4,6 @@ import { getCurrentProfile } from "@/lib/data/profiles";
 import { getReserveBalance, listAdminPayments, listDeductions, listOwedRecoveries } from "@/lib/data/admin";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminNav } from "../AdminNav";
 import { RecordList } from "../RecordList";
 import { ResolveReportButton } from "../ResolveReportButton";
 import { BackBar } from "@/components/BackBar";
@@ -57,7 +56,6 @@ export default async function AdminPayoutsPage() {
 
   return (
     <section className="stack">
-      <AdminNav current="/admin/pagos" />
       <BackBar href="/" />
       <h1>{es.admin.title}</h1>
       <p className="muted">{es.admin.subtitle}</p>

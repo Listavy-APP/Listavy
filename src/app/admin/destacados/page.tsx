@@ -4,7 +4,6 @@ import { getCurrentProfile } from "@/lib/data/profiles";
 import { boostRefundPreview, listAdminBoosts, type AdminBoost } from "@/lib/data/admin";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminNav } from "../AdminNav";
 import { BoostRefundButton } from "./BoostRefundButton";
 import { BackBar } from "@/components/BackBar";
 
@@ -49,7 +48,6 @@ export default async function AdminBoostsPage() {
 
   return (
     <section className="stack">
-      <AdminNav current="/admin/destacados" />
       <BackBar href="/admin" />
       <h1>{es.admin.boosts.title}</h1>
       <p className="muted">{es.admin.boosts.subtitle}</p>

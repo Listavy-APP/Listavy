@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
-import { AdminNav } from "./AdminNav";
 import { AuditLog } from "./AuditLog";
 import { CheckinProblems } from "./CheckinProblems";
-import { AdminBell } from "./AdminBell";
 import { AdminPushButton } from "@/components/AdminPushButton";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -116,11 +114,9 @@ export default async function AdminDashboardPage() {
 
   return (
     <section className="stack">
-      <AdminNav current="/admin" />
       <BackBar href="/" />
       <div className="admin-head">
         <h1>Resumen de administración</h1>
-        <AdminBell />
       </div>
       <p className="muted">Solo lectura. Cada sección abre su propia pantalla para actuar.</p>
       <AdminPushButton />
