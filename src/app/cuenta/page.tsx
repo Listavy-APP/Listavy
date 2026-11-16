@@ -8,6 +8,7 @@ import { DeleteAccount } from "./DeleteAccount";
 import { ClaimReferral } from "@/components/ClaimReferral";
 import { ReferralSection } from "@/components/ReferralSection";
 import { referralProgramEnabled } from "@/lib/data/referrals";
+import { esVerification } from "@/lib/i18n/verification";
 import { HashScroll } from "@/components/HashScroll";
 import { Icon } from "@/components/Icon";
 import { JobCard } from "@/components/JobCard";
@@ -102,6 +103,13 @@ export default async function ProfilePage() {
 
 
       <div className="hub-group">
+      {isPro ? (
+        <Link className="contact-row" href="/pro/verificacion">
+          <span className="icon-box"><Icon name="shield" /></span>
+          <span className="contact-label">{esVerification.navLabel}</span>
+        </Link>
+      ) : null}
+
       <Link className="contact-row" href="/cuenta/perfil">
         <span className="icon-box"><Icon name="user" /></span>
         <span className="contact-label">{es.profile.editProfile}</span>
