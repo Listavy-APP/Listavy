@@ -8,7 +8,7 @@ import { VoiceNote } from "./VoiceNote";
 import { DisputePanel } from "./DisputePanel";
 import { ReviewPanel } from "./ReviewPanel";
 import { getJobReview, hasClientRating } from "@/lib/data/reviews";
-import { listEvidence, listJobDisputes } from "@/lib/data/disputes";
+import { disputePhotoUrl, listDisputePhotos, listEvidence, listJobDisputes } from "@/lib/data/disputes";
 import { getCompletionCode, getContactPhone, jobFileUrl, type JobPhotoRow, type JobRow, type QuoteRow } from "@/lib/data/jobs";
 import { getProCard } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
@@ -49,7 +49,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const photos = (photosRes.data ?? []) as JobPhotoRow[];
 
   const photoUrls = await Promise.all(
-    photos.map(async (p) => ({ kind: p.kind, url: await jobFileUrl(supabase, p.storage_path) })),
+    photos.map(async (p) => ({ kind: p.kind, path: p.storage_path, url: await jobFileUrl(supabase, p.storage_path) })),
   );
 
   // Who sent each quote. Public pro cards only (approved pros), so no private data is read.
@@ -87,6 +87,15 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const jobReview = await getJobReview(supabase, id);
   const clientRated = role === "pro" ? await hasClientRating(supabase, id) : false;
   const disputeEvidence = await listEvidence(supabase, disputes.map((d) => d.id));
+  const disputePhotoRows = await listDisputePhotos(supabase, disputes.map((d) => d.id));
+  const disputePhotos = await Promise.all(
+    disputePhotoRows.map(async (p) => ({
+      id: p.id,
+      dispute_id: p.dispute_id,
+      side: p.side,
+      url: await disputePhotoUrl(supabase, p.storage_path),
+    })),
+  );
 
   const contactPhone = await getContactPhone(supabase, id);
 
@@ -187,11 +196,13 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       {j.status === "completed" && role === "homeowner" ? <ReferralPrompt supabase={supabase} /> : null}
       <DisputePanel
         jobId={id}
+        uid={uid}
         role={role}
         approvedAt={j.approved_at}
         jobStatus={j.status}
         disputes={disputes}
         evidence={disputeEvidence}
+        photos={disputePhotos}
       />
       <ReviewPanel
         jobId={id}

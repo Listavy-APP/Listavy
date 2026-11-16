@@ -24,9 +24,10 @@ import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { PaySheet } from "./PaySheet";
+import { ReportPhotoButton } from "./ReportPhotoButton";
 import { QuoteCard } from "./QuoteCard";
 
-type Photo = { kind: "request" | "before" | "after"; url: string | null };
+type Photo = { kind: "request" | "before" | "after"; path: string; url: string | null };
 
 export function JobActions(props: {
   userId: string;
@@ -116,6 +117,7 @@ export function JobActions(props: {
                 <div className="photo-missing" aria-hidden="true" />
               )}
               <figcaption className="muted">{es.jobs.photoKind[p.kind]}</figcaption>
+              <ReportPhotoButton path={p.path} />
             </figure>
           ))}
         </div>
