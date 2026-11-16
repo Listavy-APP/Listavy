@@ -27,6 +27,18 @@ export function VerificationReviewActions({
   const [rmNumber, setRmNumber] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+
+  // Inline two-step confirm. Native window.confirm can be suppressed by the browser, which made Approve do nothing.
+  function approve() {
+    setError(null);
+    if (needsIssue && !issueDate) return setError(t.form.missingDate);
+    if (needsExpiry && !expiresAt) return setError(t.form.missingDate);
+    const details: Record<string, string> = {};
+    if (estado.trim()) details.estado = estado.trim();
+    if (rmNumber.trim()) details.rm_number = rmNumber.trim();
+    run({ id, decision: "approved", issueDate: issueDate || null, expiresAt: expiresAt || null, details });
+  }
 
   async function run(input: Parameters<typeof reviewVerification>[1]) {
     setBusy(true);
@@ -75,26 +87,28 @@ export function VerificationReviewActions({
           <label className="field"><span>{t.admin.rmNumber}</span><input type="text" maxLength={40} value={rmNumber} onChange={(e) => setRmNumber(e.target.value)} /></label>
         </>
       ) : null}
-      <div className="row">
-        <button
-          className="button"
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            if (window.confirm(t.admin.confirmApprove)) {
-              const details: Record<string, string> = {};
-              if (estado.trim()) details.estado = estado.trim();
-              if (rmNumber.trim()) details.rm_number = rmNumber.trim();
-              run({ id, decision: "approved", issueDate: issueDate || null, expiresAt: expiresAt || null, details });
-            }
-          }}
-        >
-          {t.admin.approve}
-        </button>
-        <button className="button secondary" type="button" disabled={busy} onClick={() => setRejecting(true)}>
-          {t.admin.reject}
-        </button>
-      </div>
+      {confirming ? (
+        <div className="stack">
+          <p>{t.admin.confirmApprove}</p>
+          <div className="row">
+            <button className="button" type="button" disabled={busy} onClick={approve}>
+              {t.admin.approveConfirm}
+            </button>
+            <button className="button secondary" type="button" disabled={busy} onClick={() => setConfirming(false)}>
+              {t.admin.cancel}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="row">
+          <button className="button" type="button" disabled={busy} onClick={() => setConfirming(true)}>
+            {t.admin.approve}
+          </button>
+          <button className="button secondary" type="button" disabled={busy} onClick={() => setRejecting(true)}>
+            {t.admin.reject}
+          </button>
+        </div>
+      )}
       {error ? <p className="error">{error}</p> : null}
     </div>
   );
