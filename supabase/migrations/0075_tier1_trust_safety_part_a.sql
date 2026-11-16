@@ -1,5 +1,5 @@
 -- 0075 Tier 1 Trust & Safety, Part A.
--- STATUS: DRAFT. NOT APPLIED. Needs Sam's review before it is applied.
+-- STATUS: APPLIED to production after Sam's sign-off on commit 6a2a987. Do not re-apply.
 --
 -- A1. Dispute photo evidence (new bucket, new table, new RPC).
 -- A2. Job-photo report queue (reports only; no automatic removal).
