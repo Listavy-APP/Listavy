@@ -13,7 +13,7 @@ export default async function RegistrationPage() {
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) redirect("/login");
+  if (!userData.user) redirect("/login?next=/pro/registro");
 
   // One application per account. Existing applicants see their status instead.
   const existing = await getMyPro(supabase);

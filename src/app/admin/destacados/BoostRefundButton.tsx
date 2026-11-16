@@ -10,9 +10,9 @@ export function BoostRefundButton({ boostId, amountLabel }: { boostId: string; a
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   async function refund() {
-    if (!window.confirm(es.admin.boosts.refundConfirm(amountLabel))) return;
     setBusy(true);
     setError(null);
     const { data, error: fnError } = await createSupabaseBrowserClient().functions.invoke("process-boost-refund", {
@@ -26,9 +26,27 @@ export function BoostRefundButton({ boostId, amountLabel }: { boostId: string; a
     router.refresh();
   }
 
+  // Inline confirmation. Native confirm() dialogs do not open in every browser shell.
+  if (confirming) {
+    return (
+      <div className="stack">
+        <p>{es.admin.boosts.refundConfirm(amountLabel)}</p>
+        <div className="row">
+          <button type="button" className="button" disabled={busy} onClick={refund}>
+            {es.admin.boosts.refundButton(amountLabel)}
+          </button>
+          <button type="button" className="button secondary" disabled={busy} onClick={() => setConfirming(false)}>
+            {es.adminPending.cancel}
+          </button>
+        </div>
+        {error ? <p role="alert" className="error">{error}</p> : null}
+      </div>
+    );
+  }
+
   return (
     <div className="stack">
-      <button type="button" className="button secondary" disabled={busy} onClick={refund}>
+      <button type="button" className="button secondary" disabled={busy} onClick={() => setConfirming(true)}>
         {es.admin.boosts.refundButton(amountLabel)}
       </button>
       {error ? <p role="alert" className="error">{error}</p> : null}

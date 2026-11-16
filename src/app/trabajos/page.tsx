@@ -31,8 +31,10 @@ function JobList({ jobs, showPro }: { jobs: CustomerJob[]; showPro: boolean }) {
           dateLabel={formatDate(j.created_at)}
           statusLabel={
             j.status === "accepted" && j.payment_status === "unpaid"
-              ? es.profile.jobStatusUnpaid
-              : (es.profile.jobStatus[j.status as keyof typeof es.profile.jobStatus] ?? j.status)
+              ? (showPro ? es.profile.jobStatusUnpaid : es.profile.jobStatusUnpaidPro)
+              : !showPro && j.status === "awaiting_approval"
+                ? es.profile.jobStatusAwaitingPro
+                : (es.profile.jobStatus[j.status as keyof typeof es.profile.jobStatus] ?? j.status)
           }
           amountDop={j.approved_quote?.amount_dop ?? null}
           noProLabel={es.profile.jobProFallback}
@@ -47,7 +49,7 @@ export default async function TrabajosPage() {
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) redirect("/login");
+  if (!userData.user) redirect("/login?next=/trabajos");
 
   const profile = await getCurrentProfile(supabase);
   const [clientJobs, proJobs]: [CustomerJob[], CustomerJob[]] = profile

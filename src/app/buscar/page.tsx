@@ -155,6 +155,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       <input type="hidden" name="trade" value={trade ?? ""} />
       <input type="hidden" name="type" value={typeParam ?? ""} />
       <input type="hidden" name="sort" value={sort === "recomendados" ? "" : sort} />
+      {/* The two toggle chips are links, so the form must carry them or a submit drops them. */}
+      {verifiedOnly ? <input type="hidden" name="verified" value="1" /> : null}
+      {params.hoy === "1" ? <input type="hidden" name="hoy" value="1" /> : null}
       <div className="filter-group" role="group" aria-label={es.typeRouting.filterLabel}>
         <span className="filter-label">{es.typeRouting.filterLabel}</span>
         <div className="chip-row">

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { RequestForm } from "./RequestForm";
 import { getProCard } from "@/lib/data/pros";
 import { getClientStanding } from "@/lib/data/standing";
+import { esTrust } from "@/lib/i18n/trust";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
@@ -45,6 +46,21 @@ export default async function RequestPage({
         <div className="panel stack">
           <b>{es.standing.blockedTitle}</b>
           <p>{es.standing.blockedBody}</p>
+        </div>
+      </section>
+    );
+  }
+
+  // Suspended accounts cannot create requests (migration 0075). Say so before the form.
+  const { data: suspended } = await supabase.rpc("is_client_suspended", { p_client: userData.user.id });
+  if (suspended === true) {
+    return (
+      <section className="stack">
+        <BackBar href="/buscar" />
+        <h1>{es.jobs.requestTitle}</h1>
+        <div className="panel stack">
+          <b>{esTrust.suspended.title}</b>
+          <p>{esTrust.suspended.body}</p>
         </div>
       </section>
     );

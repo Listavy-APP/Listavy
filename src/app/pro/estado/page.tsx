@@ -13,12 +13,13 @@ import { BackBar } from "@/components/BackBar";
 export const metadata = { title: es.proStatus.title };
 export const instant = false;
 
-export default async function ProStatusPage() {
+export default async function ProStatusPage({ searchParams }: { searchParams: Promise<{ destacado?: string }> }) {
+  const { destacado } = await searchParams;
     // Per-request render: the session is read at request time.
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) redirect("/login");
+  if (!userData.user) redirect("/login?next=/pro/estado");
 
   const pro = await getMyPro(supabase);
 
@@ -111,7 +112,12 @@ export default async function ProStatusPage() {
         <AvailabilityToggle proId={pro.id} initial={(pro as { available?: boolean }).available ?? true} />
       )}
       {pro.verification_status === "approved" && <BioForm proId={pro.id} initial={(pro as { bio?: string | null }).bio ?? null} />}
-      {pro.verification_status === "approved" && !activeBoost && <BoostPanel />}
+      {destacado === "ok" && !activeBoost ? (
+        <p className="panel" role="status">{es.proStatus.boost.confirming}</p>
+      ) : null}
+      {destacado === "cancelado" ? <p className="muted" role="status">{es.proStatus.boost.cancelled}</p> : null}
+      {/* Back from checkout the boost activates a moment later; hide the buy panel until then. */}
+      {pro.verification_status === "approved" && !activeBoost && destacado !== "ok" && <BoostPanel />}
     </section>
   );
 }

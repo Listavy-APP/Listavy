@@ -30,7 +30,7 @@ export default async function NotificationsPage() {
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) redirect("/login");
+  if (!userData.user) redirect("/login?next=/avisos");
 
   const rows = await listMyNotifications(supabase);
   const checkins = await listMyCheckins(supabase);
@@ -81,7 +81,7 @@ export default async function NotificationsPage() {
           ))}
         </div>
       ) : null}
-      {rows.length === 0 && checkins.length === 0 ? (
+      {rows.length === 0 && checkins.length === 0 && disputes.length === 0 ? (
         <EmptyState title={es.notifications.empty} body={es.notifications.emptyBody} actionHref="/buscar" actionLabel={es.search.title} />
       ) : null}
       {rows.map((n) => (

@@ -26,6 +26,8 @@ const STATUS_LABEL: Record<string, string> = {
   released: es.proPayouts.released,
   held: es.proPayouts.held,
   disputed: es.proPayouts.disputed,
+  refunded: es.jobs.payRefunded,
+  pending: es.jobs.payPending,
 };
 
 function formatDate(iso: string): string {
@@ -48,7 +50,7 @@ export default async function ProPayoutsPage() {
   const { data, error } = await supabase
     .from("payments")
     .select("id, status, pro_payout_dop, keep_pro_payout_dop, released_at, created_at, jobs!inner(id, trade, zone, pro_id)")
-    .eq("purpose", "job")
+    .in("purpose", ["job", "diagnostic"])
     .eq("jobs.pro_id", userData.user.id)
     .order("created_at", { ascending: false })
     .limit(100);

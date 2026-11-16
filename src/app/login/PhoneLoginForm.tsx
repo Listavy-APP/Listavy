@@ -23,6 +23,9 @@ export function PhoneLoginForm({ next }: { next: string }) {
   const [error, setError] = useState<string | null>(null);
   // Ref, not state: a second submit in the same tick must see the lock at once.
   const inFlight = useRef(false);
+  // Set once the code is verified. A one-time code cannot be verified twice, so a retry after a
+  // failed acceptance write must skip verification and only repeat the write.
+  const verified = useRef(false);
 
   async function onSendCode(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -60,7 +63,7 @@ export function PhoneLoginForm({ next }: { next: string }) {
     e.preventDefault();
     if (inFlight.current) return;
     setError(null);
-    if (!/^\d{6}$/.test(code)) {
+    if (!verified.current && !/^\d{6}$/.test(code)) {
       setError(es.login.invalidCode);
       return;
     }
@@ -72,12 +75,15 @@ export function PhoneLoginForm({ next }: { next: string }) {
     // Guard: if the page has not left after 10 s, release the form instead of hanging.
     const guard = window.setTimeout(() => {
       inFlight.current = false;
-      setError(es.login.verifyFailed);
+      setError(verified.current ? es.login.acceptanceFailed : es.login.verifyFailed);
       setBusy(false);
     }, 10000);
     try {
       const supabase = createSupabaseBrowserClient();
-      await verifyWhatsAppCode(supabase, phone, code);
+      if (!verified.current) {
+        await verifyWhatsAppCode(supabase, phone, code);
+        verified.current = true;
+      }
       // Recorded before leaving, so the acceptance row exists for the account that was just created or entered.
       await recordLegalAcceptance(supabase, ["terms", "privacy"]);
       setError(null);
@@ -86,7 +92,8 @@ export function PhoneLoginForm({ next }: { next: string }) {
     } catch {
       window.clearTimeout(guard);
       inFlight.current = false;
-      setError(es.login.verifyFailed);
+      // Code already accepted: the session exists, only the acceptance record failed. Say so.
+      setError(verified.current ? es.login.acceptanceFailed : es.login.verifyFailed);
       setBusy(false);
     }
   }
