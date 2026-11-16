@@ -119,7 +119,7 @@ export default async function ProDetailPage({
         {boosted ? <p className="muted pro-note">{es.search.boostedProfile}</p> : null}
       </div>
 
-      {!pro.is_demo ? <VerificationBadges supabase={supabase} proId={pro.id} isCompany={pro.pro_type === "company"} /> : null}
+      <VerificationBadges supabase={supabase} proId={pro.id} isCompany={pro.pro_type === "company"} />
 
       {!pro.is_demo ? (
       <div className="pro-actions">

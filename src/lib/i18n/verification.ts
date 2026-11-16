@@ -7,6 +7,8 @@ export const esVerification = {
   statusPending: "En revisión",
   statusApproved: "Aprobado",
   statusRejected: "Rechazado",
+  verifiedOn: "Verificado el",
+  expiresOn: "vence el",
   statusNone: "Sin enviar",
   rejectedReason: "Motivo:",
   stageLabels: {

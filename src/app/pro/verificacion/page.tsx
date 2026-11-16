@@ -10,6 +10,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { VerificationForm } from "./VerificationForm";
 
 export const metadata = { title: t.pageTitle };
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
+}
 // Session-dependent page: block on the server so the auth redirect returns a real status.
 export const instant = false;
 
@@ -45,7 +49,12 @@ export default async function ProVerificationPage() {
               <b>{t.stageLabels[s]}</b>
               <span className="muted">{statusText(r)}</span>
               {r?.status === "rejected" && r.reason ? <span className="error">{t.rejectedReason} {r.reason}</span> : null}
-              {r?.status === "approved" && r.expires_at ? <span className="muted">{r.expires_at}</span> : null}
+              {r?.status === "approved" && r.verified_at ? (
+                <span className="muted">
+                  {t.verifiedOn} {formatDate(r.verified_at)}
+                  {r.expires_at ? ` · ${t.expiresOn} ${r.expires_at}` : ""}
+                </span>
+              ) : null}
             </li>
           );
         })}
