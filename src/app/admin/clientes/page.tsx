@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
-import { AdminNav } from "../AdminNav";
 import { BackBar } from "@/components/BackBar";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listClientsByName, listSuspendedClients } from "@/lib/data/trust";
@@ -31,7 +30,6 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
 
   return (
     <section className="stack">
-      <AdminNav current="/admin/clientes" />
       <BackBar href="/admin" />
       <h1>{esTrust.adminClients.title}</h1>
       <p className="muted">{esTrust.adminClients.helpText}</p>

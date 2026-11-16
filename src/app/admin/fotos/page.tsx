@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
-import { AdminNav } from "../AdminNav";
 import { BackBar } from "@/components/BackBar";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { jobFileUrl } from "@/lib/data/jobs";
@@ -36,7 +35,6 @@ export default async function AdminPhotoReportsPage() {
 
   return (
     <section className="stack">
-      <AdminNav current="/admin/fotos" />
       <BackBar href="/admin" />
       <h1>{esTrust.adminPhotos.title}</h1>
       {withUrls.length === 0 ? <p className="muted">{esTrust.adminPhotos.empty}</p> : null}

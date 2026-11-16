@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { AdminNav } from "../AdminNav";
 import { PendingProActions } from "./PendingProActions";
 import { BackBar } from "@/components/BackBar";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -91,7 +90,6 @@ export default async function AdminPendingProsPage() {
 
   return (
     <section className="stack">
-      <AdminNav current="/admin/pendientes" />
       <BackBar href="/admin" />
       <h1>{es.adminPending.title}</h1>
 
