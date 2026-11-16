@@ -9,9 +9,12 @@ export function AppHeader() {
       <Link href="/" aria-label={es.brand} className="brand-home">
         <Image src="/brand/listavy-lockup-horizontal.png" alt="Listavy" width={460} height={149} className="brand-lockup" priority />
       </Link>
-      <Link className="link-quiet" href="/cuenta">
-        {es.home.accountCta}
-      </Link>
+      <nav className="header-links">
+        <Link className="link-quiet" href="/pro/registro">{es.discover.proCtaButton}</Link>
+        <Link className="link-quiet" href="/cuenta">
+          {es.home.accountCta}
+        </Link>
+      </nav>
     </header>
   );
 }

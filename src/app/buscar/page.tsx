@@ -4,22 +4,29 @@ import { getProCardsByIds, listBoostedProIds, listProCards } from "@/lib/data/pr
 import { getProReviewSummary, type ReviewSummary } from "@/lib/data/reviews";
 import { es } from "@/lib/i18n/es";
 import { DEFAULT_CITY, TRADES, cityOfZone, isCity, isTrade, isZone, type City } from "@/lib/domain/catalog";
+import { filterPros, parseDate, parseSort, sortPros, type SortKey } from "@/lib/domain/discovery";
 import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listSavedProIds } from "@/lib/data/saved";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { ProPicker } from "./ProPicker";
+import { FiltersSheet } from "./FiltersSheet";
+import { SortSelect } from "./SortSelect";
 
 export const metadata = { title: es.search.title };
-// Session-dependent page: block on the server so redirects return real status codes.
-export const instant = false;
+type Params = {
+  trade?: string;
+  city?: string;
+  zone?: string;
+  q?: string;
+  type?: string;
+  sort?: string;
+  verified?: string;
+  hoy?: string;
+  date?: string;
+};
 
-
-export default async function SearchPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ trade?: string; city?: string; zone?: string; q?: string; type?: string }>;
-}) {
+export default async function SearchPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
   const trade = params.trade && isTrade(params.trade) ? params.trade : null;
   const zone = params.zone && isZone(params.zone) ? params.zone : null;
@@ -29,13 +36,19 @@ export default async function SearchPage({
     : params.city && isCity(params.city)
       ? params.city
       : DEFAULT_CITY;
-  // Person / company filter (Phase 1). Unknown values mean "all".
+  // Person / company filter. Unknown values mean "all".
   const typeParam = params.type === "personas" || params.type === "empresas" ? params.type : null;
   const proType = typeParam === "personas" ? "individual" : typeParam === "empresas" ? "company" : null;
   // Name search, case-insensitive. Capped so a long query cannot be used to probe the list.
   const q = (params.q ?? "").trim().slice(0, 80);
   const matchesName = (name: string | null) =>
     !q || (name ?? "").toLocaleLowerCase("es").includes(q.toLocaleLowerCase("es"));
+  // Sort and availability/verification filters. "Mejor valorados" is not a key, so it cannot be requested.
+  const sort: SortKey = parseSort(params.sort);
+  const verifiedOnly = params.verified === "1";
+  const date = parseDate(params.date);
+  // "¿Cuándo?" and "Disponible hoy" both mean the pro's availability boolean (no calendar exists).
+  const availableOnly = params.hoy === "1" || date !== null;
 
   // Anonymous visitors can browse. list_pro_cards returns only safe columns.
   const supabase = await createSupabaseServerClient();
@@ -44,13 +57,20 @@ export default async function SearchPage({
   const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
   // A pro does not see their own card. The self-hire guard (0065) refuses it at request time too.
   const notMe = (id: string) => id !== userId;
-  const organicAll = (await listProCards(supabase, { trade, zone, city, proType }))
-    .filter((p) => matchesName(p.full_name) && notMe(p.id));
+  const flags = { verifiedOnly, availableOnly };
+  const organicAll = sortPros(
+    filterPros(await listProCards(supabase, { trade, zone, city, proType }), flags).filter(
+      (p) => matchesName(p.full_name) && notMe(p.id),
+    ),
+    sort,
+    zone,
+  );
   // Paid boosts: up to 3 ids, newest boost first, filtered the same way (migration 0036).
   // Cards are fetched by id so the listProCards row limit cannot hide a boosted pro.
   const boostedIds = await listBoostedProIds(supabase, { trade, zone, city });
-  const boostedPros = (await getProCardsByIds(supabase, boostedIds))
-    .filter((p) => matchesName(p.full_name) && (!proType || p.pro_type === proType) && notMe(p.id));
+  const boostedPros = filterPros(await getProCardsByIds(supabase, boostedIds), flags).filter(
+    (p) => matchesName(p.full_name) && (!proType || p.pro_type === proType) && notMe(p.id),
+  );
   const boostedSet = new Set(boostedPros.map((p) => p.id));
   const organicPros = organicAll.filter((p) => !boostedSet.has(p.id));
   const pros = [...boostedPros, ...organicPros];
@@ -85,27 +105,105 @@ export default async function SearchPage({
     };
   };
 
-  // Chips and the form keep the other filters, so changing one never clears the rest.
-  const typeHref = (t: "personas" | "empresas" | null) => {
+  // Every filter link keeps the others, so changing one never clears the rest.
+  const carry = (over: Record<string, string | null>) => {
     const sp = new URLSearchParams();
-    if (trade) sp.set("trade", trade);
-    if (zone) sp.set("zone", zone);
-    else if (city !== DEFAULT_CITY) sp.set("city", city);
-    if (q) sp.set("q", q);
-    if (t) sp.set("type", t);
+    const current: Record<string, string | null> = {
+      trade,
+      zone,
+      city: zone || city === DEFAULT_CITY ? null : city,
+      q: q || null,
+      type: typeParam,
+      sort: sort === "recomendados" ? null : sort,
+      verified: verifiedOnly ? "1" : null,
+      hoy: params.hoy === "1" ? "1" : null,
+      date,
+    };
+    for (const [k, v] of Object.entries({ ...current, ...over })) if (v) sp.set(k, v);
     const qs = sp.toString();
     return qs ? `/buscar?${qs}` : "/buscar";
   };
-  const chipHref = (t: string | null) => {
-    const sp = new URLSearchParams();
-    if (t) sp.set("trade", t);
-    if (zone) sp.set("zone", zone);
-    else if (city !== DEFAULT_CITY) sp.set("city", city);
-    if (q) sp.set("q", q);
-    if (typeParam) sp.set("type", typeParam);
-    const qs = sp.toString();
-    return qs ? `/buscar?${qs}` : "/buscar";
-  };
+  // Current params as a plain object, for the sort select (only URL-visible values).
+  const urlParams: Record<string, string> = {};
+  for (const [k, v] of Object.entries({
+    trade,
+    zone,
+    city: zone || city === DEFAULT_CITY ? null : city,
+    q: q || null,
+    type: typeParam,
+    sort: sort === "recomendados" ? null : sort,
+    verified: verifiedOnly ? "1" : null,
+    hoy: params.hoy === "1" ? "1" : null,
+    date,
+  })) if (v) urlParams[k] = v;
+
+  const filterForm = (
+    <form className="stack search-form" method="get" action="/buscar">
+      <label className="field">
+        <span>{es.search.nameLabel}</span>
+        <input
+          type="search"
+          name="q"
+          defaultValue={q}
+          placeholder={es.search.namePlaceholder}
+          autoComplete="off"
+          enterKeyHint="search"
+        />
+      </label>
+
+      {/* Trade and zone are separate filters. Trade chips set `trade` (hidden below). */}
+      <input type="hidden" name="trade" value={trade ?? ""} />
+      <input type="hidden" name="type" value={typeParam ?? ""} />
+      <input type="hidden" name="sort" value={sort === "recomendados" ? "" : sort} />
+      <div className="filter-group" role="group" aria-label={es.typeRouting.filterLabel}>
+        <span className="filter-label">{es.typeRouting.filterLabel}</span>
+        <div className="chip-row">
+          <Link className={`chip${typeParam === null ? " on" : ""}`} href={carry({ type: null })}>{es.typeRouting.filterAll}</Link>
+          <Link className={`chip${typeParam === "personas" ? " on" : ""}`} href={carry({ type: "personas" })}>{es.typeRouting.filterPersons}</Link>
+          <Link className={`chip${typeParam === "empresas" ? " on" : ""}`} href={carry({ type: "empresas" })}>{es.typeRouting.filterCompanies}</Link>
+        </div>
+      </div>
+      <div className="filter-group" role="group" aria-label={es.search.trade}>
+        <span className="filter-label">{es.search.trade}</span>
+        <div className="chip-row">
+          <Link className={`chip${trade === null ? " on" : ""}`} href={carry({ trade: null })}>
+            {es.search.all}
+          </Link>
+          {TRADES.map((t) => (
+            <Link key={t} className={`chip${trade === t ? " on" : ""}`} href={carry({ trade: t })}>
+              {es.trades[t]}
+            </Link>
+          ))}
+        </div>
+      </div>
+      <div className="filter-group" role="group" aria-label={es.filters.open}>
+        <div className="chip-row">
+          <Link className={`chip${verifiedOnly ? " on" : ""}`} href={carry({ verified: verifiedOnly ? null : "1" })}>
+            {es.filters.verifiedOnly}
+          </Link>
+          <Link className={`chip${availableOnly && date === null ? " on" : ""}`} href={carry({ hoy: params.hoy === "1" ? null : "1" })}>
+            {es.filters.availableToday}
+          </Link>
+        </div>
+      </div>
+
+      <CityZoneSelect
+        cityName="city"
+        zoneName="zone"
+        zoneLabel={es.search.zone}
+        defaultCity={city}
+        defaultZone={zone ?? undefined}
+        allZonesLabel={es.search.allZones}
+      />
+      <label className="field">
+        <span>{es.discover.when} <em className="muted">{es.discover.whenOptional}</em></span>
+        <input type="date" name="date" defaultValue={date ?? ""} />
+      </label>
+      <button className="button" type="submit">
+        {es.search.submit}
+      </button>
+    </form>
+  );
 
   return (
     <section className="stack">
@@ -114,58 +212,13 @@ export default async function SearchPage({
         <span className="bt">{es.search.title}</span>
       </div>
 
-      <form className="stack search-form" method="get" action="/buscar">
-        <label className="field">
-          <span>{es.search.nameLabel}</span>
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder={es.search.namePlaceholder}
-            autoComplete="off"
-            enterKeyHint="search"
-          />
-        </label>
+      {/* Sticky top bar: sort and the filters sheet. */}
+      <div className="search-topbar">
+        <SortSelect current={sort} params={urlParams} />
+        <FiltersSheet>{filterForm}</FiltersSheet>
+      </div>
 
-        {/* Trade and zone are two separate filters. Trade chips set `trade` (hidden below). */}
-        <input type="hidden" name="trade" value={trade ?? ""} />
-        <input type="hidden" name="type" value={typeParam ?? ""} />
-        <div className="filter-group" role="group" aria-label={es.typeRouting.filterLabel}>
-          <span className="filter-label">{es.typeRouting.filterLabel}</span>
-          <div className="chip-row">
-            <Link className={`chip${typeParam === null ? " on" : ""}`} href={typeHref(null)}>{es.typeRouting.filterAll}</Link>
-            <Link className={`chip${typeParam === "personas" ? " on" : ""}`} href={typeHref("personas")}>{es.typeRouting.filterPersons}</Link>
-            <Link className={`chip${typeParam === "empresas" ? " on" : ""}`} href={typeHref("empresas")}>{es.typeRouting.filterCompanies}</Link>
-          </div>
-        </div>
-        <div className="filter-group" role="group" aria-label={es.search.trade}>
-          <span className="filter-label">{es.search.trade}</span>
-          <div className="chip-row">
-            <Link className={`chip${trade === null ? " on" : ""}`} href={chipHref(null)}>
-              {es.search.all}
-            </Link>
-            {TRADES.map((t) => (
-              <Link key={t} className={`chip${trade === t ? " on" : ""}`} href={chipHref(t)}>
-                {es.trades[t]}
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        <CityZoneSelect
-          cityName="city"
-          zoneName="zone"
-          zoneLabel={es.search.zone}
-          defaultCity={city}
-          defaultZone={zone ?? undefined}
-          allZonesLabel={es.search.allZones}
-        />
-        <button className="button" type="submit">
-          {es.search.submit}
-        </button>
-      </form>
-
-      <p className="muted">{es.search.results(pros.length)}</p>
+      <p className="muted">{es.filters.resultsIn(pros.length, es.cities[city])}</p>
 
       {pros.length === 0 ? (
         <p className="muted">{es.search.empty}</p>
