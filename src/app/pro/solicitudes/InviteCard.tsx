@@ -30,7 +30,7 @@ export type Quote = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function InviteCard({ quote }: { quote: Quote }) {
+export function InviteCard({ quote, photoUrls = [] }: { quote: Quote; photoUrls?: string[] }) {
   const router = useRouter();
   const job = quote.job;
   const [amount, setAmount] = useState("");
@@ -72,6 +72,7 @@ export function InviteCard({ quote }: { quote: Quote }) {
   }
 
   async function onDecline() {
+    setError(null);
     setBusy(true);
     try {
       await declineInvite(createSupabaseBrowserClient(), quote.id);
@@ -95,14 +96,25 @@ export function InviteCard({ quote }: { quote: Quote }) {
       <p className="muted">
         {es.jobs.receivedOn(new Date(quote.invited_at).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" }))}
       </p>
-      <Link className="button secondary" href={`/trabajos/${job.id}`}>
-        {es.jobs.viewDetail}
-      </Link>
+      {/* Request photos. The job page is for the job parties only, so an invited pro sees them here. */}
+      {photoUrls.length > 0 ? (
+        <div className="photo-grid">
+          {photoUrls.map((url, i) => (
+            <figure key={i} className="photo-tile">
+              <a href={url} target="_blank" rel="noreferrer" aria-label={es.jobs.openPhoto}>
+                {/* Signed URL, private bucket. next/image cannot optimize signed URLs. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={es.jobs.photoKind.request} loading="lazy" />
+              </a>
+            </figure>
+          ))}
+        </div>
+      ) : null}
 
       {quote.status === "invited" && !expired && (
         <form className="stack" onSubmit={onQuote}>
           <p className="muted">
-            {es.jobs.respondBy(deadline.toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" }))}
+            {es.jobs.respondBy(deadline.toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short", timeZone: "America/Santo_Domingo" }))}
           </p>
           <label className="field">
             <span>{isDiagnostic ? es.jobs.diagnosticPriceLabel : es.jobs.amountLabel}</span>
@@ -147,7 +159,7 @@ export function InviteCard({ quote }: { quote: Quote }) {
         <p className="ok">
           {es.jobs.quoteSent(quote.amount_dop ?? 0)}
           {quote.valid_until
-            ? ` · ${es.jobs.validUntil(new Date(quote.valid_until).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" }))}`
+            ? ` · ${es.jobs.validUntil(new Date(quote.valid_until).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short", timeZone: "America/Santo_Domingo" }))}`
             : ""}
         </p>
       )}

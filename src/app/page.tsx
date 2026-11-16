@@ -94,9 +94,12 @@ async function HomeContent({
           </label>
           <button className="button" type="submit">{es.discover.search}</button>
         </form>
-        <p className="muted">
-          <Link href="/login">{es.discover.login}</Link>
-        </p>
+        {/* Sign-in link only for visitors. A signed-in user has the account tab. */}
+        {userData.user ? null : (
+          <p className="muted">
+            <Link href="/login">{es.discover.login}</Link>
+          </p>
+        )}
       </section>
 
       {/* 3. Trust strip. Qualitative only: no pro or review counts. */}

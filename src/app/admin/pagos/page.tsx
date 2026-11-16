@@ -19,7 +19,7 @@ function usd(minor: number): string {
 
 function dateOnly(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
 }
 
 function short(id: string | null): string {

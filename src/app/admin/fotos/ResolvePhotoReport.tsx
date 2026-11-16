@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { resolvePhotoReport } from "@/lib/data/trust";
+import { es } from "@/lib/i18n/es";
 import { esTrust } from "@/lib/i18n/trust";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -19,7 +20,7 @@ export function ResolvePhotoReport({ reportId }: { reportId: string }) {
       await resolvePhotoReport(createSupabaseBrowserClient(), { reportId, decision, note });
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      setError(err instanceof Error ? err.message : es.jobs.genericError);
     } finally {
       setBusy(false);
     }

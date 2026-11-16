@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { DisputeDecision } from "./DisputeDecision";
 import { getCurrentProfile } from "@/lib/data/profiles";
-import { listAdminDisputes, listEvidence, type DisputeRow } from "@/lib/data/disputes";
+import { disputePhotoUrl, listAdminDisputes, listDisputePhotos, listEvidence, type DisputeRow } from "@/lib/data/disputes";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BackBar } from "@/components/BackBar";
 
@@ -35,6 +35,11 @@ export default async function DisputesDeskPage() {
 
   const disputes = (await listAdminDisputes(supabase)) as DisputeRow[];
   const evidence = await listEvidence(supabase, disputes.map((d) => d.id));
+  // Photo evidence (migration 0075). Admins may read every dispute photo (storage policy).
+  const photoRows = await listDisputePhotos(supabase, disputes.map((d) => d.id));
+  const photos = await Promise.all(
+    photoRows.map(async (p) => ({ ...p, url: await disputePhotoUrl(supabase, p.storage_path) })),
+  );
 
   return (
     <section className="stack">
@@ -61,6 +66,30 @@ export default async function DisputesDeskPage() {
                 <strong>{e.side === "homeowner" ? "Cliente" : "Profesional"}:</strong> {e.statement}
               </blockquote>
             ))}
+          {(["homeowner", "pro"] as const).map((side) => {
+            const mine = photos.filter((p) => p.dispute_id === d.id && p.side === side);
+            if (mine.length === 0) return null;
+            return (
+              <div key={side} className="stack">
+                <strong>Fotos del {side === "homeowner" ? "cliente" : "profesional"} ({mine.length})</strong>
+                <div className="photo-grid">
+                  {mine.map((p) => (
+                    <figure key={p.id} className="photo-tile">
+                      {p.url ? (
+                        <a href={p.url} target="_blank" rel="noreferrer" aria-label="Abrir foto">
+                          {/* Signed URL, private bucket. next/image cannot optimize signed URLs. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={p.url} alt={`Foto de evidencia del ${side === "homeowner" ? "cliente" : "profesional"}`} loading="lazy" />
+                        </a>
+                      ) : (
+                        <div className="photo-missing" aria-hidden="true" />
+                      )}
+                    </figure>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
           {d.decision_reason ? <p>Decisión ({when(d.decided_at)}): {d.decision_reason}</p> : null}
           <DisputeDecision dispute={d} />
         </article>

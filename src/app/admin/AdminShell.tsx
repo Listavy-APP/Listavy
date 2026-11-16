@@ -8,7 +8,7 @@ import { es } from "@/lib/i18n/es";
 import { esTrust } from "@/lib/i18n/trust";
 import { esVerification } from "@/lib/i18n/verification";
 
-export type AdminBadges = { pendientes: number; disputas: number; resenas: number; fotos: number };
+export type AdminBadges = { pendientes: number; disputas: number; resenas: number; fotos: number; verificaciones: number };
 
 type IconName = "grid" | "clock" | "alert" | "wallet" | "star" | "image" | "users" | "gift" | "zap" | "badge" | "key";
 
@@ -120,7 +120,7 @@ const GROUPS: NavGroup[] = [
   {
     title: "Sistema",
     items: [
-      { href: "/admin/verificaciones", label: esVerification.admin.navLabel, icon: "badge" },
+      { href: "/admin/verificaciones", label: esVerification.admin.navLabel, icon: "badge", badge: "verificaciones" },
       { href: "/admin/administradores", label: "Administradores", icon: "key", superOnly: true },
     ],
   },

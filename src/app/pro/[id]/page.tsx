@@ -121,7 +121,8 @@ export default async function ProDetailPage({
 
       <VerificationBadges supabase={supabase} proId={pro.id} isCompany={pro.pro_type === "company"} />
 
-      {!pro.is_demo ? (
+      {/* The owner cannot hire or report their own profile (self-hire guard, 0065). */}
+      {!pro.is_demo && !isOwner ? (
       <div className="pro-actions">
         <SaveProButton userId={userId} proId={pro.id} initialSaved={savedIds.includes(pro.id)} next={`/pro/${pro.id}`} />
         {pro.available ? (
@@ -217,7 +218,7 @@ export default async function ProDetailPage({
             <h2>{es.proDetail.photos}</h2>
             {!signedIn ? (
               <div className="panel">
-                <Link href="/login">{es.proDetail.loginForPhotos}</Link>
+                <Link href={`/login?next=${encodeURIComponent(`/pro/${pro.id}`)}`}>{es.proDetail.loginForPhotos}</Link>
               </div>
             ) : photos.length === 0 ? (
               <EmptyState title={es.proDetail.noPhotos} body={es.proDetail.noPhotosBody} />

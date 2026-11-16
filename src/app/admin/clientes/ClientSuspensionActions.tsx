@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { suspendClient, unsuspendClient } from "@/lib/data/trust";
+import { es } from "@/lib/i18n/es";
 import { esTrust } from "@/lib/i18n/trust";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -22,7 +23,7 @@ export function ClientSuspensionActions({ clientId, suspended }: { clientId: str
       else await suspendClient(supabase, clientId, reason);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      setError(err instanceof Error ? err.message : es.jobs.genericError);
     } finally {
       setBusy(false);
     }

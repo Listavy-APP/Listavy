@@ -34,6 +34,10 @@ export const esTrust = {
     note: "Nota",
     removalNote: "Confirmar registra la decisión. Esta acción no elimina ni oculta la foto.",
   },
+  suspended: {
+    title: "Tu cuenta está suspendida",
+    body: "No puedes pedir nuevos trabajos. Tus trabajos actuales continúan. Contacta a Listavy para más información.",
+  },
   adminClients: {
     navLabel: "Clientes",
     title: "Clientes",

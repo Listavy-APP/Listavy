@@ -9,6 +9,7 @@ import { es } from "@/lib/i18n/es";
 export function PendingProActions({ proId }: { proId: string }) {
   const router = useRouter();
   const [rejecting, setRejecting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,17 +47,28 @@ export function PendingProActions({ proId }: { proId: string }) {
     );
   }
 
+  // Inline confirmation. Native confirm() dialogs do not open in every browser shell.
+  if (confirming) {
+    return (
+      <div className="stack">
+        <p>{es.adminPending.confirmApprove}</p>
+        <div className="row">
+          <button className="button" type="button" disabled={busy} onClick={() => decide("approved")}>
+            {es.adminPending.approve}
+          </button>
+          <button className="button secondary" type="button" disabled={busy} onClick={() => setConfirming(false)}>
+            {es.adminPending.cancel}
+          </button>
+        </div>
+        {error ? <p className="error" role="alert">{error}</p> : null}
+      </div>
+    );
+  }
+
   return (
     <div className="stack">
       <div className="row">
-        <button
-          className="button"
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            if (window.confirm(es.adminPending.confirmApprove)) decide("approved");
-          }}
-        >
+        <button className="button" type="button" disabled={busy} onClick={() => setConfirming(true)}>
           {es.adminPending.approve}
         </button>
         <button className="button secondary" type="button" disabled={busy} onClick={() => setRejecting(true)}>

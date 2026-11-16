@@ -22,13 +22,20 @@ const jobDate = (iso: string) =>
 export const metadata = { title: es.jobs.jobTitle };
 export const instant = false;
 
-export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function JobPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ pago?: string }>;
+}) {
   const { id } = await params;
+  const { pago } = await searchParams;
     // Per-request render: the session is read at request time.
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) redirect("/login");
+  if (!userData.user) redirect(`/login?next=${encodeURIComponent(`/trabajos/${id}`)}`);
   const uid = userData.user.id;
 
   const { data: job } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
@@ -81,6 +88,11 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       pay = { quoteDop: approved.amount_dop, creditDop, fx: Number(j.fx_rate_dop_per_usd) };
     }
   }
+  // Back from checkout. The webhook marks the job paid a moment later, so until then the pay
+  // sheet is hidden: showing it again would invite a second payment.
+  const payConfirming = pago === "ok" && pay !== null;
+  if (payConfirming) pay = null;
+  const payCancelled = pago === "cancelado" && pay !== null;
 
   const voiceUrl = j.voice_path ? await jobFileUrl(supabase, j.voice_path) : null;
   const disputes = await listJobDisputes(supabase, id);
@@ -103,9 +115,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const approvedAmount = quotes.find((q) => q.id === j.approved_quote_id)?.amount_dop ?? null;
   const { data: paymentRow } = await supabase
     .from("payments")
-    .select("status, amount_dop, pro_payout_dop, keep_pro_payout_dop, keep_dop, refunded_minor")
+    .select("status, amount_dop, pro_payout_dop, keep_pro_payout_dop, keep_dop, refunded_minor, fx_rate_dop_per_usd")
     .eq("job_id", id)
-    .eq("purpose", "job")
+    .in("purpose", ["job", "diagnostic"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -116,14 +128,30 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
     keep_pro_payout_dop: number | null;
     keep_dop: number | null;
     refunded_minor: number | null;
+    fx_rate_dop_per_usd: number | string | null;
   };
+  const PAY_STATUS_LABEL: Record<string, string> = {
+    released: es.jobs.payReleased,
+    held: es.jobs.payHeld,
+    refunded: es.jobs.payRefunded,
+    disputed: es.jobs.payDisputed,
+    pending: es.jobs.payPending,
+  };
+  // refunded_minor is in the provider currency (US cents). Show pesos: the charge minus what was
+  // kept when that is recorded, otherwise the refund converted at the payment's own rate.
+  function refundedPesos(p: PayRow): number {
+    if (!p.refunded_minor || p.amount_dop === null) return 0;
+    if (p.keep_dop !== null) return Math.max(0, p.amount_dop - p.keep_dop);
+    const fx = Number(p.fx_rate_dop_per_usd);
+    return Number.isFinite(fx) && fx > 0 ? Math.round((p.refunded_minor * fx) / 100) : 0;
+  }
   const pr = paymentRow as PayRow | null;
   // The pro sees what they keep (after any partial refund). The client sees what they paid.
   const payment = pr && pr.amount_dop !== null
     ? {
         amount: role === "pro" ? (pr.keep_pro_payout_dop ?? pr.pro_payout_dop ?? 0) : pr.amount_dop,
-        statusLabel: pr.status === "released" ? es.jobs.payReleased : pr.status === "held" ? es.jobs.payHeld : pr.status,
-        refundedDop: role === "homeowner" && pr.refunded_minor ? Math.round(pr.refunded_minor / 100) : 0,
+        statusLabel: PAY_STATUS_LABEL[pr.status] ?? pr.status,
+        refundedDop: role === "homeowner" ? refundedPesos(pr) : 0,
       }
     : null;
   const completionCode =
@@ -135,6 +163,15 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         <Link className="back" href={role === "pro" ? "/pro/solicitudes" : "/cuenta"} aria-label={es.common.back}><BackArrow /></Link>
         <span className="bt">{es.jobs.jobTitle}</span>
       </div>
+
+      {payConfirming ? (
+        <div className="panel stack" role="status">
+          <b>{es.jobs.payConfirmingTitle}</b>
+          <p>{es.jobs.payConfirmingBody}</p>
+          <Link className="button secondary" href={`/trabajos/${id}`}>{es.jobs.payConfirmingRefresh}</Link>
+        </div>
+      ) : null}
+      {payCancelled ? <p className="muted" role="status">{es.jobs.payCancelled}</p> : null}
 
       <h1>
         {es.trades[j.trade as keyof typeof es.trades] ?? j.trade} · {j.zone}

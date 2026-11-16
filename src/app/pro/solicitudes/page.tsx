@@ -5,6 +5,7 @@ import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
+import { jobFileUrl } from "@/lib/data/jobs";
 
 export const metadata = { title: es.jobs.inboxTitle };
 export const instant = false;
@@ -14,7 +15,7 @@ export default async function InboxPage() {
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) redirect("/login");
+  if (!userData.user) redirect("/login?next=/pro/solicitudes");
 
   // Quotes this pro was invited to. RLS limits rows to this pro.
   const { data, error } = await supabase
@@ -28,7 +29,29 @@ export default async function InboxPage() {
   if (error) throw new Error(`No se pudieron leer tus solicitudes: ${error.message}`);
 
   const rows = (data ?? []) as unknown as Quote[];
-  const open = rows.filter((r) => r.status === "invited" && r.job && r.job.status === "requested");
+  // A job moves to "quoted" when the first pro answers, and still accepts quotes from the other
+  // invited pros (submit_quote). Both states are open for an invited pro.
+  const jobOpen = (r: Quote) => r.job !== null && (r.job.status === "requested" || r.job.status === "quoted");
+  const open = rows.filter((r) => r.status === "invited" && jobOpen(r));
+  // Quotes this pro already sent and the client has not decided yet.
+  const sent = rows.filter((r) => r.status === "sent" && jobOpen(r));
+
+  // The client's photos of the problem. Invited pros may read them (job_photos policy, has_quoted_job).
+  // The voice note stays with the job parties (storage policy), so it is not shown here.
+  const jobIds = [...new Set([...open, ...sent].map((r) => r.job!.id))];
+  const photosByJob = new Map<string, string[]>();
+  if (jobIds.length > 0) {
+    const { data: photoRows } = await supabase
+      .from("job_photos")
+      .select("job_id, storage_path")
+      .in("job_id", jobIds)
+      .eq("kind", "request")
+      .order("created_at", { ascending: true });
+    for (const p of (photoRows ?? []) as { job_id: string; storage_path: string }[]) {
+      const url = await jobFileUrl(supabase, p.storage_path);
+      if (url) photosByJob.set(p.job_id, [...(photosByJob.get(p.job_id) ?? []), url]);
+    }
+  }
 
   return (
     <section className="stack">
@@ -36,7 +59,11 @@ export default async function InboxPage() {
       <h1>{es.jobs.inboxTitle}</h1>
       {open.length === 0 ? <p className="muted">{es.jobs.inboxEmpty}</p> : null}
       {open.map((r) => (
-        <InviteCard key={r.id} quote={r} />
+        <InviteCard key={r.id} quote={r} photoUrls={photosByJob.get(r.job!.id) ?? []} />
+      ))}
+      {sent.length > 0 ? <h2>{es.jobs.sentQuotesTitle}</h2> : null}
+      {sent.map((r) => (
+        <InviteCard key={r.id} quote={r} photoUrls={photosByJob.get(r.job!.id) ?? []} />
       ))}
     </section>
   );
