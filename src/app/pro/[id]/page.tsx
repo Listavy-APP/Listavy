@@ -5,6 +5,7 @@ import { getProCard, getProStats, getWorkPhotoUrls, isProBoosted } from "@/lib/d
 import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { customerPhotoUrl } from "@/lib/storage/customerFiles";
+import { VerificationBadges } from "@/components/VerificationBadges";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
@@ -117,6 +118,8 @@ export default async function ProDetailPage({
         </div>
         {boosted ? <p className="muted pro-note">{es.search.boostedProfile}</p> : null}
       </div>
+
+      <VerificationBadges supabase={supabase} proId={pro.id} isCompany={pro.pro_type === "company"} />
 
       {!pro.is_demo ? (
       <div className="pro-actions">
