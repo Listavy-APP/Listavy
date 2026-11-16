@@ -8,7 +8,8 @@ export function FiltersSheet({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button className="button secondary" type="button" aria-expanded={open} onClick={() => setOpen(true)}>
+      <button className="button secondary filters-btn" type="button" aria-expanded={open} onClick={() => setOpen(true)}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z" /></svg>
         {es.filters.open}
       </button>
       {open ? (

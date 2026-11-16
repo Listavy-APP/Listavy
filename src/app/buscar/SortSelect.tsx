@@ -10,6 +10,7 @@ export function SortSelect({ current, params }: { current: SortKey; params: Reco
   return (
     <label className="sort-select">
       <span className="muted">{es.filters.sortLabel}</span>
+      <span className="select-wrap">
       <select
         value={current}
         onChange={(e) => {
@@ -25,6 +26,8 @@ export function SortSelect({ current, params }: { current: SortKey; params: Reco
         <option value="rated" disabled>{`${es.filters.sortRated} (${es.filters.sortRatedSoon})`}</option>
         <option value="precio">{es.filters.sortPrice}</option>
       </select>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+      </span>
     </label>
   );
 }

@@ -1055,7 +1055,9 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .hero-block { background: #0B132B; color: #F8FAFC; border-radius: 16px; padding: 28px 20px; display: flex; flex-direction: column; gap: 14px; }
 .hero-block h1 { color: #F8FAFC; margin: 0; font-size: 28px; line-height: 1.2; }
 .hero-block a { color: #93C5FD; }
-.search-pill { background: #F8FAFC; color: #0B132B; border-radius: 14px; padding: 10px; display: grid; gap: 10px; }
+.search-pill { background: #F8FAFC; color: #0B132B; border-radius: 14px; padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; box-sizing: border-box; width: 100%; max-width: 100%; }
+.search-pill > *, .search-pill .field, .search-pill .pill-field { min-width: 0; max-width: 100%; }
+.search-pill input[type=date] { display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; }
 .search-pill select, .search-pill input { width: 100%; min-height: 44px; border: 1px solid #94A3B8; border-radius: 10px; padding: 8px 10px; background: #fff; color: #0B132B; font: inherit; }
 .pill-field { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
 .trust-strip { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 14px; color: #0B132B; }
@@ -1083,7 +1085,10 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .header-links { display: flex; gap: 12px; align-items: center; }
 .search-topbar { position: sticky; top: 0; z-index: 5; background: #F8FAFC; padding: 8px 0; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 .sort-select { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-.sort-select select { min-height: 40px; border: 1px solid #94A3B8; border-radius: 10px; padding: 4px 8px; background: #fff; }
+.sort-select select { min-height: 40px; border: 1px solid #94A3B8; border-radius: 10px; padding: 4px 32px 4px 10px; background: #fff; appearance: none; -webkit-appearance: none; }
+.select-wrap { position: relative; display: inline-flex; }
+.select-wrap svg { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #0B132B; }
+.filters-btn { display: inline-flex; align-items: center; gap: 6px; }
 .sheet-backdrop { position: fixed; inset: 0; background: rgba(11, 19, 43, .45); z-index: 50; display: flex; align-items: flex-end; }
 .sheet { width: 100%; max-height: 85vh; overflow-y: auto; background: #fff; border-radius: 18px 18px 0 0; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; }
