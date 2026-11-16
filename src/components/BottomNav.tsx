@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { es } from "@/lib/i18n/es";
 
-// Tab pages only. Flows (request, job, admin, login) keep their own back links.
+// Tab pages only. Flows (request, job, admin) keep their own back links. /login is also shown (see BottomNav).
 const TABS = [
   { href: "/", label: es.nav.home },
   { href: "/buscar", label: es.nav.search },
@@ -55,7 +55,9 @@ function TabIcon({ href }: { href: (typeof TABS)[number]["href"] }) {
 
 export function BottomNav() {
   const pathname = usePathname();
-  if (!TABS.some((t) => t.href === pathname)) return null;
+  // Also shown on /login so a signed-out user can always reach Inicio and Buscar. No tab is highlighted there.
+  const visible = pathname === "/login" || TABS.some((t) => t.href === pathname);
+  if (!visible) return null;
 
   return (
     <nav className="bottom-nav" aria-label={es.nav.label}>
