@@ -898,7 +898,7 @@ body:has(.bottom-nav) .page { padding-bottom: calc(120px + env(safe-area-inset-b
 body:has(.pick-bar) .page { padding-bottom: 160px; }
 
 /* Global brand row (Phase 2, item 5). Same on every page. */
-.app-header { padding-bottom: var(--s1); border-bottom: 1px solid var(--line); margin-bottom: var(--s2); min-height: 48px; }
+.app-header { position: sticky; top: 0; z-index: 20; background: var(--paper); padding-bottom: var(--s1); border-bottom: 1px solid var(--line); margin-bottom: var(--s2); min-height: 48px; }
 
 /* Empty and loading states (Phase 2, item 6). */
 .empty-state { display: flex; flex-direction: column; gap: var(--s1); align-items: flex-start; }
