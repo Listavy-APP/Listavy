@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 
 const SEEN_KEY = "listavy-intro-seen";
+// The bounce is 0.08s delay + 0.88s animation = 0.96s. Stay up for the full bounce.
+const MIN_MS = 980;
+// Hard cap, even if the page is slow to load.
 const MAX_MS = 1200;
 
 /**
  * Brand loader: only the real favicon animating (springy bounce + wobble). No text.
  * Shows on the first load of a browser session (cold start, first visit, PWA launch), not on in-app navigation.
- * Hides when the page loads or after 1.2s, whichever comes first. A tap skips it.
+ * Stays until the bounce finishes (MIN_MS) and the page has loaded, capped at MAX_MS. A tap skips it.
  * Reduced motion: never shown.
  */
 export function Loader() {
@@ -22,14 +25,25 @@ export function Loader() {
     } catch {
       // Storage blocked: show the loader once per page load.
     }
+    const start = performance.now();
     setVisible(true);
-    const hide = () => setVisible(false);
-    const timer = window.setTimeout(hide, MAX_MS);
-    if (document.readyState === "complete") hide();
-    window.addEventListener("load", hide, { once: true });
+
+    const timers: number[] = [];
+    const finish = () => setVisible(false);
+
+    // Dismiss once the bounce has played, but never after MAX_MS.
+    const dismissAfterBounce = () => {
+      const wait = Math.max(0, MIN_MS - (performance.now() - start));
+      timers.push(window.setTimeout(finish, wait));
+    };
+
+    timers.push(window.setTimeout(finish, MAX_MS));
+    if (document.readyState === "complete") dismissAfterBounce();
+    else window.addEventListener("load", dismissAfterBounce, { once: true });
+
     return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("load", hide);
+      timers.forEach((t) => window.clearTimeout(t));
+      window.removeEventListener("load", dismissAfterBounce);
     };
   }, []);
 
