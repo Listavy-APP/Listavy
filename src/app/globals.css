@@ -548,6 +548,7 @@ legend {
   cursor: pointer;
 }
 .contact-row { border-bottom: 1px solid var(--line, #e2e8f0); }
+.contact-chevron { margin-left: auto; flex: none; color: var(--muted, #64748b); }
 .contact-row summary {
   display: flex;
   justify-content: space-between;
