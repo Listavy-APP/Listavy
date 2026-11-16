@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import { es } from "@/lib/i18n/es";
+import { HeaderProCta } from "./HeaderProCta";
 
 /** Brand row on every page. Sub-pages keep their own back row beneath it. */
 export function AppHeader() {
@@ -10,7 +12,9 @@ export function AppHeader() {
         <Image src="/brand/listavy-lockup-horizontal.png" alt="Listavy" width={460} height={149} className="brand-lockup" priority />
       </Link>
       <nav className="header-links">
-        <Link className="link-quiet" href="/pro/registro">{es.discover.proCtaButton}</Link>
+        <Suspense fallback={<Link className="link-quiet" href="/pro/registro">{es.discover.proCtaButton}</Link>}>
+          <HeaderProCta />
+        </Suspense>
         <Link className="link-quiet" href="/cuenta">
           {es.home.accountCta}
         </Link>
