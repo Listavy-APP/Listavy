@@ -23,6 +23,7 @@ import { TextArea } from "@/components/ui/TextArea";
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { CancelJobPanel } from "./CancelJobPanel";
 import { PaySheet } from "./PaySheet";
 import { ReportPhotoButton } from "./ReportPhotoButton";
 import { QuoteCard } from "./QuoteCard";
@@ -304,6 +305,13 @@ export function JobActions(props: {
           ) : null}
         </section>
       ) : null}
+
+      <CancelJobPanel
+        jobId={job.id}
+        role={role}
+        status={job.status}
+        legacyCancel={role === "homeowner"}
+      />
 
       {job.status === "completed" ? <p className="ok">{es.jobs.completed}</p> : null}
       {job.status === "cancelled" ? <p className="muted">{es.jobs.cancelled}</p> : null}
