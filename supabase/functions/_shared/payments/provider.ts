@@ -133,6 +133,12 @@ export interface PaymentProvider {
   /** Starts a hosted checkout for a paid profile boost. No job, no transfer. */
   createBoostCheckout(input: BoostCheckoutInput): Promise<CheckoutCreated>;
 
+  /** Returns the Stripe customer id for a plan subscription. */
+  getSubscriptionCustomerId(subscriptionId: string): Promise<string>;
+
+  /** Starts a Stripe Customer Portal session where the pro can manage or cancel the plan. */
+  createPortalSession(input: { customerId: string; returnUrl: string }): Promise<{ url: string }>;
+
   /** Starts a hosted subscription checkout for the Pro plan. */
   createProPlanCheckout(input: ProPlanCheckoutInput): Promise<CheckoutCreated>;
 

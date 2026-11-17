@@ -117,6 +117,18 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
       return { url: session.url, sessionId: session.id };
     },
 
+    async getSubscriptionCustomerId(subscriptionId: string): Promise<string> {
+      const sub = await api("GET", "/v1/subscriptions/" + encodeURIComponent(subscriptionId));
+      if (typeof sub.customer !== "string" || !sub.customer) throw new Error("La suscripción no tiene cliente.");
+      return sub.customer;
+    },
+
+    async createPortalSession(input: { customerId: string; returnUrl: string }): Promise<{ url: string }> {
+      const params = new URLSearchParams({ customer: input.customerId, return_url: input.returnUrl });
+      const session = await api("POST", "/v1/billing_portal/sessions", params);
+      return { url: session.url };
+    },
+
     async createProPlanCheckout(input: ProPlanCheckoutInput): Promise<CheckoutCreated> {
       // Subscription mode: Stripe charges the first month now and renews monthly. No proration.
       const meta = {

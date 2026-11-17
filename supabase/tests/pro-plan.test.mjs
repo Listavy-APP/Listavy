@@ -121,3 +121,25 @@ test("webhook: a bad signature is still rejected before any Pro plan routing", a
   const raw = evt("evt_g", "invoice.paid", { id: "in_3", subscription_details: { metadata: meta }, lines: { data: [] } });
   assert.equal((await verify(p, raw, "t=1,v1=bad")).kind, "invalid");
 });
+
+test("portal: customer id is read from the subscription with a GET", async () => {
+  const { p, calls } = provider([{ id: "sub_1", customer: "cus_123" }]);
+  assert.equal(await p.getSubscriptionCustomerId("sub_1"), "cus_123");
+  assert.equal(calls[0].method, "GET");
+  assert.match(calls[0].url, /\/v1\/subscriptions\/sub_1$/);
+});
+
+test("portal: a subscription without a customer is an error, not a guess", async () => {
+  const { p } = provider([{ id: "sub_2", customer: null }]);
+  await assert.rejects(() => p.getSubscriptionCustomerId("sub_2"), /no tiene cliente/);
+});
+
+test("portal: session is created for the customer with the return URL", async () => {
+  const { p, calls } = provider([{ url: "https://billing.stripe.test/p/session_1" }]);
+  const r = await p.createPortalSession({ customerId: "cus_123", returnUrl: "https://app.test/pro/estado" });
+  assert.equal(r.url, "https://billing.stripe.test/p/session_1");
+  const body = new URLSearchParams(calls[0].body);
+  assert.equal(calls[0].url, "https://api.stripe.com/v1/billing_portal/sessions");
+  assert.equal(body.get("customer"), "cus_123");
+  assert.equal(body.get("return_url"), "https://app.test/pro/estado");
+});

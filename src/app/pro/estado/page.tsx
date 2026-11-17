@@ -6,6 +6,7 @@ import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BoostPanel } from "./BoostPanel";
 import { ProPlanPanel } from "./ProPlanPanel";
+import { ManagePlanButton } from "./ManagePlanButton";
 import { BioForm } from "./BioForm";
 import { AvailabilityToggle } from "@/components/AvailabilityToggle";
 import { connection } from "next/server";
@@ -127,6 +128,7 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
             ) : null}
             {planParam === "ok" && !isPro ? <p role="status">{es.proStatus.plan.confirming}</p> : null}
             {planParam === "cancelado" && !isPro ? <p className="muted" role="status">{es.proStatus.plan.cancelled}</p> : null}
+            {isPro ? <ManagePlanButton /> : null}
           </section>
         );
       })()}
