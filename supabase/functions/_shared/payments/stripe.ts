@@ -10,6 +10,7 @@ import type {
   CheckoutEvent,
   CheckoutInput,
   PaymentProvider,
+  ProPlanCheckoutInput,
   RefundInput,
   TransferInput,
   WebhookResult,
@@ -116,12 +117,49 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
       return { url: session.url, sessionId: session.id };
     },
 
+    async createProPlanCheckout(input: ProPlanCheckoutInput): Promise<CheckoutCreated> {
+      // Subscription mode: Stripe charges the first month now and renews monthly. No proration.
+      const meta = {
+        purpose: "pro_plan",
+        pro_id: input.proId,
+        amount_dop: String(input.amountDop),
+        amount_minor: String(input.amountMinor),
+        fx: String(input.fx),
+      };
+      const params = new URLSearchParams({
+        mode: "subscription",
+        currency: input.currency.toLowerCase(),
+        success_url: input.successUrl,
+        cancel_url: input.cancelUrl,
+        client_reference_id: input.proId,
+        "line_items[0][quantity]": "1",
+        "line_items[0][price_data][currency]": input.currency.toLowerCase(),
+        "line_items[0][price_data][unit_amount]": String(input.amountMinor),
+        "line_items[0][price_data][recurring][interval]": "month",
+        "line_items[0][price_data][product_data][name]": input.productName,
+        "metadata[purpose]": meta.purpose,
+        "metadata[pro_id]": meta.pro_id,
+        "metadata[amount_dop]": meta.amount_dop,
+        "metadata[amount_minor]": meta.amount_minor,
+        "metadata[fx]": meta.fx,
+        "subscription_data[metadata][purpose]": meta.purpose,
+        "subscription_data[metadata][pro_id]": meta.pro_id,
+        "subscription_data[metadata][amount_dop]": meta.amount_dop,
+        "subscription_data[metadata][amount_minor]": meta.amount_minor,
+        "subscription_data[metadata][fx]": meta.fx,
+      });
+      const session = await api("POST", "/v1/checkout/sessions", params);
+      return { url: session.url, sessionId: session.id };
+    },
+
     async verifyWebhook(raw: string, headers: Headers): Promise<WebhookResult> {
       const signature = headers.get("stripe-signature") ?? "";
       if (!(await signatureValid(raw, signature, config.webhookSecret, Date.now() / 1000))) {
         return { kind: "invalid" };
       }
       const event = JSON.parse(raw);
+      const planResult = proPlanResult(event);
+      if (planResult) return planResult;
       if (event.type !== "checkout.session.completed") {
         return { kind: "ignored", reason: event.type };
       }
@@ -208,6 +246,60 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
       });
       const created = await api("POST", "/v1/refunds", params, { "Idempotency-Key": input.idempotencyKey });
       return created.id;
+    },
+  };
+}
+
+/**
+ * Pro plan subscription events. Returns null for everything else so the caller keeps its existing path.
+ * "pending" is returned as { kind: "pending" } when a first checkout is not yet paid.
+ */
+function proPlanResult(event: any): WebhookResult | null {
+  const obj = event.data?.object ?? {};
+  const isPlanSubscription = event.type === "checkout.session.completed"
+    ? obj.mode === "subscription" && obj.metadata?.purpose === "pro_plan"
+    : event.type === "invoice.paid"
+      ? obj.subscription_details?.metadata?.purpose === "pro_plan"
+      : event.type === "customer.subscription.deleted"
+        ? obj.metadata?.purpose === "pro_plan"
+        : false;
+  if (!isPlanSubscription) return null;
+
+  if (event.type === "checkout.session.completed") {
+    if (obj.payment_status !== "paid") return { kind: "pending" };
+    return planEvent(event, "activated", obj.metadata, obj.subscription, null, null);
+  }
+  if (event.type === "invoice.paid") {
+    const meta = obj.subscription_details.metadata;
+    const periodEnd = obj.lines?.data?.[0]?.period?.end;
+    return planEvent(event, "paid", meta, obj.subscription, obj.id, periodEnd ? new Date(periodEnd * 1000).toISOString() : null);
+  }
+  return planEvent(event, "ended", obj.metadata, obj.id, null, null);
+}
+
+function planEvent(
+  event: any,
+  kind: "activated" | "paid" | "ended",
+  m: Record<string, string>,
+  subscriptionId: string,
+  invoiceId: string | null,
+  periodEnd: string | null,
+): WebhookResult {
+  if (!m?.pro_id) return { kind: "ignored", reason: "no pro metadata" };
+  return {
+    kind: "pro_plan",
+    event: {
+      eventId: event.id,
+      eventType: event.type,
+      livemode: event.livemode,
+      kind,
+      proId: m.pro_id,
+      subscriptionId,
+      invoiceId,
+      periodEnd,
+      amountDop: Number(m.amount_dop ?? 0),
+      amountMinor: Number(m.amount_minor ?? 0),
+      fx: Number(m.fx ?? 0),
     },
   };
 }

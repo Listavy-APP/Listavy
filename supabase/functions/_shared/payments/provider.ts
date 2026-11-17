@@ -36,6 +36,18 @@ export type BoostCheckoutInput = {
   cancelUrl: string;
 };
 
+/** Pro plan: monthly subscription, RD$2,950. Subscription mode, no proration, no refund of a paid period. */
+export type ProPlanCheckoutInput = {
+  proId: string;
+  amountDop: number;
+  amountMinor: number;
+  currency: Currency;
+  fx: number;
+  productName: string;
+  successUrl: string;
+  cancelUrl: string;
+};
+
 export type CheckoutCreated = { url: string; sessionId: string };
 
 // A paid job checkout, normalized from a provider webhook.
@@ -69,12 +81,28 @@ export type BoostEvent = {
   fx: number;
 };
 
+/** Pro plan events. kind: "activated" (first checkout), "paid" (each invoice), "ended" (subscription deleted). */
+export type ProPlanEvent = {
+  eventId: string;
+  eventType: string;
+  livemode: boolean;
+  kind: "activated" | "paid" | "ended";
+  proId: string;
+  subscriptionId: string;
+  invoiceId: string | null;
+  periodEnd: string | null; // ISO timestamp, from the invoice line
+  amountDop: number;
+  amountMinor: number;
+  fx: number;
+};
+
 export type WebhookResult =
   | { kind: "invalid" }
   | { kind: "ignored"; reason: string }
   | { kind: "pending" }
   | { kind: "checkout"; event: CheckoutEvent }
-  | { kind: "boost"; event: BoostEvent };
+  | { kind: "boost"; event: BoostEvent }
+  | { kind: "pro_plan"; event: ProPlanEvent };
 
 export type TransferInput = {
   paymentId: string;
@@ -104,6 +132,9 @@ export interface PaymentProvider {
 
   /** Starts a hosted checkout for a paid profile boost. No job, no transfer. */
   createBoostCheckout(input: BoostCheckoutInput): Promise<CheckoutCreated>;
+
+  /** Starts a hosted subscription checkout for the Pro plan. */
+  createProPlanCheckout(input: ProPlanCheckoutInput): Promise<CheckoutCreated>;
 
   /** Verifies the webhook signature from the request headers and normalizes the event. Throws only on infrastructure errors. */
   verifyWebhook(raw: string, headers: Headers): Promise<WebhookResult>;

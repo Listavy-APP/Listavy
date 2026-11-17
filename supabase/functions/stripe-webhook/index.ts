@@ -24,6 +24,26 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false },
   });
 
+  if (result.kind === "pro_plan") {
+    const pp = result.event;
+    const { data: planData, error: planError } = await admin.rpc("apply_pro_plan_event", {
+      p_event_id: pp.eventId,
+      p_event_type: pp.eventType,
+      p_livemode: pp.livemode,
+      p_kind: pp.kind,
+      p_pro: pp.proId,
+      p_subscription_id: pp.subscriptionId,
+      p_invoice_id: pp.invoiceId,
+      p_period_end: pp.periodEnd,
+      p_amount_dop: pp.amountDop,
+      p_amount_minor: pp.amountMinor,
+      p_fx: pp.fx,
+    });
+    // A 500 makes Stripe retry. The RPC rolls back on any failure, so a retry is safe.
+    if (planError) return new Response(planError.message, { status: 500 });
+    return json({ received: true, result: planData });
+  }
+
   if (result.kind === "boost") {
     const b = result.event;
     const { data: boostData, error: boostError } = await admin.rpc("apply_boost_checkout", {
