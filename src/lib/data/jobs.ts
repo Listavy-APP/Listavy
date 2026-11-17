@@ -167,6 +167,17 @@ export async function cancelJobRequest(supabase: SupabaseClient, jobId: string):
   fail((await supabase.rpc("cancel_job_request", { p_job: jobId })).error);
 }
 
+/** Cancels a job through cancel_job_with_refund (migration 0076). Money logic lives in the function; the UI only calls it. */
+export async function cancelJobWithRefund(
+  supabase: SupabaseClient,
+  jobId: string,
+  by: "homeowner" | "pro",
+): Promise<"refund_pending" | "cancelled"> {
+  const { data, error } = await supabase.rpc("cancel_job_with_refund", { p_job: jobId, p_by: by });
+  fail(error);
+  return data === "refund_pending" ? "refund_pending" : "cancelled";
+}
+
 export async function addJobPhoto(
   supabase: SupabaseClient,
   jobId: string,
