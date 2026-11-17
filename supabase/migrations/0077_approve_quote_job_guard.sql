@@ -1,5 +1,5 @@
 -- 0077 Approve-quote job guard and quote withdrawal on pro cancel.
--- STATUS: DRAFT. NOT APPLIED. Sam must review before apply_migration.
+-- STATUS: APPLIED to production on 2026-11-16 after Sam's sign-off. Do not re-apply.
 --
 -- Bug: approve_quote never checked the job status. A pro who cancelled from requested/quoted
 -- via cancel_job_with_refund left a 'sent' quote behind. The client could approve it and
