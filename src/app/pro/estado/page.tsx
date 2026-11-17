@@ -5,6 +5,8 @@ import { getMyPro } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BoostPanel } from "./BoostPanel";
+import { ProPlanPanel } from "./ProPlanPanel";
+import { ManagePlanButton } from "./ManagePlanButton";
 import { BioForm } from "./BioForm";
 import { AvailabilityToggle } from "@/components/AvailabilityToggle";
 import { connection } from "next/server";
@@ -13,8 +15,8 @@ import { BackBar } from "@/components/BackBar";
 export const metadata = { title: es.proStatus.title };
 export const instant = false;
 
-export default async function ProStatusPage({ searchParams }: { searchParams: Promise<{ destacado?: string }> }) {
-  const { destacado } = await searchParams;
+export default async function ProStatusPage({ searchParams }: { searchParams: Promise<{ destacado?: string; plan?: string }> }) {
+  const { destacado, plan: planParam } = await searchParams;
     // Per-request render: the session is read at request time.
   await connection();
   const supabase = await createSupabaseServerClient();
@@ -112,6 +114,25 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
         <AvailabilityToggle proId={pro.id} initial={(pro as { available?: boolean }).available ?? true} />
       )}
       {pro.verification_status === "approved" && <BioForm proId={pro.id} initial={(pro as { bio?: string | null }).bio ?? null} />}
+      {pro.verification_status === "approved" && (() => {
+        const planEnd = (pro as { plan_current_period_end?: string | null }).plan_current_period_end ?? null;
+        const isPro = pro.plan === "pro";
+        return (
+          <section className="panel stack" aria-labelledby="plan-status-title">
+            <h2 id="plan-status-title">{isPro ? es.proStatus.plan.activeTitle : es.proStatus.plan.title}</h2>
+            <p>{isPro ? es.proStatus.plan.rateActive : es.proStatus.plan.rateFree}</p>
+            {isPro && planEnd ? (
+              <p className="muted">
+                {es.proStatus.plan.nextCharge(new Date(planEnd).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" }))}
+              </p>
+            ) : null}
+            {planParam === "ok" && !isPro ? <p role="status">{es.proStatus.plan.confirming}</p> : null}
+            {planParam === "cancelado" && !isPro ? <p className="muted" role="status">{es.proStatus.plan.cancelled}</p> : null}
+            {isPro ? <ManagePlanButton /> : null}
+          </section>
+        );
+      })()}
+      {pro.verification_status === "approved" && pro.plan !== "pro" && planParam !== "ok" && <ProPlanPanel />}
       {destacado === "ok" && !activeBoost ? (
         <p className="panel" role="status">{es.proStatus.boost.confirming}</p>
       ) : null}
