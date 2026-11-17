@@ -55,6 +55,8 @@ export interface Pro {
   pro_free_until: string | null;
   pro_type: ProType;
   created_at: string;
+  /** Set when the pro closes the profile (migration 0082). Null while open. */
+  closed_at?: string | null;
 }
 
 /** Private company data. Owner and admins only. Never shown in search or on public profiles. */

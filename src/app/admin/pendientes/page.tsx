@@ -45,6 +45,7 @@ export default async function AdminPendingProsPage() {
     .from("pros")
     .select("id, trade, zone, city, price_min_dop, price_max_dop, created_at, pro_type, profiles:profiles!pros_id_fkey(full_name, phone)")
     .eq("verification_status", "pending")
+    .is("closed_at", null)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`No se pudieron leer las solicitudes: ${error.message}`);
   const pros = (rows ?? []) as unknown as PendingPro[];

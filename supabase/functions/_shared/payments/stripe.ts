@@ -54,7 +54,7 @@ async function signatureValid(raw: string, header: string, secret: string, nowSe
 export function createStripeProvider(config: StripeConfig): PaymentProvider {
   const doFetch = config.fetch ?? fetch;
 
-  async function api(method: "GET" | "POST", path: string, body?: URLSearchParams, extra: Record<string, string> = {}) {
+  async function api(method: "GET" | "POST" | "DELETE", path: string, body?: URLSearchParams, extra: Record<string, string> = {}) {
     const res = await doFetch("https://api.stripe.com" + path, {
       method,
       headers: { Authorization: "Bearer " + config.secretKey, "Content-Type": "application/x-www-form-urlencoded", ...extra },
@@ -121,6 +121,19 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
       const sub = await api("GET", "/v1/subscriptions/" + encodeURIComponent(subscriptionId));
       if (typeof sub.customer !== "string" || !sub.customer) throw new Error("La suscripción no tiene cliente.");
       return sub.customer;
+    },
+
+    async cancelProPlanSubscription(subscriptionId: string): Promise<"cancelled" | "already_cancelled"> {
+      // Immediate cancel. No proration and no invoice, so the paid period is not refunded (decided policy).
+      const params = new URLSearchParams({ prorate: "false", invoice_now: "false" });
+      try {
+        await api("DELETE", "/v1/subscriptions/" + encodeURIComponent(subscriptionId), params);
+        return "cancelled";
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        if (/No such subscription|already canceled|already cancelled/i.test(msg)) return "already_cancelled";
+        throw err;
+      }
     },
 
     async createPortalSession(input: { customerId: string; returnUrl: string }): Promise<{ url: string }> {

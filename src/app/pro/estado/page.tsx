@@ -11,6 +11,7 @@ import { BioForm } from "./BioForm";
 import { AvailabilityToggle } from "@/components/AvailabilityToggle";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
+import { CloseProfile } from "./CloseProfile";
 
 export const metadata = { title: es.proStatus.title };
 export const instant = false;
@@ -46,6 +47,19 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
         <p className="lead">{es.proStatus.none}</p>
         <Link className="button" href="/pro/registro">
           {es.proStatus.applyCta}
+        </Link>
+      </section>
+    );
+  }
+
+  if (pro.closed_at) {
+    return (
+      <section className="stack">
+        <BackBar href="/cuenta" />
+        <h1>{es.proClose.closedTitle}</h1>
+        <p className="lead">{es.proClose.closedBody}</p>
+        <Link className="button" href="/cuenta">
+          {es.proClose.closedAction}
         </Link>
       </section>
     );
@@ -139,6 +153,7 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
       {destacado === "cancelado" ? <p className="muted" role="status">{es.proStatus.boost.cancelled}</p> : null}
       {/* Back from checkout the boost activates a moment later; hide the buy panel until then. */}
       {pro.verification_status === "approved" && !activeBoost && destacado !== "ok" && <BoostPanel />}
+      <CloseProfile />
     </section>
   );
 }

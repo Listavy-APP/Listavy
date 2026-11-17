@@ -70,7 +70,7 @@ export default async function AdminDashboardPage() {
     activeBoosts,
     referrals,
   ] = await Promise.all([
-    supabase.from("pros").select("id", { count: "exact", head: true }).eq("verification_status", "pending"),
+    supabase.from("pros").select("id", { count: "exact", head: true }).eq("verification_status", "pending").is("closed_at", null),
     supabase.from("jobs").select("status"),
     supabase
       .from("disputes")
