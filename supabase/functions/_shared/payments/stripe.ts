@@ -281,7 +281,7 @@ function proPlanResult(event: any): WebhookResult | null {
 
   if (event.type === "checkout.session.completed") {
     if (obj.payment_status !== "paid") return { kind: "pending" };
-    return planEvent(event, "activated", obj.metadata, obj.subscription, null, null);
+    return planEvent(event, "activated", obj.metadata, obj.subscription, null, null, 0);
   }
   if (event.type === "invoice.paid") {
     const periodEnd = obj.lines?.data?.[0]?.period?.end;
@@ -292,9 +292,10 @@ function proPlanResult(event: any): WebhookResult | null {
       invoiceSub.subscription,
       obj.id,
       periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+      Number(obj.amount_paid ?? 0),
     );
   }
-  return planEvent(event, "ended", obj.metadata, obj.id, null, null);
+  return planEvent(event, "ended", obj.metadata, obj.id, null, null, 0);
 }
 
 function planEvent(
@@ -304,6 +305,7 @@ function planEvent(
   subscriptionId: string,
   invoiceId: string | null,
   periodEnd: string | null,
+  amountPaidMinor: number,
 ): WebhookResult {
   if (!m?.pro_id) return { kind: "ignored", reason: "no pro metadata" };
   return {
@@ -319,6 +321,7 @@ function planEvent(
       periodEnd,
       amountDop: Number(m.amount_dop ?? 0),
       amountMinor: Number(m.amount_minor ?? 0),
+      amountPaidMinor,
       fx: Number(m.fx ?? 0),
     },
   };

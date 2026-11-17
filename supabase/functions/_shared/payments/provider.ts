@@ -91,8 +91,9 @@ export type ProPlanEvent = {
   subscriptionId: string;
   invoiceId: string | null;
   periodEnd: string | null; // ISO timestamp, from the invoice line
-  amountDop: number;
-  amountMinor: number;
+  amountDop: number; // plan price in DOP, from metadata
+  amountMinor: number; // plan price in USD minor units, from metadata
+  amountPaidMinor: number; // what Stripe actually charged on this invoice (0 for proration-only invoices)
   fx: number;
 };
 
