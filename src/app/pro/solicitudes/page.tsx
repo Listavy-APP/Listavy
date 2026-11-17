@@ -37,7 +37,13 @@ export default async function InboxPage() {
   const sent = rows.filter((r) => r.status === "sent" && jobOpen(r));
 
   // The client's photos of the problem. Invited pros may read them (job_photos policy, has_quoted_job).
-  // The voice note stays with the job parties (storage policy), so it is not shown here.
+  // The voice note is readable by invited pros (0079). Signed URLs use this pro's session.
+  const voiceByJob = new Map<string, string>();
+  for (const r of [...open, ...sent]) {
+    if (!r.job?.voice_path || voiceByJob.has(r.job.id)) continue;
+    const url = await jobFileUrl(supabase, r.job.voice_path);
+    if (url) voiceByJob.set(r.job.id, url);
+  }
   const jobIds = [...new Set([...open, ...sent].map((r) => r.job!.id))];
   const photosByJob = new Map<string, string[]>();
   if (jobIds.length > 0) {
@@ -59,11 +65,11 @@ export default async function InboxPage() {
       <h1>{es.jobs.inboxTitle}</h1>
       {open.length === 0 ? <p className="muted">{es.jobs.inboxEmpty}</p> : null}
       {open.map((r) => (
-        <InviteCard key={r.id} quote={r} photoUrls={photosByJob.get(r.job!.id) ?? []} />
+        <InviteCard key={r.id} quote={r} photoUrls={photosByJob.get(r.job!.id) ?? []} voiceUrl={voiceByJob.get(r.job!.id) ?? null} />
       ))}
       {sent.length > 0 ? <h2>{es.jobs.sentQuotesTitle}</h2> : null}
       {sent.map((r) => (
-        <InviteCard key={r.id} quote={r} photoUrls={photosByJob.get(r.job!.id) ?? []} />
+        <InviteCard key={r.id} quote={r} photoUrls={photosByJob.get(r.job!.id) ?? []} voiceUrl={voiceByJob.get(r.job!.id) ?? null} />
       ))}
     </section>
   );

@@ -7,6 +7,7 @@ import { Choice } from "@/components/ui/Choice";
 import { TextArea } from "@/components/ui/TextArea";
 import { declineInvite, submitQuote } from "@/lib/data/jobs";
 import { es } from "@/lib/i18n/es";
+import { VoiceNote } from "@/app/trabajos/[id]/VoiceNote";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Job = {
@@ -30,7 +31,15 @@ export type Quote = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function InviteCard({ quote, photoUrls = [] }: { quote: Quote; photoUrls?: string[] }) {
+export function InviteCard({
+  quote,
+  photoUrls = [],
+  voiceUrl = null,
+}: {
+  quote: Quote;
+  photoUrls?: string[];
+  voiceUrl?: string | null;
+}) {
   const router = useRouter();
   const job = quote.job;
   const [amount, setAmount] = useState("");
@@ -110,6 +119,7 @@ export function InviteCard({ quote, photoUrls = [] }: { quote: Quote; photoUrls?
           ))}
         </div>
       ) : null}
+      {voiceUrl ? <VoiceNote url={voiceUrl} /> : null}
 
       {quote.status === "invited" && !expired && (
         <form className="stack" onSubmit={onQuote}>

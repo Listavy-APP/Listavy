@@ -160,7 +160,10 @@ export async function submitQuote(
 }
 
 export async function approveQuote(supabase: SupabaseClient, quoteId: string): Promise<void> {
-  fail((await supabase.rpc("approve_quote", { p_quote: quoteId })).error);
+  const { data, error } = await supabase.rpc("approve_quote", { p_quote: quoteId });
+  fail(error);
+  // approve_quote returns NULL when the quote has expired (0078). The expired status is saved.
+  if (data === null) throw new Error("La cotización venció. Pide una nueva al profesional.");
 }
 
 export async function cancelJobRequest(supabase: SupabaseClient, jobId: string): Promise<void> {
