@@ -1243,3 +1243,8 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
   .admin-topbar { padding: 0 12px; gap: 8px; }
   .admin-content { padding: 16px; }
 }
+
+/* Admin search: the field fills the row; the button keeps its content width, bottom-aligned with the input. */
+.admin-search { display: flex; align-items: flex-end; gap: var(--s2); }
+.admin-search .field { flex: 1 1 auto; min-width: 0; }
+.admin-search .button { flex: 0 0 auto; }

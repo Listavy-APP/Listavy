@@ -34,7 +34,7 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
       <h1>{esTrust.adminClients.title}</h1>
       <p className="muted">{esTrust.adminClients.helpText}</p>
 
-      <form className="row" action="/admin/clientes" method="get">
+      <form className="admin-search" action="/admin/clientes" method="get">
         <label className="field">
           {esTrust.adminClients.searchLabel}
           <input type="search" name="q" defaultValue={q} minLength={2} />

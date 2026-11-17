@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { RequestForm } from "./RequestForm";
+import { getCurrentProfile } from "@/lib/data/profiles";
 import { getProCard } from "@/lib/data/pros";
 import { getClientStanding } from "@/lib/data/standing";
 import { esTrust } from "@/lib/i18n/trust";
@@ -27,6 +28,9 @@ export default async function RequestPage({
     const back = `/pedir${pro ? `?pro=${encodeURIComponent(pro)}` : ""}`;
     redirect(`/login?next=${encodeURIComponent(back)}`);
   }
+  // Pros go back to their vendor hub (/cuenta); clients go back to discovery (/buscar).
+  const profile = await getCurrentProfile(supabase);
+  const backHref = profile?.role === "pro" ? "/cuenta" : "/buscar";
   const ids = (pro ?? "")
     .split(",")
     .map((s) => s.trim())
@@ -41,7 +45,7 @@ export default async function RequestPage({
   if (standing.blocked) {
     return (
       <section className="stack">
-        <BackBar href="/buscar" />
+        <BackBar href={backHref} />
         <h1>{es.jobs.requestTitle}</h1>
         <div className="panel stack">
           <b>{es.standing.blockedTitle}</b>
@@ -56,7 +60,7 @@ export default async function RequestPage({
   if (suspended === true) {
     return (
       <section className="stack">
-        <BackBar href="/buscar" />
+        <BackBar href={backHref} />
         <h1>{es.jobs.requestTitle}</h1>
         <div className="panel stack">
           <b>{esTrust.suspended.title}</b>
@@ -69,7 +73,7 @@ export default async function RequestPage({
   if (cards.length === 0) {
     return (
       <section className="stack">
-        <BackBar href="/buscar" />
+        <BackBar href={backHref} />
         <h1>{es.jobs.requestTitle}</h1>
         <p className="muted">{es.jobs.noPro}</p>
       </section>
@@ -78,7 +82,7 @@ export default async function RequestPage({
 
   return (
     <>
-      <BackBar href="/buscar" />
+      <BackBar href={backHref} />
       {standing.warning ? (
         <div className="panel stack">
           <b>{es.standing.warningTitle}</b>
