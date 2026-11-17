@@ -35,7 +35,7 @@ as $$
 begin
   if auth.uid() is not null and not public.is_admin() then
     if new.verification_status is distinct from old.verification_status
-       and not (old.verification_status = 'rejected' and new.verification_status = 'pending') then
+       and not (old.verification_status = 'rejected' and new.verification_status = 'pending' and old.closed_at is null) then
       raise exception 'Solo un administrador puede verificar, suspender o cambiar el plan.';
     end if;
     if new.verified_at is distinct from old.verified_at
@@ -203,9 +203,14 @@ as $$
 $$;
 
 -- 7. Boosts: a closed pro's boost is not shown. The boost row is kept (see report on refunds).
-create or replace function public.boosted_pro_ids(p_trade text default null, p_zone text default null)
-returns table (pro_id uuid, starts_at timestamptz)
-language sql stable security definer set search_path = ''
+-- Rebuilt from 0058 (keeps p_city and the demo exclusion). Only closed_at is added.
+create or replace function public.boosted_pro_ids(p_trade text default null, p_zone text default null,
+                                                  p_city text default 'santo_domingo')
+returns table(pro_id uuid, starts_at timestamptz)
+language sql
+stable
+security definer
+set search_path = ''
 as $$
   select b.pro_id, b.starts_at
     from public.boosts b
@@ -215,6 +220,8 @@ as $$
      and p.verification_status = 'approved'
      and p.suspended_at is null
      and p.closed_at is null
+     and not p.is_demo
+     and p.city = p_city
      and (p_trade is null or p.trade = p_trade)
      and (p_zone is null or p.zone = p_zone)
    order by b.starts_at desc
@@ -326,3 +333,45 @@ $$;
 
 revoke execute on function public.anonymise_customer(uuid) from public, anon, authenticated;
 grant execute on function public.anonymise_customer(uuid) to service_role;
+
+-- 5. Bell count. Rebuilt from 0076. Only the pending-pros count gains closed_at is null,
+--    so the badge matches the filtered admin lists.
+create or replace function public.admin_notification_summary()
+returns table(open_disputes bigint, open_pro_reports bigint, reviews_awaiting_moderation bigint,
+              unresolved_job_flags bigint, pending_pro_applications bigint, total bigint, severity text)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $function$
+declare
+  v_disputes bigint;
+  v_reports bigint;
+  v_reviews bigint;
+  v_flags bigint;
+  v_pros bigint;
+  v_photos bigint;
+  v_verifications bigint;
+  v_total bigint;
+begin
+  if not public.is_admin() then raise exception 'No autorizado.' using errcode = '42501'; end if;
+
+  select count(*) into v_disputes from public.disputes where status = 'open';
+  select count(*) into v_reports from public.pro_reports where resolved_at is null;
+  select count(*) into v_reviews from public.reviews where status = 'hidden';
+  select count(*) into v_flags from public.job_notifications
+    where problem_reported_at is not null and problem_resolved_at is null;
+  select count(*) into v_pros from public.pros
+    where verification_status = 'pending' and closed_at is null;
+  select count(*) into v_photos from public.job_photo_reports where status = 'pending';
+  select count(*) into v_verifications from public.pro_verifications where status = 'pending';
+
+  v_total := v_disputes + v_reports + v_reviews + v_flags + v_pros + v_photos + v_verifications;
+
+  return query select
+    v_disputes, v_reports, v_reviews, v_flags, v_pros, v_total,
+    case when v_disputes > 0 or v_reports > 0 then 'urgent'
+         when v_total > 0 then 'attention'
+         else 'clear' end;
+end;
+$function$;
