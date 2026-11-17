@@ -1,5 +1,5 @@
 -- 0076 Debug pass SQL fixes (security and money-path corrections).
--- STATUS: DRAFT. NOT APPLIED. Sam must review before apply_migration.
+-- STATUS: APPLIED to production on 2026-11-16 after Sam's sign-off. Do not re-apply.
 --
 -- 1. Revoke public execute on run_recovery_checks and run_dispute_reminders.
 --    Both are SECURITY DEFINER and do not check the caller. pg_cron jobs run as
