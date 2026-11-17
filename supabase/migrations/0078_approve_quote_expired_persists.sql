@@ -1,5 +1,5 @@
 -- 0078 approve_quote: persist the expired status.
--- STATUS: DRAFT. NOT APPLIED. Sam must review before apply_migration.
+-- STATUS: APPLIED to production on 2026-11-16 after Sam's sign-off. Do not re-apply.
 --
 -- Bug: the expired branch set the quote to 'expired' and then raised. The raise rolled back
 -- the update, so the quote stayed 'sent' until the hourly expire-quotes job ran.

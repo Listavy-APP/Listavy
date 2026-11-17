@@ -1,5 +1,5 @@
 -- 0079 Voice note readable by invited pros.
--- STATUS: DRAFT. NOT APPLIED. Sam must review before apply_migration.
+-- STATUS: APPLIED to production on 2026-11-16 after Sam's sign-off. Do not re-apply.
 --
 -- Fabian's decision: an invited pro can hear the client's voice note in the job brief.
 -- Allowed: job parties (client, assigned pro), admins, and a pro with an 'invited' or 'sent' quote on the job.
