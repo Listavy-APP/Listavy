@@ -268,10 +268,12 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
  */
 function proPlanResult(event: any): WebhookResult | null {
   const obj = event.data?.object ?? {};
+  // Invoices carry subscription details under parent.subscription_details (Stripe API 2025-06-30+).
+  const invoiceSub = obj.parent?.subscription_details ?? {};
   const isPlanSubscription = event.type === "checkout.session.completed"
     ? obj.mode === "subscription" && obj.metadata?.purpose === "pro_plan"
     : event.type === "invoice.paid"
-      ? obj.subscription_details?.metadata?.purpose === "pro_plan"
+      ? invoiceSub.metadata?.purpose === "pro_plan"
       : event.type === "customer.subscription.deleted"
         ? obj.metadata?.purpose === "pro_plan"
         : false;
@@ -282,9 +284,15 @@ function proPlanResult(event: any): WebhookResult | null {
     return planEvent(event, "activated", obj.metadata, obj.subscription, null, null);
   }
   if (event.type === "invoice.paid") {
-    const meta = obj.subscription_details.metadata;
     const periodEnd = obj.lines?.data?.[0]?.period?.end;
-    return planEvent(event, "paid", meta, obj.subscription, obj.id, periodEnd ? new Date(periodEnd * 1000).toISOString() : null);
+    return planEvent(
+      event,
+      "paid",
+      invoiceSub.metadata,
+      invoiceSub.subscription,
+      obj.id,
+      periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+    );
   }
   return planEvent(event, "ended", obj.metadata, obj.id, null, null);
 }

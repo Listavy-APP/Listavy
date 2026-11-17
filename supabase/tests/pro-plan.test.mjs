@@ -79,8 +79,8 @@ test("webhook: unpaid subscription checkout is pending, not activated", async ()
 test("webhook: paid invoice normalizes to kind paid with the period end from the line", async () => {
   const { p } = provider();
   const raw = evt("evt_c", "invoice.paid", {
-    id: "in_1", subscription: "sub_1", amount_paid: 4917,
-    subscription_details: { metadata: meta },
+    id: "in_1", amount_paid: 4917,
+    parent: { type: "subscription_details", subscription_details: { subscription: "sub_1", metadata: meta } },
     lines: { data: [{ period: { start: 1800000000, end: 1802592000 } }] },
   });
   const r = await verify(p, raw, signed(raw));
@@ -102,7 +102,7 @@ test("webhook: subscription deleted normalizes to kind ended", async () => {
 
 test("webhook: invoice without the pro_plan purpose is ignored, not routed to pro plan", async () => {
   const { p } = provider();
-  const raw = evt("evt_e", "invoice.paid", { id: "in_2", subscription_details: { metadata: {} }, lines: { data: [] } });
+  const raw = evt("evt_e", "invoice.paid", { id: "in_2", parent: { subscription_details: { metadata: {} } }, lines: { data: [] } });
   assert.equal((await verify(p, raw, signed(raw))).kind, "ignored");
 });
 
@@ -118,7 +118,7 @@ test("webhook: a job checkout still normalizes to kind checkout (regression)", a
 
 test("webhook: a bad signature is still rejected before any Pro plan routing", async () => {
   const { p } = provider();
-  const raw = evt("evt_g", "invoice.paid", { id: "in_3", subscription_details: { metadata: meta }, lines: { data: [] } });
+  const raw = evt("evt_g", "invoice.paid", { id: "in_3", parent: { subscription_details: { subscription: "sub_1", metadata: meta } }, lines: { data: [] } });
   assert.equal((await verify(p, raw, "t=1,v1=bad")).kind, "invalid");
 });
 
@@ -142,4 +142,22 @@ test("portal: session is created for the customer with the return URL", async ()
   assert.equal(calls[0].url, "https://api.stripe.com/v1/billing_portal/sessions");
   assert.equal(body.get("customer"), "cus_123");
   assert.equal(body.get("return_url"), "https://app.test/pro/estado");
+});
+
+test("webhook: real Stripe invoice.paid shape (parent.subscription_details) normalizes to kind paid", async () => {
+  // Shape from a live test-mode event (invoice in_1UctDLD..., sub sub_1UctDND...). Regression: the code
+  // previously read top-level subscription_details and ignored every invoice.
+  const { p } = provider();
+  const raw = evt("evt_live", "invoice.paid", {
+    id: "in_1UctDLDnvNOJYubBLynfM4w8", object: "invoice", status: "paid", amount_paid: 4917,
+    parent: { quote_details: null, type: "subscription_details",
+      subscription_details: { metadata: meta, subscription: "sub_1UctDNDnvNOJYubBDJDlwyzH" } },
+    lines: { object: "list", data: [{ period: { start: 1794948171, end: 1797540171 } }] },
+  });
+  const r = await verify(p, raw, signed(raw));
+  assert.equal(r.kind, "pro_plan");
+  assert.equal(r.event.kind, "paid");
+  assert.equal(r.event.subscriptionId, "sub_1UctDNDnvNOJYubBDJDlwyzH");
+  assert.equal(r.event.invoiceId, "in_1UctDLDnvNOJYubBLynfM4w8");
+  assert.equal(r.event.proId, "pro-1");
 });
