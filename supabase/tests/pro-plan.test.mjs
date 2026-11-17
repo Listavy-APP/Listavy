@@ -64,7 +64,7 @@ test("webhook: paid subscription checkout normalizes to kind activated", async (
   assert.deepEqual(r.event, {
     eventId: "evt_a", eventType: "checkout.session.completed", livemode: false, kind: "activated",
     proId: "pro-1", subscriptionId: "sub_1", invoiceId: null, periodEnd: null,
-    amountDop: 2950, amountMinor: 4917, fx: 60,
+    amountDop: 2950, amountMinor: 4917, amountPaidMinor: 0, fx: 60,
   });
 });
 
@@ -89,6 +89,22 @@ test("webhook: paid invoice normalizes to kind paid with the period end from the
   assert.equal(r.event.invoiceId, "in_1");
   assert.equal(r.event.periodEnd, new Date(1802592000 * 1000).toISOString());
   assert.equal(r.event.amountDop, 2950);
+  assert.equal(r.event.amountPaidMinor, 4917);
+});
+
+test("webhook: a $0 proration invoice normalizes to kind paid with amountPaidMinor 0 (no ledger amount from the plan price)", async () => {
+  // Regression: the ledger recorded RD$2,950 for a $0 invoice. The paid amount must come from amount_paid.
+  const { p } = provider();
+  const raw = evt("evt_zero", "invoice.paid", {
+    id: "in_zero", amount_paid: 0,
+    parent: { type: "subscription_details", subscription_details: { subscription: "sub_1", metadata: meta } },
+    lines: { data: [{ period: { start: 1800000000, end: 1802592000 } }] },
+  });
+  const r = await verify(p, raw, signed(raw));
+  assert.equal(r.kind, "pro_plan");
+  assert.equal(r.event.kind, "paid");
+  assert.equal(r.event.amountPaidMinor, 0);
+  assert.equal(r.event.invoiceId, "in_zero");
 });
 
 test("webhook: subscription deleted normalizes to kind ended", async () => {
@@ -159,5 +175,6 @@ test("webhook: real Stripe invoice.paid shape (parent.subscription_details) norm
   assert.equal(r.event.kind, "paid");
   assert.equal(r.event.subscriptionId, "sub_1UctDNDnvNOJYubBDJDlwyzH");
   assert.equal(r.event.invoiceId, "in_1UctDLDnvNOJYubBLynfM4w8");
+  assert.equal(r.event.amountPaidMinor, 4917);
   assert.equal(r.event.proId, "pro-1");
 });

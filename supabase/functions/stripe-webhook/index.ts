@@ -37,6 +37,7 @@ Deno.serve(async (req: Request) => {
       p_period_end: pp.periodEnd,
       p_amount_dop: pp.amountDop,
       p_amount_minor: pp.amountMinor,
+      p_amount_paid_minor: pp.amountPaidMinor,
       p_fx: pp.fx,
     });
     // A 500 makes Stripe retry. The RPC rolls back on any failure, so a retry is safe.
