@@ -5,6 +5,7 @@ import { getCurrentProfile } from "@/lib/data/profiles";
 import { jobFileUrl } from "@/lib/data/jobs";
 import { listPhotoReports } from "@/lib/data/trust";
 import { esTrust } from "@/lib/i18n/trust";
+import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ResolvePhotoReport } from "./ResolvePhotoReport";
 
@@ -41,6 +42,12 @@ export default async function AdminPhotoReportsPage() {
       {withUrls.map((r) => (
         <article key={r.id} className="card stack">
           <h2>{STATUS_LABEL[r.status]}</h2>
+          <p>
+            <strong>{esTrust.adminPhotos.reporter}:</strong> {r.reporter_name ?? esTrust.adminPhotos.reporterUnknown}
+          </p>
+          <p className="muted">
+            {esTrust.adminPhotos.photoKind}: {r.photo_kind ? es.jobs.photoKind[r.photo_kind] : "—"}
+          </p>
           <p className="muted">
             {esTrust.adminPhotos.job} {r.job_id.slice(0, 8)}… · {new Date(r.created_at).toLocaleString("es-DO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Santo_Domingo" })}
           </p>

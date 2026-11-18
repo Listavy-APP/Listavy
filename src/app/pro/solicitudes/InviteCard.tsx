@@ -55,6 +55,7 @@ export function InviteCard({
   if (!job) return null;
 
   const deadline = new Date(new Date(quote.invited_at).getTime() + DAY_MS);
+  // eslint-disable-next-line react-hooks/purity -- Render-time clock. Moving it into state would change when the expiry flag updates. Flagged for review.
   const expired = quote.status === "invited" && deadline.getTime() < Date.now();
   const isDiagnostic = job.job_type === "diagnostic";
 

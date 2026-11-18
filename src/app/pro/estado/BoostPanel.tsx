@@ -24,7 +24,7 @@ export function BoostPanel() {
       setBusy(null);
       return;
     }
-    window.location.href = data.url as string;
+    window.location.assign(data.url as string);
   }
 
   return (

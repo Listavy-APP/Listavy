@@ -48,10 +48,13 @@ export default async function JobPage({
     redirect("/pro/solicitudes");
   }
 
-  const [quotesRes, photosRes] = await Promise.all([
+  const [quotesRes, photosRes, myReportsRes] = await Promise.all([
     supabase.from("quotes").select("*").eq("job_id", id).order("invited_at", { ascending: true }),
     supabase.from("job_photos").select("id, kind, storage_path").eq("job_id", id).order("created_at", { ascending: true }),
+    // RLS: a user reads only their own reports, so this lists the photos this viewer already reported.
+    supabase.from("job_photo_reports").select("storage_path").eq("job_id", id).eq("reported_by", uid),
   ]);
+  const reportedPaths = (myReportsRes.data ?? []).map((r) => r.storage_path as string);
   const quotes = (quotesRes.data ?? []) as QuoteRow[];
   const photos = (photosRes.data ?? []) as JobPhotoRow[];
 
@@ -227,6 +230,7 @@ export default async function JobPage({
         pros={pros}
         pay={pay}
         photos={photoUrls}
+        reportedPaths={reportedPaths}
         contactPhone={contactPhone}
         completionCode={completionCode}
       />

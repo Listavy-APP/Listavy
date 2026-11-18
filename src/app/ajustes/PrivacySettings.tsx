@@ -15,6 +15,7 @@ export function PrivacySettings({ userId }: { userId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reads the device consent after mount, so the server and first client render match.
     setAnalytics(getAnalyticsConsent());
   }, []);
 

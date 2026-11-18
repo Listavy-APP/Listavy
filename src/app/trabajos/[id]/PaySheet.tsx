@@ -50,7 +50,7 @@ export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: nu
         body: { job_id: props.jobId, tip_dop: tip },
       });
       if (fnError || !data?.url) throw new Error(es.jobs.payFailed);
-      window.location.href = data.url as string;
+      window.location.assign(data.url as string);
     } catch {
       setError(es.jobs.payFailed);
       setBusy(false);

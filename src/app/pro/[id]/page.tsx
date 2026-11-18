@@ -63,6 +63,7 @@ export default async function ProDetailPage({
   const photos = signedIn ? await getWorkPhotoUrls(supabase, pro.id) : [];
   const summary = await getProReviewSummary(supabase, pro.id);
   const stats = await getProStats(supabase, pro.id);
+  // eslint-disable-next-line react-hooks/purity -- Server page: request time read once per request. Replacing it would change the page logic.
   const yearsOnPlatform = stats.joinedAt ? Math.floor((Date.now() - new Date(stats.joinedAt).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
   const reviews = pro.is_demo ? [] : await listProReviews(supabase, pro.id);
   const demoReviews = pro.is_demo ? await listDemoReviews(supabase, pro.id) : [];
@@ -138,15 +139,6 @@ export default async function ProDetailPage({
         <ReportProButton userId={userId} proId={pro.id} next={`/pro/${pro.id}`} />
       </div>
       ) : null}
-
-      <div className="pro-section">
-        <h2>{es.proChecklist.title}</h2>
-        <ul className="checklist">
-          <li className={pro.identity_verified ? "ok" : "muted"}>{pro.identity_verified ? "✓" : "–"} {es.proChecklist.identity}</li>
-          {pro.email_verified ? <li className="ok">✓ {es.proChecklist.email}</li> : null}
-          <li className={pro.phone_verified ? "ok" : "muted"}>{pro.phone_verified ? "✓" : "–"} {es.proChecklist.phone}</li>
-        </ul>
-      </div>
 
       <div className="pro-section">
         <h2>{es.proBio.title}</h2>

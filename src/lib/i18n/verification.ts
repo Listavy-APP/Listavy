@@ -10,6 +10,13 @@ export const esVerification = {
   verifiedOn: "Verificado el",
   expiresOn: "vence el",
   statusNone: "Sin enviar",
+  summary: {
+    none: "Sin documentos enviados",
+    pending: "En revisión",
+    rejected: "Hay documentos rechazados",
+    partial: (a: number, t: number, d: string) => `${a} de ${t} aprobados · al ${d}`,
+    approved: (t: number, d: string) => `${t} de ${t} aprobados · al ${d}`,
+  },
   rejectedReason: "Motivo:",
   stageLabels: {
     identity: "Identidad (cédula y selfie)",

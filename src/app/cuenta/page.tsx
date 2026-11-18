@@ -8,6 +8,8 @@ import { ClaimReferral } from "@/components/ClaimReferral";
 import { ReferralSection } from "@/components/ReferralSection";
 import { referralProgramEnabled } from "@/lib/data/referrals";
 import { esVerification } from "@/lib/i18n/verification";
+import { listMyVerifications } from "@/lib/data/verification";
+import { stagesFor, summarizeVerifications } from "@/lib/domain/verification";
 import { HashScroll } from "@/components/HashScroll";
 import { Icon } from "@/components/Icon";
 import { JobCard } from "@/components/JobCard";
@@ -57,6 +59,18 @@ export default async function ProfilePage() {
   const isPro = profile.role === "pro";
   const clientView = !isPro || jobs.length > 0;
   const myPro = isPro ? await getMyPro(supabase) : null;
+  const verificationRows = myPro ? await listMyVerifications(supabase, profile.id) : [];
+  const verification = myPro ? summarizeVerifications(stagesFor(myPro.pro_type, myPro.trade), verificationRows) : null;
+  const verificationText = !verification ? null : (() => {
+    const v = esVerification.summary;
+    switch (verification.state) {
+      case "none": return v.none;
+      case "pending": return v.pending;
+      case "rejected": return v.rejected;
+      case "partial": return v.partial(verification.approved, verification.total, formatDate(verification.lastVerifiedAt));
+      case "approved": return v.approved(verification.total, formatDate(verification.lastVerifiedAt));
+    }
+  })();
   const standing = clientView ? await getClientStanding(supabase) : null;
   const referralEnabled = await referralProgramEnabled(supabase);
   const standingNotice = !standing ? null : standing.blocked ? (
@@ -106,6 +120,7 @@ export default async function ProfilePage() {
         <Link className="contact-row" href="/pro/verificacion">
           <span className="icon-box"><Icon name="shield" /></span>
           <span className="contact-label">{esVerification.navLabel}</span>
+          <span className="contact-value">{verificationText}</span>
         </Link>
       ) : null}
 

@@ -157,6 +157,7 @@ export function AdminShell({
 
   useEffect(() => {
     try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reads the saved menu state after mount, so the server and first client render match.
       setCollapsed(window.localStorage.getItem(COLLAPSED_KEY) === "1");
     } catch {
       /* storage blocked: keep default */
@@ -165,6 +166,7 @@ export function AdminShell({
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Closes the mobile drawer on route change. Syncs state to the route.
     setDrawerOpen(false);
   }, [pathname]);
 

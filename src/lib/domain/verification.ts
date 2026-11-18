@@ -51,3 +51,30 @@ export function needsExpiryInput(stage: Stage): boolean {
 export function needsIssueInput(stage: Stage): boolean {
   return stage === "buena_conducta";
 }
+
+/** One-line status for the account page. Derived from the latest row per stage. */
+export type VerificationSummary =
+  | { state: "none" }
+  | { state: "pending" }
+  | { state: "rejected" }
+  | { state: "partial"; approved: number; total: number; lastVerifiedAt: string }
+  | { state: "approved"; total: number; lastVerifiedAt: string };
+
+export function summarizeVerifications(
+  stages: Stage[],
+  latest: { stage: Stage; status: "pending" | "approved" | "rejected"; verified_at: string | null }[],
+): VerificationSummary {
+  const byStage = new Map(latest.map((r) => [r.stage, r]));
+  const approved = stages.filter((s) => byStage.get(s)?.status === "approved");
+  const dates = approved.map((s) => byStage.get(s)?.verified_at).filter((d): d is string => !!d).sort();
+  if (approved.length > 0 && dates.length > 0) {
+    const lastVerifiedAt = dates[dates.length - 1];
+    return approved.length === stages.length
+      ? { state: "approved", total: stages.length, lastVerifiedAt }
+      : { state: "partial", approved: approved.length, total: stages.length, lastVerifiedAt };
+  }
+  const statuses = stages.map((s) => byStage.get(s)?.status);
+  if (statuses.includes("pending")) return { state: "pending" };
+  if (statuses.includes("rejected")) return { state: "rejected" };
+  return { state: "none" };
+}
