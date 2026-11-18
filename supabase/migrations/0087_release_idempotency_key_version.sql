@@ -1,5 +1,5 @@
 -- 0087: release idempotency key version (queue item 2).
--- NOT APPLIED. Sam reviews, Fabian approves.
+-- APPLIED to production 2026-11-18 after Sam's review and Fabian's approval.
 --
 -- Problem: release-payments used one fixed Stripe Idempotency-Key per payment ("release_<payment id>").
 -- Stripe replays a cached result, including a failure, for 24h+. A confirmed refusal (for example,
