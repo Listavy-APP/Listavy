@@ -4,6 +4,8 @@ import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
 import { EmptyState } from "@/components/EmptyState";
 import { getCurrentProfile } from "@/lib/data/profiles";
+import { getPayoutDetails } from "@/lib/data/payouts";
+import { PayoutDetailsCard } from "./PayoutDetailsCard";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -47,6 +49,8 @@ export default async function ProPayoutsPage() {
   const profile = await getCurrentProfile(supabase);
   if (!profile || profile.role !== "pro") redirect("/cuenta");
 
+  const payoutDetails = await getPayoutDetails(supabase, profile.id);
+
   const { data, error } = await supabase
     .from("payments")
     .select("id, status, pro_payout_dop, keep_pro_payout_dop, released_at, created_at, jobs!inner(id, trade, zone, pro_id)")
@@ -67,6 +71,7 @@ export default async function ProPayoutsPage() {
     <section className="stack">
       <BackBar href="/cuenta" />
       <h1 className="page-title">{es.proPayouts.title}</h1>
+      <PayoutDetailsCard proId={profile.id} initial={payoutDetails} />
       <p className="muted">{es.proPayouts.note}</p>
       {error ? <p className="error">{es.proPayouts.failed}</p> : null}
       {!error && rows.length === 0 ? (

@@ -12,6 +12,8 @@ import { AvailabilityToggle } from "@/components/AvailabilityToggle";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
 import { CloseProfile } from "./CloseProfile";
+import { getPayoutDetails } from "@/lib/data/payouts";
+import { esPayouts } from "@/lib/i18n/payouts";
 
 export const metadata = { title: es.proStatus.title };
 export const instant = false;
@@ -65,10 +67,21 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
     );
   }
 
+  const hasPayoutDetails = (await getPayoutDetails(supabase, pro.id)) !== null;
+
   return (
     <section className="stack">
       <BackBar href="/cuenta" />
       <h1>{es.proStatus.title}</h1>
+      {!hasPayoutDetails ? (
+        <section className="panel stack">
+          <b>{esPayouts.bannerTitle}</b>
+          <p className="muted">{esPayouts.bannerBody}</p>
+          <Link className="button secondary" href="/pro/pagos">
+            {esPayouts.bannerCta}
+          </Link>
+        </section>
+      ) : null}
       <p className="lead">
         {pro.verification_status === "approved" && (pro as { available?: boolean }).available === false
           ? es.proStatus.approvedHidden
