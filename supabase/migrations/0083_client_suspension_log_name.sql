@@ -1,6 +1,6 @@
 -- 0083: Bitácora entry for a client suspension includes the suspended person's name.
 -- Scope: admin_suspend_client only. Unsuspend is unchanged.
--- NOT APPLIED. Sam reviews, then Fabian approves before this runs in production.
+-- APPLIED to production 2026-11-17. Reviewed by Sam; approved by Fabian.
 -- Only change: details gains client_name, read from profiles at write time.
 -- Rows written before this migration have no client_name; the Bitácora shows no name for them.
 

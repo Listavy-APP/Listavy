@@ -1,6 +1,6 @@
 -- 0084: adds the 'selfie' stage to pro_verifications.stage.
 -- Identity is now two uploads: 'identity' (cédula photo) and 'selfie'.
--- NOT APPLIED. Sam reviews, then Fabian approves before this runs in production.
+-- APPLIED to production 2026-11-17. Reviewed by Sam; approved by Fabian.
 -- Constraint name is Postgres's default for the inline check in 0074.
 
 alter table public.pro_verifications drop constraint pro_verifications_stage_check;
