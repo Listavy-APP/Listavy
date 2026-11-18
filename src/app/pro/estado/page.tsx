@@ -129,7 +129,7 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
       )}
       {pro.verification_status === "approved" && <BioForm proId={pro.id} initial={(pro as { bio?: string | null }).bio ?? null} />}
       {pro.verification_status === "approved" && (() => {
-        const planEnd = (pro as { plan_current_period_end?: string | null }).plan_current_period_end ?? null;
+        const planEnd = pro.plan_current_period_end ?? null;
         const isPro = pro.plan === "pro";
         return (
           <section className="panel stack" aria-labelledby="plan-status-title">

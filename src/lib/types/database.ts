@@ -49,10 +49,13 @@ export interface Pro {
   price_max_dop: number;
   verification_status: VerificationStatus;
   verified_at: string | null;
-  verified_by: string | null;
+  /** Admin-only column (0086). Not readable by the owner; absent from getMyPro results. */
+  verified_by?: string | null;
   plan: ProPlan;
-  /** Free Pro month from a referral reward (migration 0040). Null when none. */
+  /** Free Pro month from a referral reward (migration 0040). Null when none. Set by getMyPro from get_my_pro_status(). */
   pro_free_until: string | null;
+  /** Set by getMyPro from get_my_pro_status(). Null while the plan has no period end. */
+  plan_current_period_end?: string | null;
   pro_type: ProType;
   created_at: string;
   /** Set when the pro closes the profile (migration 0082). Null while open. */
