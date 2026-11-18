@@ -178,3 +178,38 @@ test("webhook: real Stripe invoice.paid shape (parent.subscription_details) norm
   assert.equal(r.event.amountPaidMinor, 4917);
   assert.equal(r.event.proId, "pro-1");
 });
+
+// Closing a pro profile cancels the Pro plan subscription now. No proration, no invoice, no refund.
+function errorFetch(status, message, calls = []) {
+  return async (url, init = {}) => {
+    calls.push({ url: String(url), method: init.method, body: init.body });
+    return { ok: false, status, json: async () => ({ error: { message } }) };
+  };
+}
+
+test("close: subscription is cancelled with a DELETE, no proration, no invoice", async () => {
+  const f = fakeFetch([{ id: "sub_9", status: "canceled" }]);
+  const p = createStripeProvider({ secretKey: "sk_test_x", webhookSecret: SECRET, fetch: f.fn });
+  assert.equal(await p.cancelProPlanSubscription("sub_9"), "cancelled");
+  assert.equal(f.calls[0].method, "DELETE");
+  assert.match(f.calls[0].url, /\/v1\/subscriptions\/sub_9$/);
+  const body = new URLSearchParams(f.calls[0].body);
+  assert.equal(body.get("prorate"), "false");
+  assert.equal(body.get("invoice_now"), "false");
+});
+
+test("close: a subscription that is already cancelled is not an error (safe retry)", async () => {
+  const p = createStripeProvider({
+    secretKey: "sk_test_x", webhookSecret: SECRET,
+    fetch: errorFetch(404, "No such subscription: 'sub_9'"),
+  });
+  assert.equal(await p.cancelProPlanSubscription("sub_9"), "already_cancelled");
+});
+
+test("close: any other Stripe error is rethrown, so the profile stays open", async () => {
+  const p = createStripeProvider({
+    secretKey: "sk_test_x", webhookSecret: SECRET,
+    fetch: errorFetch(402, "Your card was declined."),
+  });
+  await assert.rejects(() => p.cancelProPlanSubscription("sub_9"), /declined/);
+});

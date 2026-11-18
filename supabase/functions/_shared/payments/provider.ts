@@ -143,6 +143,12 @@ export interface PaymentProvider {
   /** Starts a hosted subscription checkout for the Pro plan. */
   createProPlanCheckout(input: ProPlanCheckoutInput): Promise<CheckoutCreated>;
 
+  /**
+   * Cancels a Pro plan subscription now. No proration, no invoice, no refund of the period already paid.
+   * Returns "already_cancelled" when the subscription was already cancelled, so a retry is safe.
+   */
+  cancelProPlanSubscription(subscriptionId: string): Promise<"cancelled" | "already_cancelled">;
+
   /** Verifies the webhook signature from the request headers and normalizes the event. Throws only on infrastructure errors. */
   verifyWebhook(raw: string, headers: Headers): Promise<WebhookResult>;
 
