@@ -8,6 +8,8 @@
 -- Fix: a confirmed refusal bumps payments.release_key_version. The next attempt uses a new key version
 -- (see _shared/payments/release-key.ts). Unknown outcomes keep the same key, so a double payout stays impossible.
 -- Only a payment still in status 'held' can be bumped, and only from the version the run used.
+-- Ceiling: the version never exceeds 5. At the ceiling the payment stays 'held' and visible in /admin/pagos.
+-- No new alert mechanism.
 
 alter table public.payments
   add column if not exists release_key_version integer not null default 1 check (release_key_version >= 1);
@@ -26,6 +28,7 @@ begin
    where id = p_payment
      and status = 'held'
      and release_key_version = p_from_version
+     and release_key_version < 5
   returning release_key_version into v_version;
 
   if v_version is null then
