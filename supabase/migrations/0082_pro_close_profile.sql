@@ -11,7 +11,9 @@
 --
 -- What is kept: jobs, payments, ledger rows, reviews, disputes, pro_files (ID, work photos),
 -- pro_companies (RNC), pro_verifications, and the profiles row. Nothing is deleted.
--- Decision pending (Fabian): retention period and whether verification files are removed.
+-- Decisions (Fabian, confirmed): verification files, RNC and identity documents are kept;
+-- personal data on the profile is kept, not anonymised; boosts are hidden on close with no refund
+-- of unused days; reopening is admin-only, with no UI.
 --
 -- Reopening: not self-service. Only an admin clears pros.closed_at (see the report).
 -- A closed pro cannot re-apply: the registration page already redirects an account with a pros row.
