@@ -26,6 +26,7 @@ export function Loader() {
       // Storage blocked: show the loader once per page load.
     }
     const start = performance.now();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Shows the loader after mount, only when sessionStorage and motion settings allow it.
     setVisible(true);
 
     const timers: number[] = [];

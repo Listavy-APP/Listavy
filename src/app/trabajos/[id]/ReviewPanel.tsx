@@ -150,6 +150,7 @@ function OwnReview({ review, disputeOpen }: { review: ReviewRow; disputeOpen: bo
   const [error, setError] = useState<string | null>(null);
   const [flagged, setFlagged] = useState(false);
 
+  // eslint-disable-next-line react-hooks/purity -- Render-time clock. Moving it into state would change when the edit window closes. Flagged for review.
   const withinEdit = Date.now() - new Date(review.created_at).getTime() < DAY_MS;
   const canEdit = withinEdit && !disputeOpen && review.status === "published";
 

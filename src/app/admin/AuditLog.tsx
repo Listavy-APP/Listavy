@@ -15,6 +15,8 @@ const ACTION_LABELS: Record<string, string> = {
   pro_rejected: "Profesional rechazado",
   payout_released: "Pago liberado al profesional",
   refund_processed: "Reembolso procesado",
+  client_suspended: "Cliente suspendido",
+  client_unsuspended: "Cliente reactivado",
 };
 
 const dateFmt = new Intl.DateTimeFormat("es-DO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Santo_Domingo" });
@@ -35,10 +37,11 @@ export async function AuditLog() {
       {!error && (data ?? []).length === 0 ? <p className="muted">Sin acciones registradas.</p> : null}
       <ul className="list">
         {(data ?? []).map((row) => {
+          const name = typeof row.details?.client_name === "string" && row.details.client_name ? ` · ${row.details.client_name}` : "";
           const reason = typeof row.details?.reason === "string" ? ` · ${row.details.reason}` : "";
           return (
             <li key={row.id}>
-              <span>{ACTION_LABELS[row.action] ?? row.action}{reason}</span>{" "}
+              <span>{ACTION_LABELS[row.action] ?? row.action}{name}{reason}</span>{" "}
               <span className="muted">{dateFmt.format(new Date(row.created_at))}</span>
             </li>
           );

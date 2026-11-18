@@ -35,6 +35,7 @@ export default async function AdminBoostsPage() {
   if (!profile || profile.role !== "admin") notFound();
 
   const boosts = await listAdminBoosts(supabase);
+  // eslint-disable-next-line react-hooks/purity -- Server page: request time read once per request. Replacing it would change the page logic.
   const now = Date.now();
 
   // Refund owed per row. Only rows that can still be refunded are asked. The database decides.

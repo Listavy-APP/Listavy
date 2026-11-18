@@ -268,12 +268,6 @@ export const es = {
     verifyFailed: "El código no es válido o ya venció. Pide uno nuevo.",
     back: "Volver",
   },
-  proChecklist: {
-    title: "Verificado por Listavy",
-    identity: "Identidad verificada",
-    email: "Correo verificado",
-    phone: "Teléfono verificado",
-  },
   proBioForm: {
     title: "Tu descripción",
     label: "Sobre ti (visible en tu perfil, máximo 500 caracteres)",

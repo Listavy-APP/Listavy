@@ -6,7 +6,7 @@ import { esTrust } from "@/lib/i18n/trust";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 /** Lets a party report a job photo they can already see. Reports go to the admin queue. */
-export function ReportPhotoButton({ path }: { path: string }) {
+export function ReportPhotoButton({ path, reported = false }: { path: string; reported?: boolean }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -14,6 +14,7 @@ export function ReportPhotoButton({ path }: { path: string }) {
   const [done, setDone] = useState(false);
 
   if (done) return <p className="muted">{esTrust.photoReport.sent}</p>;
+  if (reported) return <p className="muted">{esTrust.photoReport.alreadyReported}</p>;
 
   async function send() {
     setBusy(true);

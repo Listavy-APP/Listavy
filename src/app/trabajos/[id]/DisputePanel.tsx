@@ -88,6 +88,7 @@ export function DisputePanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // eslint-disable-next-line react-hooks/purity -- Render-time clock. Moving it into state would change when the filing window closes. Flagged for review.
   const now = Date.now();
   const current = disputes[0];
   const withinFilingWindow =

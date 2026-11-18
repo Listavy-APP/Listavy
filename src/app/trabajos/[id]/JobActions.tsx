@@ -38,6 +38,7 @@ export function JobActions(props: {
   pros: Record<string, { name: string | null; avatarUrl: string | null }>;
   pay: { quoteDop: number; creditDop: number; fx: number } | null;
   photos: Photo[];
+  reportedPaths: string[];
   contactPhone: string | null;
   completionCode: string | null;
 }) {
@@ -118,7 +119,7 @@ export function JobActions(props: {
                 <div className="photo-missing" aria-hidden="true" />
               )}
               <figcaption className="muted">{es.jobs.photoKind[p.kind]}</figcaption>
-              <ReportPhotoButton path={p.path} />
+              <ReportPhotoButton path={p.path} reported={props.reportedPaths.includes(p.path)} />
             </figure>
           ))}
         </div>

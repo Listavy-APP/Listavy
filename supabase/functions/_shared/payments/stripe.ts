@@ -279,10 +279,29 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
  * Pro plan subscription events. Returns null for everything else so the caller keeps its existing path.
  * "pending" is returned as { kind: "pending" } when a first checkout is not yet paid.
  */
-function proPlanResult(event: any): WebhookResult | null {
-  const obj = event.data?.object ?? {};
+/** Stripe event body after JSON.parse. Only the fields the pro plan path reads are typed. */
+type StripeEvent = {
+  id?: string;
+  type: string;
+  livemode?: boolean;
+  data?: { object?: StripeEventObject };
+};
+
+type StripeEventObject = {
+  id?: string;
+  mode?: string;
+  payment_status?: string;
+  subscription?: string;
+  metadata?: Record<string, string>;
+  parent?: { subscription_details?: { metadata?: Record<string, string>; subscription?: string } | null } | null;
+  lines?: { data?: { period?: { end?: number } }[] };
+  amount_paid?: number;
+};
+
+function proPlanResult(event: StripeEvent): WebhookResult | null {
+  const obj: StripeEventObject = event.data?.object ?? {};
   // Invoices carry subscription details under parent.subscription_details (Stripe API 2025-06-30+).
-  const invoiceSub = obj.parent?.subscription_details ?? {};
+  const invoiceSub: { metadata?: Record<string, string>; subscription?: string } = obj.parent?.subscription_details ?? {};
   const isPlanSubscription = event.type === "checkout.session.completed"
     ? obj.mode === "subscription" && obj.metadata?.purpose === "pro_plan"
     : event.type === "invoice.paid"
@@ -312,9 +331,9 @@ function proPlanResult(event: any): WebhookResult | null {
 }
 
 function planEvent(
-  event: any,
+  event: StripeEvent,
   kind: "activated" | "paid" | "ended",
-  m: Record<string, string>,
+  m: Record<string, string> | undefined,
   subscriptionId: string,
   invoiceId: string | null,
   periodEnd: string | null,

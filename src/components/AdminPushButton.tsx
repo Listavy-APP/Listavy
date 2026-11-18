@@ -17,6 +17,7 @@ export function AdminPushButton() {
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window) || !VAPID_PUBLIC_KEY) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Detects browser push support after mount, so the server and first client render match.
       setState("unsupported");
       return;
     }

@@ -3,6 +3,7 @@
 
 export const STAGES = [
   "identity",
+  "selfie",
   "buena_conducta",
   "sie_licence",
   "infotep_certificate",
@@ -17,7 +18,13 @@ export type Stage = (typeof STAGES)[number];
 export function stagesFor(proType: "individual" | "company", trade: string): Stage[] {
   if (proType === "company") return ["company_entity", "company_registry", "representative", "buena_conducta", "insurance"];
   const trade_stage: Stage = trade === "electrician" ? "sie_licence" : "infotep_certificate";
-  return ["identity", "buena_conducta", trade_stage, "insurance"];
+  return ["identity", "selfie", "buena_conducta", trade_stage, "insurance"];
+}
+
+/** Identity is two uploads: the cédula photo and the selfie. The identity badge needs both approved. */
+export function identityVerified(current: CurrentStage[]): boolean {
+  const have = new Set(current.map((c) => c.stage));
+  return have.has("identity") && have.has("selfie");
 }
 
 /** Current approved stages from pro_current_verifications. */
@@ -50,4 +57,31 @@ export function needsExpiryInput(stage: Stage): boolean {
 /** Stages whose issue date the pro enters. */
 export function needsIssueInput(stage: Stage): boolean {
   return stage === "buena_conducta";
+}
+
+/** One-line status for the account page. Derived from the latest row per stage. */
+export type VerificationSummary =
+  | { state: "none" }
+  | { state: "pending" }
+  | { state: "rejected" }
+  | { state: "partial"; approved: number; total: number; lastVerifiedAt: string }
+  | { state: "approved"; total: number; lastVerifiedAt: string };
+
+export function summarizeVerifications(
+  stages: Stage[],
+  latest: { stage: Stage; status: "pending" | "approved" | "rejected"; verified_at: string | null }[],
+): VerificationSummary {
+  const byStage = new Map(latest.map((r) => [r.stage, r]));
+  const approved = stages.filter((s) => byStage.get(s)?.status === "approved");
+  const dates = approved.map((s) => byStage.get(s)?.verified_at).filter((d): d is string => !!d).sort();
+  if (approved.length > 0 && dates.length > 0) {
+    const lastVerifiedAt = dates[dates.length - 1];
+    return approved.length === stages.length
+      ? { state: "approved", total: stages.length, lastVerifiedAt }
+      : { state: "partial", approved: approved.length, total: stages.length, lastVerifiedAt };
+  }
+  const statuses = stages.map((s) => byStage.get(s)?.status);
+  if (statuses.includes("pending")) return { state: "pending" };
+  if (statuses.includes("rejected")) return { state: "rejected" };
+  return { state: "none" };
 }

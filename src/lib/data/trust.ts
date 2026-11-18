@@ -11,6 +11,8 @@ export interface PhotoReportRow {
   resolution_note: string | null;
   created_at: string;
   resolved_at: string | null;
+  reporter_name: string | null;
+  photo_kind: "request" | "before" | "after" | null;
 }
 
 export interface SuspendedClientRow {
@@ -31,11 +33,23 @@ export async function reportJobPhoto(supabase: SupabaseClient, path: string, rea
 export async function listPhotoReports(supabase: SupabaseClient): Promise<PhotoReportRow[]> {
   const { data, error } = await supabase
     .from("job_photo_reports")
-    .select("id, job_id, storage_path, reason, status, resolution_note, created_at, resolved_at")
+    .select(
+      "id, job_id, storage_path, reason, status, resolution_note, created_at, resolved_at, " +
+        "reporter:profiles!job_photo_reports_reported_by_fkey(full_name), " +
+        "photo:job_photos!job_photo_reports_storage_path_fkey(kind)",
+    )
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) throw new Error(error.message);
-  return (data ?? []) as PhotoReportRow[];
+  type Raw = Omit<PhotoReportRow, "reporter_name" | "photo_kind"> & {
+    reporter: { full_name: string | null } | null;
+    photo: { kind: PhotoReportRow["photo_kind"] } | { kind: PhotoReportRow["photo_kind"] }[] | null;
+  };
+  return ((data ?? []) as unknown as Raw[]).map(({ reporter, photo, ...r }) => ({
+    ...r,
+    reporter_name: reporter?.full_name ?? null,
+    photo_kind: (Array.isArray(photo) ? photo[0]?.kind : photo?.kind) ?? null,
+  }));
 }
 
 export async function resolvePhotoReport(

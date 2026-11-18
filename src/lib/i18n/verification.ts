@@ -10,9 +10,17 @@ export const esVerification = {
   verifiedOn: "Verificado el",
   expiresOn: "vence el",
   statusNone: "Sin enviar",
+  summary: {
+    none: "Sin documentos enviados",
+    pending: "En revisión",
+    rejected: "Hay documentos rechazados",
+    partial: (a: number, t: number, d: string) => `${a} de ${t} aprobados · al ${d}`,
+    approved: (t: number, d: string) => `${t} de ${t} aprobados · al ${d}`,
+  },
   rejectedReason: "Motivo:",
   stageLabels: {
-    identity: "Identidad (cédula y selfie)",
+    identity: "Cédula (foto)",
+    selfie: "Selfie",
     buena_conducta: "Certificado de Buena Conducta (PGR)",
     sie_licence: "Licencia SIE (electricista)",
     infotep_certificate: "Certificado INFOTEP",
@@ -35,6 +43,8 @@ export const esVerification = {
   form: {
     stage: "Documento",
     file: "Archivo (JPG o PDF)",
+    fileIdentity: "Foto de tu cédula (JPG o PDF)",
+    fileSelfie: "Selfie sosteniendo tu cédula (JPG)",
     issueDate: "Fecha de emisión",
     expiryDate: "Fecha de vencimiento",
     submit: "Enviar para revisión",

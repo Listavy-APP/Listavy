@@ -27,6 +27,7 @@ export function InstallBanner() {
     window.addEventListener("beforeinstallprompt", onPrompt);
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     if (ios) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Detects iOS after mount, so the server and first client render match.
       setShowIos(true);
       setHidden(false);
     }

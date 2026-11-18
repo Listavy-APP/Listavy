@@ -1,5 +1,5 @@
 import { currentVerifications } from "@/lib/data/verification";
-import { companyVerified, type CurrentStage } from "@/lib/domain/verification";
+import { companyVerified, identityVerified, type CurrentStage } from "@/lib/domain/verification";
 import { esVerification as t } from "@/lib/i18n/verification";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -10,7 +10,7 @@ function date(iso: string) {
 function label(c: CurrentStage): string | null {
   const d = date(c.verified_at);
   switch (c.stage) {
-    case "identity": return t.badge.identity(d);
+    case "identity": return null; // Shown once as a whole, below, when the selfie is also approved.
     case "buena_conducta": return t.badge.buena_conducta(d);
     case "sie_licence": return t.badge.sie_licence(d);
     case "infotep_certificate": return t.badge.infotep_certificate(d);
@@ -31,6 +31,8 @@ export async function VerificationBadges({
 }) {
   const current = await currentVerifications(supabase, proId);
   const lines = current.map(label).filter((l): l is string => l !== null);
+  const identity = current.find((c) => c.stage === "identity");
+  if (identity && identityVerified(current)) lines.unshift(t.badge.identity(date(identity.verified_at)));
   const company = isCompany && companyVerified(current);
   if (lines.length === 0 && !company) return null;
   return (

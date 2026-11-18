@@ -10,6 +10,7 @@ export function ReferralShare({ code, track }: { code: string; track: "client" |
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reads the browser origin after mount, so the server and first client render match.
     setOrigin(window.location.origin);
   }, []);
 
