@@ -35,17 +35,33 @@ export interface ProApplicationInput {
   avatar?: Blob;
 }
 
+/** Columns the signed-in pro may read directly. Private columns come from get_my_pro_status(). */
+const OWN_PRO_COLUMNS =
+  "id, trade, zone, price_min_dop, price_max_dop, verification_status, verified_at, plan, pro_type, created_at, bio, available, is_demo";
+
 /** Returns the signed-in user's pro application, or null. */
 export async function getMyPro(supabase: SupabaseClient): Promise<Pro | null> {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) return null;
   const { data, error } = await supabase
     .from("pros")
-    .select("*")
+    .select(OWN_PRO_COLUMNS)
     .eq("id", userData.user.id)
     .maybeSingle();
   if (error) throw new Error(`No se pudo leer tu perfil profesional: ${error.message}`);
-  return data as Pro | null;
+  if (!data) return null;
+  const { data: status, error: statusErr } = await supabase.rpc("get_my_pro_status");
+  if (statusErr) throw new Error(`No se pudo leer el estado de tu perfil: ${statusErr.message}`);
+  const s = (Array.isArray(status) ? status[0] : status) as
+    | { rejection_reason: string | null; pro_free_until: string | null; closed_at: string | null; plan_current_period_end: string | null }
+    | undefined;
+  return {
+    ...(data as unknown as Pro),
+    rejection_reason: s?.rejection_reason ?? null,
+    pro_free_until: s?.pro_free_until ?? null,
+    closed_at: s?.closed_at ?? null,
+    plan_current_period_end: s?.plan_current_period_end ?? null,
+  };
 }
 
 /**

@@ -20,7 +20,8 @@ type PendingPro = {
   price_max_dop: number;
   created_at: string;
   pro_type: string;
-  profiles: { full_name: string | null; phone: string | null } | null;
+  full_name: string | null;
+  phone: string | null;
 };
 
 type FileRow = { pro_id: string; kind: string; storage_path: string };
@@ -41,12 +42,8 @@ export default async function AdminPendingProsPage() {
   const profile = await getCurrentProfile(supabase);
   if (!profile || profile.role !== "admin") notFound();
 
-  const { data: rows, error } = await supabase
-    .from("pros")
-    .select("id, trade, zone, city, price_min_dop, price_max_dop, created_at, pro_type, profiles:profiles!pros_id_fkey(full_name, phone)")
-    .eq("verification_status", "pending")
-    .is("closed_at", null)
-    .order("created_at", { ascending: false });
+  // admin_pending_pros() is SECURITY DEFINER and checks is_admin(). Direct pros reads are closed to the caller (0086).
+  const { data: rows, error } = await supabase.rpc("admin_pending_pros", { p_limit: null });
   if (error) throw new Error(`No se pudieron leer las solicitudes: ${error.message}`);
   const pros = (rows ?? []) as unknown as PendingPro[];
   const ids = pros.map((p) => p.id);
@@ -101,14 +98,14 @@ export default async function AdminPendingProsPage() {
         const razon = companyByPro.get(pro.id);
         return (
           <article key={pro.id} className="panel stack">
-            <h2>{pro.profiles?.full_name ?? "—"}</h2>
+            <h2>{pro.full_name ?? "—"}</h2>
             {company ? (
               <p>
                 <span className="badge">{es.adminPending.company}</span> {razon ?? ""}
               </p>
             ) : null}
             <dl className="stack">
-              <div><dt className="muted">{es.adminPending.phone}</dt><dd>{pro.profiles?.phone ?? "—"}</dd></div>
+              <div><dt className="muted">{es.adminPending.phone}</dt><dd>{pro.phone ?? "—"}</dd></div>
               <div><dt className="muted">{es.trades[pro.trade as keyof typeof es.trades] ?? pro.trade}</dt><dd>{pro.zone}, {pro.city}</dd></div>
               <div><dt className="muted">{es.adminPending.price}</dt><dd>{dop(pro.price_min_dop)} – {dop(pro.price_max_dop)}</dd></div>
               <div><dt className="muted">{es.adminPending.applied}</dt><dd>{dateTime(pro.created_at)}</dd></div>

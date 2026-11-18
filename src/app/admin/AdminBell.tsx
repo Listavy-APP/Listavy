@@ -40,7 +40,7 @@ export async function AdminBell() {
       ? supabase.rpc("admin_list_checkin_problems")
       : Promise.resolve({ data: [] }),
     s.pending_pro_applications > 0
-      ? supabase.from("pros").select("id, created_at").eq("verification_status", "pending").is("closed_at", null).order("created_at", { ascending: false }).limit(LIMIT)
+      ? supabase.rpc("admin_pending_pros", { p_limit: LIMIT })
       : Promise.resolve({ data: [] }),
   ]);
 

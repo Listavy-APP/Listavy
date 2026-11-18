@@ -70,7 +70,7 @@ export default async function AdminDashboardPage() {
     activeBoosts,
     referrals,
   ] = await Promise.all([
-    supabase.from("pros").select("id", { count: "exact", head: true }).eq("verification_status", "pending").is("closed_at", null),
+    supabase.rpc("admin_pending_pro_count"),
     supabase.from("jobs").select("status"),
     supabase
       .from("disputes")
@@ -122,7 +122,7 @@ export default async function AdminDashboardPage() {
       <AdminPushButton />
 
       <h2>Profesionales</h2>
-      <Stat label="Pendientes de aprobación" value={pendingPros.count ?? 0} />
+      <Stat label="Pendientes de aprobación" value={(pendingPros.data as number | null) ?? 0} />
 
       <h2>Trabajos por estado</h2>
       <Stat label="Total de trabajos" value={jobTotal} />
