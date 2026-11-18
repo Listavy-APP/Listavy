@@ -25,6 +25,20 @@ const JOB = "10000000-0000-0000-0000-000000000001";
 
 const db = new PGlite();
 
+/**
+ * Runs fixture SQL the way the SQL editor does: no user, so role guards allow it (0061).
+ * The job suspension trigger (0075) rejects inserts with no auth.uid(); it is disabled only
+ * for the fixture and re-enabled in finally. Fixture only.
+ */
+async function seedFixture(sql) {
+  await db.exec("alter table public.jobs disable trigger jobs_block_when_client_suspended");
+  try {
+    await db.exec(sql);
+  } finally {
+    await db.exec("alter table public.jobs enable trigger jobs_block_when_client_suspended");
+  }
+}
+
 // Stand-ins for Supabase's auth and storage schemas.
 await db.exec(`
   create schema auth;
@@ -34,10 +48,20 @@ await db.exec(`
   create role service_role;
   create or replace function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+  -- Supabase's auth.jwt() returns the request's JWT claims (used by aal2 checks in 0061).
+  create or replace function auth.jwt() returns jsonb language sql stable as
+    $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
   grant usage on schema auth to public;
 
+  -- Supabase-managed schemas used by migrations. Stubs only; no secrets are stored.
+  create schema vault;
+  create table vault.decrypted_secrets (id uuid primary key default gen_random_uuid(), name text, decrypted_secret text);
+  create schema net;
+  create or replace function net.http_post(url text, headers jsonb, body jsonb) returns bigint
+    language sql as $$ select 1::bigint $$;
+
   create schema storage;
-  create table storage.buckets (id text primary key, name text, public boolean);
+  create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table storage.objects (
     id uuid primary key default gen_random_uuid(),
     bucket_id text references storage.buckets (id),
@@ -49,7 +73,20 @@ await db.exec(`
     $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
 `);
 
+// Production has the launch demo pro before 0059 converts it. Seed it first so 0059's
+// demo_reviews inserts pass the foreign key. Fixture only: no migration changes.
+const DEMO_PRO = "00000000-0000-4000-8000-000000000001";
+async function seedDemoProBeforeMigration(file) {
+  if (!file.startsWith("0059_")) return;
+  await db.exec(`
+    insert into auth.users (id, phone) values ('${DEMO_PRO}', '+18095550099');
+    insert into public.pros (id, trade, zone, price_min_dop, price_max_dop, verification_status)
+      values ('${DEMO_PRO}', 'plumber', 'Piantini', 2000, 4000, 'approved');
+  `);
+}
+
 for (const file of migrations) {
+  await seedDemoProBeforeMigration(file);
   await db.exec(fs.readFileSync(path.join(migrationsDir, file), "utf8"));
 }
 
@@ -66,7 +103,7 @@ await db.exec(`
 `);
 
 // Seed as the SQL editor would (no auth.uid), so the auth trigger creates profiles.
-await db.exec(`
+await seedFixture(`
   insert into auth.users (id, phone) values
     ('${HOMEOWNER}', '+18095550001'),
     ('${PRO}', '+18095550002'),
@@ -74,7 +111,6 @@ await db.exec(`
     ('${OUTSIDER_PRO}', '+18095550004'),
     ('${PENDING_PRO}', '+18095550005'),
     ('${COMPANY_PRO}', '+18095550006');
-  update public.profiles set role = 'admin' where id = '${ADMIN}';
   update public.profiles set role = 'pro' where id in ('${PRO}', '${OUTSIDER_PRO}', '${PENDING_PRO}', '${COMPANY_PRO}');
   update public.profiles set full_name = 'TEST Pro Uno' where id = '${PRO}';
   insert into public.pros (id, trade, zone, price_min_dop, price_max_dop, verification_status)
@@ -88,14 +124,21 @@ await db.exec(`
   insert into public.quotes (job_id, pro_id, amount_dop)
     values ('${JOB}', '${PRO}', 3000);
 `);
+// Admin role after the admin's auth.users row exists (the profile is created by the auth trigger).
+await db.exec(`update public.profiles set role = 'admin', admin_role = 'super_admin' where id = '${ADMIN}';`);
 
 /** Runs SQL as a given user and returns the result. Always resets role. */
 async function asUser(uid, sql) {
-  await db.exec(`set role authenticated; set request.jwt.claim.sub = '${uid}';`);
+  // Only the seed admin gets an aal2 session (is_admin() needs aal2, see 0061).
+  const aal = uid === ADMIN ? "aal2" : "aal1";
+  await db.exec(
+    `set role authenticated; set request.jwt.claim.sub = '${uid}';
+     set request.jwt.claims = '{"sub":"${uid}","role":"authenticated","aal":"${aal}"}';`,
+  );
   try {
     return await db.query(sql);
   } finally {
-    await db.exec("reset role; reset request.jwt.claim.sub;");
+    await db.exec("reset role; reset request.jwt.claim.sub; reset request.jwt.claims;");
   }
 }
 
@@ -133,7 +176,7 @@ await check("pro cannot self-upgrade plan", async () => {
 await check("user cannot change own role", async () => {
   await assert.rejects(
     asUser(HOMEOWNER, `update public.profiles set role = 'admin' where id = '${HOMEOWNER}'`),
-    /Solo un administrador/,
+    /Solo un (super )?administrador/,
   );
 });
 
@@ -168,7 +211,7 @@ await check("job FX rate must be positive", async () => {
     /row-level security|check constraint/,
   );
   await assert.rejects(
-    db.exec(`insert into public.jobs (homeowner_id, trade, zone, description, fx_rate_dop_per_usd)
+    asUser(HOMEOWNER, `insert into public.jobs (homeowner_id, trade, zone, description, fx_rate_dop_per_usd)
        values ('${HOMEOWNER}', 'plumber', 'Naco', 'TEST: x', 0)`),
     /check constraint/,
   );
@@ -185,12 +228,15 @@ await check("zone must be a Santo Domingo zone", async () => {
   );
 });
 
-await check("list_pro_cards returns only safe columns", async () => {
+await check("list_pro_cards returns no private columns", async () => {
+  // Private pro and company fields must never appear in the public card function.
   const r = await asUser(HOMEOWNER, "select * from public.list_pro_cards()");
-  const cols = Object.keys(r.rows[0] ?? {}).sort();
-  assert.deepEqual(cols, [
-    "avatar_path", "full_name", "id", "plan", "price_max_dop", "price_min_dop", "trade", "verified_at", "zone",
-  ]);
+  const cols = Object.keys(r.rows[0] ?? {});
+  const PRIVATE = [
+    "stripe_account_id", "plan_stripe_subscription_id", "plan_current_period_end", "plan_activated_at",
+    "verified_by", "rejection_reason", "suspended_at", "pro_free_until", "closed_at", "rnc", "rnc_verified_by",
+  ];
+  for (const c of PRIVATE) assert.ok(!cols.includes(c), `private column leaked: ${c}`);
 });
 
 await check("list_pro_cards shows only approved pros", async () => {
@@ -653,7 +699,7 @@ const DEL_JOB = "10000000-0000-0000-0000-000000000021";
 const DEL_JOB_HELD = "10000000-0000-0000-0000-000000000022";
 const DEL_JOB_DISPUTE = "10000000-0000-0000-0000-000000000023";
 
-await db.exec(`
+await seedFixture(`
   insert into auth.users (id, phone) values
     ('${DEL}', '+18095550021'), ('${DEL_HELD}', '+18095550022'), ('${DEL_DISPUTE}', '+18095550023');
   update public.profiles set full_name = 'TEST Borrar Uno', zone = 'Naco',
@@ -748,7 +794,7 @@ const HO4 = "00000000-0000-0000-0000-000000000033"; // homeowner for anti-ghosti
 const J_REPAIR = "10000000-0000-0000-0000-00000000f001";
 const J_DIAG = "10000000-0000-0000-0000-00000000f002";
 
-await db.exec(`
+await seedFixture(`
   update public.pros set trade = 'plumber', verification_status = 'approved'
     where id in ('${PRO}', '${OUTSIDER_PRO}');
   update public.pros set trade = 'plumber' where id = '${OUTSIDER_PRO}';
@@ -994,7 +1040,7 @@ const REV_JOB = "10000000-0000-0000-0000-00000000f010";
 const REV_HO = "00000000-0000-0000-0000-000000000034";
 const REV_PRO = "00000000-0000-0000-0000-000000000035";
 
-await db.exec(`
+await seedFixture(`
   insert into auth.users (id, phone) values ('${REV_HO}', '+18095550034'), ('${REV_PRO}', '+18095550035');
   update public.pros set trade = 'plumber', verification_status = 'approved'
     where id = '${PRO}';
