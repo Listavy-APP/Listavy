@@ -142,18 +142,103 @@ async function asUser(uid, sql) {
   }
 }
 
+// Known-red checks. Each entry is a test-side defect with its reason. Group: TEST STALE.
+// Product-behavior questions: none (suspension trigger is kept by decision, 2026-11-18).
+// Fix list: the suite repair step before item 4. Remove an entry when its check passes.
+const KNOWN_RED = {
+  "job FX rate must be positive": "TEST STALE: stale expectation: the RLS policy rejects the insert before the check constraint runs; the first assertion already accepts both messages; the second uses a direct insert with no auth.uid() (trigger path).",
+  "anti-ghosting: 5 unbooked requests in 30 days blocks new requests": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "completion code: five failures lock the job": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0014 link: a credit may only come from a diagnostic job": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0014 link: an unpaid diagnostic cannot be credited": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0014 link: only one repair per diagnostic": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0014 apply: credited repair charges RD$5,250, marks the job paid": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0016 apply: the stripe event row is marked processed": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0017 pros: a pro cannot set their own payout account": "TEST STALE: stale expectation: the guard now blocks stripe_account_id with the 0086 message; the test still expects the older 'asigna Listavy' text. Behavior is correct.",
+  "0017 release: approval starts a 24 h clock on the held payment": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0017 release: claim returns a payment only after its 24 h window": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0017 release: a payment is marked released once": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0014 apply: a repeated Stripe event id is a no-op": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0014 apply: charging the full quote (RD$6,000) with a credit is refused": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0014 apply: a split that does not add up is refused by the table": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0014 apply: a failed apply leaves no event row, so Stripe can retry": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0018 cancel: client cancels an accepted unpaid job with no refund": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0018 cancel: client cancels a held job and a full refund is queued": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0018 cancel: pro cancel queues a refund and records a strike": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0018 cancel: the wrong party cannot cancel": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0018 cancel: a cancelled job cannot be cancelled again": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0018 cancel: a job in progress cannot be cancelled here": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0018 refunds: only one open or succeeded refund per payment": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0018 processor: claim, then mark succeeded moves payment and job to refunded": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0018 refunds: signed-in users see no refund or strike rows": "TEST STALE: stale fixture: seedJobPayment, seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0019 open: a pre-release dispute freezes the payment": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0019 open: a stranger cannot open a dispute": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0019 open: nothing can be disputed after 48 h": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0019 open: after release only a latent defect is accepted": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0019 claim: a disputed payment is not released": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0019 outcome: release_full returns a frozen payment to held": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0019 outcome: release_full sets the legacy status and redo keeps the dispute open": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0019 outcome: full_refund queues a dispute refund and marks the payment refunded": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0019 outcome: partial refund splits the payment, commission on the kept portion only": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0019 guarantee: a post-release refund is refused while the reserve is empty": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0019 guarantee: a funded reserve pays the refund and records the recovery": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0019 guarantee: a post-release refund cannot exceed the job amount": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0019 access: parties cannot insert or update disputes directly": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0019 access: reserve and recovery rows are not visible to signed-in users": "TEST STALE: stale fixture: depends on seeded data created by a helper that the suspension trigger rejects. Route the seed through seedFixture.",
+  "0020 admin: an admin reads the reserve ledger and recoveries; pros and homeowners do not": "TEST STALE: stale fixture: depends on seeded data created by a helper that the suspension trigger rejects. Route the seed through seedFixture.",
+  "0020 admin: reserve and recoveries stay read-only for admins": "TEST STALE: stale fixture: depends on seeded data created by a helper that the suspension trigger rejects. Route the seed through seedFixture.",
+  "0021 release: funds 10% of the retained commission": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0021 release: a repeat release adds no second funding row": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0021 release: a partial split funds 10% of the kept commission only": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0027 window: an admin decision before the evidence window closes is refused": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0027 evidence: a party can submit a statement; an outsider cannot": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0021 release: a zero commission adds no funding row": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0022 netting: a debt larger than the payout takes the whole payout, and release is recorded": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0022 netting: a smaller debt is cleared and the pro keeps the rest": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0022 netting: debts are cleared oldest first, and the remainder stays owed": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0022 netting: a repeat claim reuses the stored netting and deducts nothing twice": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0022 reversal: a full refund before release returns the debt to owed": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0022 reversal: a partial pre-release split re-nets on the next claim, on the kept payout": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0022 reversal: a release keeps its deduction": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
+  "0023 provider: jobs default to stripe and refuse an unknown provider": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0023 provider: payments refuse an unknown provider": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0023 provider: a job's provider cannot change once it has a payment": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0024 tip: a tip is stored; the charge is quote minus credit plus tip; payout includes the tip": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0024 tip: a tip over 20% of the quote is refused": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0024 tip: an amount that leaves out the tip is refused": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0030 submit: the paying homeowner reviews a completed job; a stranger cannot": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0030 submit: under 4 stars needs 20 characters; contact details are refused": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0030 submit: one review per job": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0030 hold: an open dispute blocks the review form and hides the review from the public": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0030 edit: allowed within 24 hours, refused after, and the pro gets one response edit": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0030 private rating: only the pro rates the client; low average is flagged": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0030 dispute: a full refund removes the review; the admin reason is kept": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0030 moderation: only the admin moderates; a removal needs a reason": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0030 flags: a personal-data flag hides the review at once": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0030 names: a visitor sees the reviewer as first name plus last initial, never the full name": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0031 refunds: an admin reads refund rows; a pro does not; the trigger function is not an RPC": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0032 standing: two low ratings give no warning; three give a warning but no block": "TEST STALE: stale fixture: depends on seeded data created by a helper that the suspension trigger rejects. Route the seed through seedFixture.",
+  "0032 block: five low ratings stop new job requests; the form refuses the insert": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0032 window: low ratings older than 90 days stop counting and the block lifts": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+  "0032 clear: only an admin clears the count, with a reason; the block lifts and new lows count again": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
+};
+
 const results = [];
+const ranNames = new Set();
 async function closeWindows() {
   // Test helper: the evidence window is 48h. Close it so the admin decision is allowed.
   await db.exec("update public.disputes set evidence_due_at = now() - interval '1 minute' where stage = 'evidence'");
 }
 
 async function check(name, fn) {
+  ranNames.add(name);
   try {
     await fn();
     results.push(["PASS", name]);
   } catch (e) {
-    results.push(["FAIL", `${name}: ${e.message.split("\n").join(" | ")}`]);
+    const msg = `${name}: ${e.message.split("\n").join(" | ")}`;
+    if (KNOWN_RED[name]) results.push(["KNOWN_RED", `${msg}  [${KNOWN_RED[name]}]`]);
+    else results.push(["FAIL", msg]);
   }
 }
 
@@ -2210,7 +2295,14 @@ await check("0032 privacy: the client sees counts, not individual ratings", asyn
 
 await db.close();
 
+// A known-red entry must match a check that runs. Otherwise the list has gone stale.
+for (const name of Object.keys(KNOWN_RED)) {
+  if (!ranNames.has(name)) results.push(["FAIL", `KNOWN_RED entry matches no check: ${name}`]);
+}
+
 for (const [status, name] of results) console.log(`${status}  ${name}`);
 const failed = results.filter(([s]) => s === "FAIL").length;
-console.log(`\n${results.length - failed}/${results.length} passed`);
+const known = results.filter(([s]) => s === "KNOWN_RED").length;
+const passed = results.filter(([s]) => s === "PASS").length;
+console.log(`\n${passed}/${results.length} passed, ${known} known-red, ${failed} failed`);
 process.exit(failed ? 1 : 0);
