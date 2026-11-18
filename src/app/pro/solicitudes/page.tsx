@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InviteCard, type Quote } from "./InviteCard";
 import { es } from "@/lib/i18n/es";

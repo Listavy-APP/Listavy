@@ -40,6 +40,7 @@ Deno.serve(async (req: Request) => {
 
   const payload = JSON.stringify({ title: body.title, body: body.body, url: body.url ?? "/admin" });
   let sent = 0;
+  let failed = 0;
   const gone: string[] = [];
   for (const s of subs ?? []) {
     try {
@@ -51,10 +52,16 @@ Deno.serve(async (req: Request) => {
       sent++;
     } catch (err) {
       const status = (err as { statusCode?: number }).statusCode;
-      if (status === 404 || status === 410) gone.push(s.id);
+      if (status === 404 || status === 410) {
+        gone.push(s.id);
+      } else {
+        // Log the subscription id, status and message only. The endpoint URL is a credential.
+        failed++;
+        console.error("send-push failed", { subscriptionId: s.id, status: status ?? null, message: (err as Error).message });
+      }
     }
   }
   if (gone.length > 0) await admin.from("push_subscriptions").delete().in("id", gone);
 
-  return json({ sent, removed: gone.length });
+  return json({ sent, removed: gone.length, failed });
 });

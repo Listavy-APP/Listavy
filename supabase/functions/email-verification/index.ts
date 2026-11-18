@@ -4,7 +4,7 @@
 //   { action: "verify", code }   -> checks the newest unused code; 3 wrong attempts lock it;
 //                                   on success writes profiles.email and email_verified_at (service role).
 // The email is never a login method. Phone OTP stays the only login.
-// NOT DEPLOYED: requires RESEND_API_KEY and a verified sending domain (listavy.com).
+// Deployed as v1 (2026-11-17). Requires RESEND_API_KEY and the verified sending domain listavy.com.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 

@@ -188,6 +188,8 @@ function OwnReview({ review, disputeOpen }: { review: ReviewRow; disputeOpen: bo
     }
   }
 
+  // Open question for Fabian: no UI calls onFlag (the review flag button was never wired). Decide before wiring or removing.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function onFlag() {
     try {
       await flagReview(createSupabaseBrowserClient(), review.id, "other");
