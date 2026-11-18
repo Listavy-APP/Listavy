@@ -14,12 +14,23 @@ export function normalizePhone(input: string): string | null {
   return E164.test(compact) ? compact : null;
 }
 
+/**
+ * Sends the login code by WhatsApp (Twilio Verify, sender "Listavy").
+ * If WhatsApp cannot deliver (for example, the number has no WhatsApp), retries once by SMS
+ * so the user is not locked out. If the SMS attempt also fails, its error is thrown.
+ */
 export async function sendWhatsAppCode(supabase: SupabaseClient, phone: string): Promise<void> {
-  const { error } = await supabase.auth.signInWithOtp({
+  const whatsapp = await supabase.auth.signInWithOtp({
+    phone,
+    options: { channel: "whatsapp" },
+  });
+  if (!whatsapp.error) return;
+
+  const sms = await supabase.auth.signInWithOtp({
     phone,
     options: { channel: "sms" },
   });
-  if (error) throw error;
+  if (sms.error) throw sms.error;
 }
 
 export async function verifyWhatsAppCode(
