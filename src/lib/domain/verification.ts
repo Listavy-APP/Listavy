@@ -3,6 +3,7 @@
 
 export const STAGES = [
   "identity",
+  "selfie",
   "buena_conducta",
   "sie_licence",
   "infotep_certificate",
@@ -17,7 +18,13 @@ export type Stage = (typeof STAGES)[number];
 export function stagesFor(proType: "individual" | "company", trade: string): Stage[] {
   if (proType === "company") return ["company_entity", "company_registry", "representative", "buena_conducta", "insurance"];
   const trade_stage: Stage = trade === "electrician" ? "sie_licence" : "infotep_certificate";
-  return ["identity", "buena_conducta", trade_stage, "insurance"];
+  return ["identity", "selfie", "buena_conducta", trade_stage, "insurance"];
+}
+
+/** Identity is two uploads: the cédula photo and the selfie. The identity badge needs both approved. */
+export function identityVerified(current: CurrentStage[]): boolean {
+  const have = new Set(current.map((c) => c.stage));
+  return have.has("identity") && have.has("selfie");
 }
 
 /** Current approved stages from pro_current_verifications. */

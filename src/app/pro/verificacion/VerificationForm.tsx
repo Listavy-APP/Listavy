@@ -68,7 +68,7 @@ export function VerificationForm({ proId, stages }: { proId: string; stages: Sta
         </select>
       </label>
       <label className="field">
-        <span>{t.form.file}</span>
+        <span>{stage === "identity" ? t.form.fileIdentity : stage === "selfie" ? t.form.fileSelfie : t.form.file}</span>
         <input type="file" accept="image/jpeg,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
       {needsIssueInput(stage) ? (
