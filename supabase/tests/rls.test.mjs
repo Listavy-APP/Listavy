@@ -876,8 +876,6 @@ await check("deletion: auth user can be removed; anonymised profile row remains"
 const PRO2 = "00000000-0000-0000-0000-000000000031"; // approved plumber, second pro
 const HO2 = "00000000-0000-0000-0000-000000000032"; // homeowner for cap test
 const HO4 = "00000000-0000-0000-0000-000000000033"; // homeowner for anti-ghosting test
-const J_REPAIR = "10000000-0000-0000-0000-00000000f001";
-const J_DIAG = "10000000-0000-0000-0000-00000000f002";
 
 await seedFixture(`
   update public.pros set trade = 'plumber', verification_status = 'approved'
@@ -891,7 +889,6 @@ await seedFixture(`
 `);
 
 const desc = "Fuga de agua debajo del lavamanos";
-const photo = (uid, n) => `{${uid}/${n}.jpg}`;
 
 await check("job request: 4 pros is refused (3-quote cap)", async () => {
   await assert.rejects(
@@ -976,7 +973,6 @@ await check("quote: pro submits a fixed price with inclusions and a 48h validity
   const r = await db.query(`select status, amount_dop, valid_until - now() as ttl from public.quotes where id = '${q.rows[0].id}'`);
   assert.equal(r.rows[0].status, "sent");
   assert.equal(r.rows[0].amount_dop, 2400);
-  const hours = (new Date(r.rows[0].ttl).getTime() || 0);
   assert.ok(r.rows[0].ttl !== null);
 });
 
@@ -1641,7 +1637,7 @@ await check("0019 open: after release only a latent defect is accepted", async (
 });
 
 await check("0019 claim: a disputed payment is not released", async () => {
-  const { job, payment } = await seedJobPayment({ approvedHoursAgo: 30 });
+  const { payment } = await seedJobPayment({ approvedHoursAgo: 30 });
   await db.exec(`update public.payments set status = 'disputed' where id = '${payment}'`);
   const due = await db.query(`select payment_id from public.claim_due_payments(200)`);
   assert.equal(due.rows.some((x) => x.payment_id === payment), false);
