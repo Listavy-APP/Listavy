@@ -3,6 +3,7 @@
 // behavior match the functions this replaced.
 
 import { findTransferForPayment } from "./transfer-lookup.ts";
+import { stripeErrorKind } from "./release-key.ts";
 import type {
   BoostCheckoutInput,
   BoostEvent,
@@ -61,7 +62,12 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
       body: body?.toString(),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data?.error?.message ?? "Error de Stripe.");
+    if (!res.ok) {
+      const err = new Error(data?.error?.message ?? "Error de Stripe.") as Error & { kind: string; status: number };
+      err.status = res.status;
+      err.kind = stripeErrorKind(res.status); // "rejected" = confirmed refusal, see release-key.ts
+      throw err;
+    }
     return data;
   }
 

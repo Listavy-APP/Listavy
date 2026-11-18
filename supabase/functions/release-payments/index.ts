@@ -1,9 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { providerFor } from "../_shared/payments/provider.ts";
+import { isConfirmedRejection, releaseKey } from "../_shared/payments/release-key.ts";
 
 // Pays pros 24 h after approval. Called every 15 min by pg_cron through pg_net.
-// Each payment gets one provider transfer. The idempotency key is the payment id, so a retry
-// after a timeout returns the same transfer and cannot pay twice.
+// Each payment gets one provider transfer. The idempotency key is the payment id plus a key version
+// (payments.release_key_version). An unknown outcome keeps the key, so a retry cannot pay twice.
+// A confirmed refusal bumps the version, so the next attempt is not replayed from Stripe's cache.
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -50,7 +52,7 @@ Deno.serve(async (req: Request) => {
 
       // The payment records its provider. The flow calls only the interface.
       const { data: payRow, error: payErr } = await admin
-        .from("payments").select("provider, referral_discount_dop").eq("id", p.payment_id).single();
+        .from("payments").select("provider, referral_discount_dop, release_key_version").eq("id", p.payment_id).single();
       if (payErr) throw new Error(payErr.message);
       const provider = providerFor(payRow.provider, { stripeSecretKey: stripeKey, stripeWebhookSecret: "" });
 
@@ -66,15 +68,29 @@ Deno.serve(async (req: Request) => {
       if (!transferId) {
         // Pro's net share of the charge, in minor units, after recovery netting. Commission is what is left.
         const payoutMinor = Math.round((Number(p.amount_minor) * p.net_payout_dop) / p.amount_dop);
-        transferId = await provider.createTransfer({
-          paymentId: p.payment_id,
-          jobId: p.job_id,
-          chargeId,
-          destination: p.pro_account_id,
-          amountMinor: payoutMinor,
-          currency: provider.currency,
-          idempotencyKey: "release_" + p.payment_id,
-        });
+        const keyVersion = Number(payRow.release_key_version ?? 1);
+        try {
+          transferId = await provider.createTransfer({
+            paymentId: p.payment_id,
+            jobId: p.job_id,
+            chargeId,
+            destination: p.pro_account_id,
+            amountMinor: payoutMinor,
+            currency: provider.currency,
+            idempotencyKey: releaseKey(p.payment_id, keyVersion),
+          });
+        } catch (createErr) {
+          // Stripe refused and created no transfer. Move to a new key version so the next run is a real attempt.
+          // The version bump only happens from the version this run used, so a concurrent run cannot bump twice.
+          if (isConfirmedRejection(createErr)) {
+            const { error: bumpErr } = await admin.rpc("bump_release_key_version", {
+              p_payment: p.payment_id,
+              p_from_version: keyVersion,
+            });
+            if (bumpErr) throw new Error(bumpErr.message);
+          }
+          throw createErr;
+        }
       }
 
       const { data: marked, error: markErr } = await admin.rpc("mark_payment_released", {
