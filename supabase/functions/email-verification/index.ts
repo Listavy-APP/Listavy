@@ -4,9 +4,16 @@
 //   { action: "verify", code }   -> checks the newest unused code; 3 wrong attempts lock it;
 //                                   on success writes profiles.email and email_verified_at (service role).
 // The email is never a login method. Phone OTP stays the only login.
-// Deployed as v1 (2026-11-17). Requires RESEND_API_KEY and the verified sending domain listavy.com.
+// Deployed as v2 (2026-11-18): adds CORS and OPTIONS handling so the browser preflight succeeds.
+// v1 returned 405 to OPTIONS, so no POST arrived. Requires RESEND_API_KEY and the verified sending domain listavy.com.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -20,7 +27,7 @@ const MAX_SENDS_PER_10_MIN = 5;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 }
 
 async function sha256Hex(text: string): Promise<string> {
@@ -34,6 +41,7 @@ function sixDigitCode(): string {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Método no permitido." }, 405);
 
   const authHeader = req.headers.get("Authorization") ?? "";
