@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
-// Open question for Fabian: Analytics is never mounted, so PostHog consent never runs. Decide before mounting or removing.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Analytics } from "@/components/Analytics";
 import { AppHeader } from "@/components/AppHeader";
 import { CaptureReferral } from "@/components/CaptureReferral";
@@ -39,6 +37,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es-DO" className={manrope.variable}>
       <body>
+        <Analytics />
         <CaptureReferral />
         <RegisterServiceWorker />
         <main className="page">
