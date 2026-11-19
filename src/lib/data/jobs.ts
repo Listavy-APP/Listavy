@@ -25,6 +25,8 @@ export interface JobRow {
   diagnosis_text: string | null;
   pending_difference_dop: number;
   approved_quote_id: string | null;
+  scheduled_date: string | null;
+  scheduled_window: string | null;
   credit_from_job_id: string | null;
   fx_rate_dop_per_usd: number | string;
   created_at: string;
@@ -110,6 +112,9 @@ export async function createJobRequest(
     photoPaths: string[];
     voicePath: string | null;
     requestedProType?: RequestedType;
+    /** Both null for "Lo antes posible". Otherwise one date (YYYY-MM-DD) and one window. */
+    scheduledDate?: string | null;
+    scheduledWindow?: string | null;
   },
 ): Promise<string> {
   const { data, error } = await supabase.rpc("create_job_request", {
@@ -121,9 +126,21 @@ export async function createJobRequest(
     p_photo_paths: input.photoPaths,
     p_voice_path: input.voicePath,
     p_requested_pro_type: input.requestedProType ?? "any",
+    p_scheduled_date: input.scheduledDate ?? null,
+    p_scheduled_window: input.scheduledWindow ?? null,
   });
   fail(error);
   return data as string;
+}
+
+/** Client changes the requested date and window. Allowed only while the request is still 'requested'. */
+export async function updateJobSchedule(
+  supabase: SupabaseClient,
+  jobId: string,
+  scheduledDate: string | null,
+  scheduledWindow: string | null,
+): Promise<void> {
+  fail((await supabase.rpc("update_job_schedule", { p_job: jobId, p_date: scheduledDate, p_window: scheduledWindow })).error);
 }
 
 export async function declineInvite(supabase: SupabaseClient, quoteId: string): Promise<void> {

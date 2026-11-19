@@ -13,6 +13,7 @@ import { resizeImage } from "@/lib/media/resize";
 import { cityOfZone } from "@/lib/domain/catalog";
 import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { SCHEDULE_WINDOWS, maxScheduleDate, santoDomingoToday, scheduleProblem, type ScheduleWindow } from "@/lib/domain/schedule";
 
 type ProOption = { id: string; name: string | null; trade: string; zone: string; pro_type: "individual" | "company" };
 
@@ -27,6 +28,10 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
   const [requestedType, setRequestedType] = useState<RequestedType>("any");
   // Pros whose type does not match the choice. The server refuses them too; this stops the request early.
   const mismatched = requestedType === "any" ? [] : props.pros.filter((p) => p.pro_type !== requestedType);
+  // Scheduling. "Lo antes posible" is preselected, so the choice adds no extra step by default.
+  const [scheduleMode, setScheduleMode] = useState<"asap" | "dated">("asap");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleWindow, setScheduleWindow] = useState<ScheduleWindow | "">("");
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [voice, setVoice] = useState<File | null>(null);
@@ -40,6 +45,10 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
     setError(null);
     if (!sameTrade) return setError(es.jobs.sameTradeHint);
     if (mismatched.length > 0) return setError(es.typeRouting.mismatch);
+    const schedDate = scheduleMode === "dated" ? scheduleDate : null;
+    const schedWindow = scheduleMode === "dated" ? scheduleWindow || null : null;
+    const schedProblem = scheduleProblem(schedDate, schedWindow);
+    if (schedProblem) return setError(es.schedule.problems[schedProblem]);
     if (description.trim().length < 20) return setError(es.jobs.descriptionShort);
     if (photos.length < 1) return setError(es.jobs.photoRequired);
     // Every chosen pro must serve the city of the job. The zone list follows the city.
@@ -78,6 +87,8 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
         photoPaths,
         voicePath,
         requestedProType: requestedType,
+        scheduledDate: schedDate,
+        scheduledWindow: schedWindow,
       });
       setCreatedJobId(jobId);
       setBusy(false);
@@ -158,6 +169,42 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
           {es.typeRouting.mismatch} {mismatched.map((p) => p.name ?? "—").join(", ")}
         </p>
       ) : null}
+
+      <Choice
+        legend={es.schedule.question}
+        name="scheduleMode"
+        value={scheduleMode}
+        options={[
+          { value: "asap", label: es.schedule.asap },
+          { value: "dated", label: es.schedule.dated },
+        ]}
+        onChange={setScheduleMode}
+        disabled={busy}
+      />
+      {scheduleMode === "dated" ? (
+        <>
+          <label className="field">
+            <span>{es.schedule.dateLabel}</span>
+            <input
+              type="date"
+              value={scheduleDate}
+              min={santoDomingoToday()}
+              max={maxScheduleDate()}
+              onChange={(e) => setScheduleDate(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <Choice
+            legend={es.schedule.windowLabel}
+            name="scheduleWindow"
+            value={scheduleWindow}
+            options={SCHEDULE_WINDOWS.map((w) => ({ value: w, label: es.schedule.windows[w] }))}
+            onChange={setScheduleWindow}
+            disabled={busy}
+          />
+        </>
+      ) : null}
+      <p className="muted">{es.schedule.hint}</p>
 
       <TextArea
         label={es.jobs.descriptionLabel}

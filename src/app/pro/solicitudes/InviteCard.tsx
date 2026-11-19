@@ -8,6 +8,7 @@ import { TextArea } from "@/components/ui/TextArea";
 import { declineInvite, submitQuote } from "@/lib/data/jobs";
 import { es } from "@/lib/i18n/es";
 import { VoiceNote } from "@/app/trabajos/[id]/VoiceNote";
+import { scheduleText } from "@/components/ScheduleText";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Job = {
@@ -18,6 +19,8 @@ type Job = {
   status: string;
   job_type: "repair" | "diagnostic";
   voice_path: string | null;
+  scheduled_date: string | null;
+  scheduled_window: string | null;
 };
 
 export type Quote = {
@@ -100,6 +103,7 @@ export function InviteCard({
         {isDiagnostic ? ` · ${es.jobs.typeDiagnostic}` : ""}
       </strong>
       <p>{job.description}</p>
+      <p className="muted">{es.schedule.requested}: {scheduleText(job.scheduled_date, job.scheduled_window)}</p>
       <p className="muted">
         {es.jobs.oneOfThree}
       </p>

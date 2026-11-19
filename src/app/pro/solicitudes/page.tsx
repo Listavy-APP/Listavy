@@ -20,7 +20,7 @@ export default async function InboxPage() {
   const { data, error } = await supabase
     .from("quotes")
     .select(
-      "id, status, amount_dop, includes, excludes, materials_included, window_start, window_end, duration_hours, invited_at, valid_until, job:jobs!quotes_job_id_fkey(id, trade, zone, description, status, job_type, voice_path)",
+      "id, status, amount_dop, includes, excludes, materials_included, window_start, window_end, duration_hours, invited_at, valid_until, job:jobs!quotes_job_id_fkey(id, trade, zone, description, status, job_type, voice_path, scheduled_date, scheduled_window)",
     )
     .eq("pro_id", userData.user.id)
     .order("invited_at", { ascending: false })

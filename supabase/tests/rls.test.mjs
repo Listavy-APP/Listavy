@@ -135,11 +135,18 @@ async function asUser(uid, sql) {
     `set role authenticated; set request.jwt.claim.sub = '${uid}';
      set request.jwt.claims = '{"sub":"${uid}","role":"authenticated","aal":"${aal}"}';`,
   );
+  const reset = "reset role; reset request.jwt.claim.sub; reset request.jwt.claims;";
+  let result;
   try {
-    return await db.query(sql);
-  } finally {
-    await db.exec("reset role; reset request.jwt.claim.sub; reset request.jwt.claims;");
+    result = await db.query(sql);
+  } catch (err) {
+    // A refused statement aborts an open transaction, so the reset would fail and mask err.
+    // The caller's savepoint rollback restores the role, so the reset is best-effort here.
+    await db.exec(reset).catch(() => {});
+    throw err;
   }
+  await db.exec(reset);
+  return result;
 }
 
 /**
@@ -2254,6 +2261,170 @@ const C_PRIVACY = "00000000-0000-0000-0000-000000000035";
 await check("0032 privacy: the client sees counts, not individual ratings", async () => {
   const r = await asUser(C_PRIVACY, `select count(*)::int as n from public.private_client_ratings where client_id = '${C_PRIVACY}'`);
   assert.equal(r.rows[0].n, 0);
+});
+
+// ---------------------------------------------------------------------------
+// 0090 · Scheduling: pro calendar (owner-only), public summary, job schedule.
+// ---------------------------------------------------------------------------
+const S_HO = "00000000-0000-0000-0000-000000000051";
+const S_OTHER = "00000000-0000-0000-0000-000000000052";
+await db.exec(`insert into auth.users (id, phone) values ('${S_HO}', '+18095550051'), ('${S_OTHER}', '+18095550052')`);
+const SCHED_TODAY = "(now() at time zone 'America/Santo_Domingo')::date";
+let PHOTO_N = 0;
+const photo = (uid) => `${uid}/sched-${++PHOTO_N}.jpg`;
+
+/** Expected refusal inside an open transaction: a savepoint keeps the rest of the block usable. */
+async function refused(run, re) {
+  await db.exec("savepoint refused");
+  try {
+    await assert.rejects(run(), re);
+  } finally {
+    await db.exec("rollback to savepoint refused");
+  }
+}
+
+await check("0090 hours: a pro writes own weekly hours; another pro cannot read, insert, change or delete them", async () => {
+  await withRollback(async () => {
+    await asUser(PRO, `insert into public.pro_weekly_hours (pro_id, weekday, enabled, start_time, end_time)
+      values ('${PRO}', 1, true, '08:00', '17:00')`);
+    const own = await asUser(PRO, `select count(*)::int as n from public.pro_weekly_hours where pro_id = '${PRO}'`);
+    assert.equal(own.rows[0].n, 1);
+    const seen = await asUser(OUTSIDER_PRO, `select count(*)::int as n from public.pro_weekly_hours where pro_id = '${PRO}'`);
+    assert.equal(seen.rows[0].n, 0);
+    await refused(() => asUser(OUTSIDER_PRO, `insert into public.pro_weekly_hours (pro_id, weekday, enabled, start_time, end_time)
+      values ('${PRO}', 2, true, '08:00', '17:00')`), /row-level security/);
+    const upd = await asUser(OUTSIDER_PRO, `update public.pro_weekly_hours set end_time = '23:00' where pro_id = '${PRO}'`);
+    assert.equal(upd.affectedRows ?? upd.rowCount, 0);
+    const del = await asUser(OUTSIDER_PRO, `delete from public.pro_weekly_hours where pro_id = '${PRO}'`);
+    assert.equal(del.affectedRows ?? del.rowCount, 0);
+    const kept = await db.query(`select end_time::text as e from public.pro_weekly_hours where pro_id = '${PRO}' and weekday = 1`);
+    assert.equal(kept.rows[0].e, "17:00:00");
+  });
+});
+
+await check("0090 hours: an enabled day needs a start before the end; a disabled day has no times", async () => {
+  await withRollback(async () => {
+    await refused(() => db.exec(`insert into public.pro_weekly_hours (pro_id, weekday, enabled, start_time, end_time)
+      values ('${PRO}', 3, true, '17:00', '08:00')`), /pro_weekly_hours_range_check/);
+    await refused(() => db.exec(`insert into public.pro_weekly_hours (pro_id, weekday, enabled, start_time, end_time)
+      values ('${PRO}', 4, false, '08:00', '17:00')`), /pro_weekly_hours_range_check/);
+  });
+});
+
+await check("0090 days off: a pro marks own days off; another pro cannot see, add or remove them", async () => {
+  await withRollback(async () => {
+    await asUser(PRO, `insert into public.pro_days_off (pro_id, day) values ('${PRO}', ${SCHED_TODAY} + 10)`);
+    const seen = await asUser(OUTSIDER_PRO, `select count(*)::int as n from public.pro_days_off where pro_id = '${PRO}'`);
+    assert.equal(seen.rows[0].n, 0);
+    await refused(() => asUser(OUTSIDER_PRO, `insert into public.pro_days_off (pro_id, day) values ('${PRO}', ${SCHED_TODAY} + 11)`),
+      /row-level security/);
+    const del = await asUser(OUTSIDER_PRO, `delete from public.pro_days_off where pro_id = '${PRO}'`);
+    assert.equal(del.affectedRows ?? del.rowCount, 0);
+  });
+});
+
+await check("0090 hours and days off: a client reads neither table; anonymous access is refused", async () => {
+  await withRollback(async () => {
+    await asUser(PRO, `insert into public.pro_weekly_hours (pro_id, weekday, enabled, start_time, end_time)
+      values ('${PRO}', 5, true, '08:00', '12:00')`);
+    const client = await asUser(S_HO, `select count(*)::int as n from public.pro_weekly_hours`);
+    assert.equal(client.rows[0].n, 0);
+    await db.exec("savepoint anon_read");
+    try {
+      await db.exec("set role anon");
+      // RLS gives anon no rows. A missing table privilege is also a refusal.
+      const r = await db.query(`select count(*)::int as n from public.pro_weekly_hours`).catch((e) => ({ err: e }));
+      if (r.err) assert.match(r.err.message, /permission denied/);
+      else assert.equal(r.rows[0].n, 0);
+    } finally {
+      await db.exec("rollback to savepoint anon_read");
+    }
+  });
+});
+
+await check("0090 public summary: an approved pro shows enabled hours and today's day-off flag; a pending pro shows nothing", async () => {
+  await withRollback(async () => {
+    await asUser(PRO, `insert into public.pro_weekly_hours (pro_id, weekday, enabled, start_time, end_time)
+      values ('${PRO}', 1, true, '08:00', '17:00'), ('${PRO}', 2, false, null, null)`);
+    const open = await asUser(OUTSIDER_PRO, `select public.get_pro_schedule('${PRO}') as s`);
+    assert.deepEqual(open.rows[0].s.weekly, [{ weekday: 1, start: "08:00", end: "17:00" }]);
+    assert.equal(open.rows[0].s.off_today, false);
+    await asUser(PRO, `insert into public.pro_days_off (pro_id, day) values ('${PRO}', ${SCHED_TODAY})`);
+    const off = await asUser(OUTSIDER_PRO, `select public.get_pro_schedule('${PRO}') as s`);
+    assert.equal(off.rows[0].s.off_today, true);
+    const pending = await asUser(OUTSIDER_PRO, `select public.get_pro_schedule('${PENDING_PRO}') as s`);
+    assert.equal(pending.rows[0].s, null);
+  });
+});
+
+await check("0090 request: a dated request stores date and window; ASAP stores neither", async () => {
+  const dated = await asUser(S_HO, `select public.create_job_request('plumber','Naco','${desc}','repair',
+    array['${PRO2}']::uuid[], array['${photo(S_HO)}']::text[], null, 'any', ${SCHED_TODAY} + 3, 'morning') as id`);
+  const d = await db.query(`select scheduled_date = ${SCHED_TODAY} + 3 as ok, scheduled_window as w from public.jobs where id = '${dated.rows[0].id}'`);
+  assert.equal(d.rows[0].ok, true);
+  assert.equal(d.rows[0].w, "morning");
+  const asap = await asUser(S_HO, `select public.create_job_request('plumber','Naco','${desc}','repair',
+    array['${PRO2}']::uuid[], array['${photo(S_HO)}']::text[], null, 'any', null, null) as id`);
+  const a = await db.query(`select scheduled_date, scheduled_window from public.jobs where id = '${asap.rows[0].id}'`);
+  assert.equal(a.rows[0].scheduled_date, null);
+  assert.equal(a.rows[0].scheduled_window, null);
+  globalThis.S_DATED_JOB = dated.rows[0].id;
+});
+
+await check("0090 request: a past date, a date over 60 days out, a date with no window, or an unknown window is refused", async () => {
+  const call = (date, win) => asUser(S_HO, `select public.create_job_request('plumber','Naco','${desc}','repair',
+    array['${PRO2}']::uuid[], array['${photo(S_HO)}']::text[], null, 'any', ${date}, ${win}) as id`);
+  await withRollback(async () => {
+    await refused(() => call(`${SCHED_TODAY} - 1`, "'morning'"), /hoy o posterior/);
+    await refused(() => call(`${SCHED_TODAY} + 61`, "'morning'"), /60 días/);
+    await refused(() => call(`${SCHED_TODAY} + 2`, "null"), /Elige fecha y horario/);
+    await refused(() => call(`${SCHED_TODAY} + 2`, "'night'"), /Horario no válido/);
+  });
+});
+
+await check("0090 request: the 60-day limit is inclusive; today is allowed", async () => {
+  const edge = await asUser(S_OTHER, `select public.create_job_request('plumber','Naco','${desc}','repair',
+    array['${PRO2}']::uuid[], array['${photo(S_OTHER)}']::text[], null, 'any', ${SCHED_TODAY} + 60, 'evening') as id`);
+  assert.ok(edge.rows[0].id);
+  const today = await asUser(S_OTHER, `select public.create_job_request('plumber','Naco','${desc}','repair',
+    array['${PRO2}']::uuid[], array['${photo(S_OTHER)}']::text[], null, 'any', ${SCHED_TODAY}, 'afternoon') as id`);
+  assert.ok(today.rows[0].id);
+});
+
+await check("0090 edit: only the client edits the schedule, and only while the request is 'requested'", async () => {
+  const id = globalThis.S_DATED_JOB;
+  await withRollback(async () => {
+    await refused(() => asUser(S_OTHER, `select public.update_job_schedule('${id}', null, null)`), /Solo quien pidió/);
+  });
+  await asUser(S_HO, `select public.update_job_schedule('${id}', ${SCHED_TODAY} + 5, 'afternoon')`);
+  const moved = await db.query(`select scheduled_window as w from public.jobs where id = '${id}'`);
+  assert.equal(moved.rows[0].w, "afternoon");
+  await asUser(S_HO, `select public.update_job_schedule('${id}', null, null)`);
+  const asap = await db.query(`select scheduled_date as d from public.jobs where id = '${id}'`);
+  assert.equal(asap.rows[0].d, null);
+  await withRollback(async () => {
+    await refused(() => asUser(S_HO, `select public.update_job_schedule('${id}', ${SCHED_TODAY} + 5, 'night')`), /Horario no válido/);
+  });
+  await db.exec(`update public.jobs set status = 'quoted' where id = '${id}'`);
+  await withRollback(async () => {
+    await refused(() => asUser(S_HO, `select public.update_job_schedule('${id}', ${SCHED_TODAY} + 5, 'evening')`), /ya no se puede cambiar/);
+  });
+});
+
+await check("0090 lock: a direct write to the schedule is refused once the request has left 'requested'", async () => {
+  const id = globalThis.S_DATED_JOB;
+  await withRollback(async () => {
+    await refused(() => db.exec(`update public.jobs set scheduled_window = 'evening', scheduled_date = ${SCHED_TODAY} + 6 where id = '${id}'`),
+      /ya no se puede cambiar/);
+  });
+});
+
+await check("0090 read: the schedule follows the job's read policy; an invited pro sees it, an uninvited pro does not", async () => {
+  const id = globalThis.S_DATED_JOB;
+  const invited = await asUser(PRO2, `select count(*)::int as n from public.jobs where id = '${id}'`);
+  assert.equal(invited.rows[0].n, 1);
+  const outsider = await asUser(OUTSIDER_PRO, `select count(*)::int as n from public.jobs where id = '${id}'`);
+  assert.equal(outsider.rows[0].n, 0);
 });
 
 await db.close();
