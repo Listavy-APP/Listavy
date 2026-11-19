@@ -5,6 +5,8 @@ import { BackBar } from "@/components/BackBar";
 import { EmptyState } from "@/components/EmptyState";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { getPayoutDetails } from "@/lib/data/payouts";
+import { getEarningsSummary, getPerformanceSummary } from "@/lib/data/pro-tools";
+import { EarningsSection } from "./EarningsSection";
 import { PayoutDetailsCard } from "./PayoutDetailsCard";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -50,6 +52,7 @@ export default async function ProPayoutsPage() {
   if (!profile || profile.role !== "pro") redirect("/cuenta");
 
   const payoutDetails = await getPayoutDetails(supabase, profile.id);
+  const [earnings, performance] = await Promise.all([getEarningsSummary(supabase), getPerformanceSummary(supabase)]);
 
   const { data, error } = await supabase
     .from("payments")
@@ -71,6 +74,7 @@ export default async function ProPayoutsPage() {
     <section className="stack">
       <BackBar href="/cuenta" />
       <h1 className="page-title">{es.proPayouts.title}</h1>
+      <EarningsSection earnings={earnings} performance={performance} />
       <PayoutDetailsCard proId={profile.id} initial={payoutDetails} />
       <p className="muted">{es.proPayouts.note}</p>
       {error ? <p className="error">{es.proPayouts.failed}</p> : null}

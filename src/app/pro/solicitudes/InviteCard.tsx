@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { Choice } from "@/components/ui/Choice";
 import { TextArea } from "@/components/ui/TextArea";
 import { declineInvite, submitQuote } from "@/lib/data/jobs";
+import type { QuoteTemplate } from "@/lib/data/pro-tools";
 import { es } from "@/lib/i18n/es";
 import { VoiceNote } from "@/app/trabajos/[id]/VoiceNote";
 import { scheduleText } from "@/components/ScheduleText";
@@ -34,14 +35,18 @@ export type Quote = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const money = (n: number) => `RD$${n.toLocaleString("es-DO")}`;
+
 export function InviteCard({
   quote,
   photoUrls = [],
   voiceUrl = null,
+  templates = [],
 }: {
   quote: Quote;
   photoUrls?: string[];
   voiceUrl?: string | null;
+  templates?: QuoteTemplate[];
 }) {
   const router = useRouter();
   const job = quote.job;
@@ -54,8 +59,17 @@ export function InviteCard({
   const [duration, setDuration] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [appliedTitle, setAppliedTitle] = useState<string | null>(null);
 
   if (!job) return null;
+
+  // Fills the form only. Nothing is sent until the pro presses the send button.
+  // A template without a note leaves the current text in place.
+  function applyTemplate(t: QuoteTemplate) {
+    setAmount(String(t.amount_dop));
+    if (t.note) setIncludes(t.note);
+    setAppliedTitle(t.title);
+  }
 
   const deadline = new Date(new Date(quote.invited_at).getTime() + DAY_MS);
   // eslint-disable-next-line react-hooks/purity -- Render-time clock. Moving it into state would change when the expiry flag updates. Flagged for review.
@@ -131,6 +145,20 @@ export function InviteCard({
           <p className="muted">
             {es.jobs.respondBy(deadline.toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short", timeZone: "America/Santo_Domingo" }))}
           </p>
+          {templates.length > 0 ? (
+            <div className="stack template-picker">
+              <span className="field-label">{es.proTemplates.pick}</span>
+              <div className="template-chips">
+                {templates.map((t) => (
+                  <button key={t.id} className="template-chip tap" type="button" onClick={() => applyTemplate(t)} disabled={busy}>
+                    <strong>{t.title}</strong>
+                    <span>{money(t.amount_dop)}</span>
+                  </button>
+                ))}
+              </div>
+              {appliedTitle ? <p className="ok" role="status">{es.proTemplates.applied}</p> : null}
+            </div>
+          ) : null}
           <label className="field">
             <span>{isDiagnostic ? es.jobs.diagnosticPriceLabel : es.jobs.amountLabel}</span>
             <input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} required />
