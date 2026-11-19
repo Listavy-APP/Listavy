@@ -77,6 +77,17 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
 
     async createCheckout(input: CheckoutInput): Promise<CheckoutCreated> {
       const tipMetadata: Record<string, string> = input.tipDop > 0 ? { "metadata[tip_dop]": String(input.tipDop) } : {};
+      // A known customer: Checkout offers the saved cards. "limited" cards are the ones saved by this
+      // merchant's Checkout, so the filter must include them or they are never shown again.
+      // setup_future_usage saves the card used; it is skipped when the customer already has a card.
+      const customerFields: Record<string, string> = input.customerId
+        ? {
+            customer: input.customerId,
+            "saved_payment_method_options[allow_redisplay_filters][0]": "always",
+            "saved_payment_method_options[allow_redisplay_filters][1]": "limited",
+            ...(input.saveCard === false ? {} : { "payment_intent_data[setup_future_usage]": "off_session" }),
+          }
+        : {};
       const params = new URLSearchParams({
         mode: "payment",
         currency: input.currency.toLowerCase(),
@@ -96,6 +107,7 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
         "metadata[amount_minor]": String(input.amountMinor),
         "payment_intent_data[metadata][job_id]": input.jobId,
         ...tipMetadata,
+        ...customerFields,
       });
       const session = await api("POST", "/v1/checkout/sessions", params);
       return { url: session.url, sessionId: session.id };
@@ -142,10 +154,26 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
       }
     },
 
-    async createPortalSession(input: { customerId: string; returnUrl: string }): Promise<{ url: string }> {
+    async createPortalSession(input: { customerId: string; returnUrl: string; configurationId?: string }): Promise<{ url: string }> {
       const params = new URLSearchParams({ customer: input.customerId, return_url: input.returnUrl });
+      if (input.configurationId) params.set("configuration", input.configurationId);
       const session = await api("POST", "/v1/billing_portal/sessions", params);
       return { url: session.url };
+    },
+
+    async createCustomer(input: { profileId: string; idempotencyKey: string }): Promise<string> {
+      const params = new URLSearchParams({ "metadata[listavy_profile_id]": input.profileId });
+      const created = await api("POST", "/v1/customers", params, { "Idempotency-Key": input.idempotencyKey });
+      return created.id;
+    },
+
+    async deleteCustomer(customerId: string): Promise<void> {
+      await api("DELETE", "/v1/customers/" + encodeURIComponent(customerId));
+    },
+
+    async hasReusableCard(customerId: string): Promise<boolean> {
+      const listed = await api("GET", `/v1/payment_methods?customer=${encodeURIComponent(customerId)}&type=card&limit=1`);
+      return (listed.data ?? []).length > 0;
     },
 
     async createProPlanCheckout(input: ProPlanCheckoutInput): Promise<CheckoutCreated> {

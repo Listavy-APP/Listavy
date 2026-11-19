@@ -1033,6 +1033,17 @@ export const es = {
     decline: "No compartir",
     sharedWithPro: "El cliente permitió compartir su ubicación aproximada.",
   },
+  paymentMethods: {
+    title: "Métodos de pago",
+    rowLabel: "Métodos de pago",
+    intro: "Aquí administras las tarjetas que usas para pagar tus trabajos en Listavy.",
+    emptyTitle: "Aún no tienes tarjetas guardadas",
+    emptyBody: "Las tarjetas aparecen aquí después de pagar un trabajo con tarjeta.",
+    manage: "Administrar tarjetas",
+    loading: "Cargando…",
+    loadFailed: "No se pudieron cargar tus métodos de pago. Inténtalo de nuevo.",
+    openFailed: "No se pudo abrir la administración de tarjetas. Inténtalo de nuevo.",
+  },
   notifSettings: {
     title: "Notificaciones",
     intro: "Elige qué avisos recibes de Listavy.",

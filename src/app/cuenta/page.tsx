@@ -175,6 +175,13 @@ export default async function ProfilePage() {
         </span>
       </Link>
 
+      {clientView ? (
+        <Link className="contact-row" href="/cuenta/metodos-pago">
+          <span className="icon-box"><Icon name="shield" /></span>
+          <span className="contact-label">{es.paymentMethods.rowLabel}</span>
+        </Link>
+      ) : null}
+
       <Link className="contact-row" href="/cuenta/guardados">
         <span className="icon-box"><Icon name="heart" /></span>
         <span className="contact-label">{es.saved.title}</span>

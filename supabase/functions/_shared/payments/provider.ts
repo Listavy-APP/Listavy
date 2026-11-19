@@ -20,6 +20,10 @@ export type CheckoutInput = {
   commissionDop: number;
   proPayoutDop: number; // includes any tip
   tipDop: number; // 0 when there is no tip; sent to the webhook as metadata
+  /** Stripe Customer for the client. When set, Checkout offers saved cards. */
+  customerId?: string;
+  /** Save the card paid with for later reuse. Only meaningful with customerId. False when the customer already has a card. */
+  saveCard?: boolean;
   successUrl: string;
   cancelUrl: string;
 };
@@ -138,7 +142,15 @@ export interface PaymentProvider {
   getSubscriptionCustomerId(subscriptionId: string): Promise<string>;
 
   /** Starts a Stripe Customer Portal session where the pro can manage or cancel the plan. */
-  createPortalSession(input: { customerId: string; returnUrl: string }): Promise<{ url: string }>;
+  createPortalSession(input: { customerId: string; returnUrl: string; configurationId?: string }): Promise<{ url: string }>;
+
+  /** Creates a Stripe Customer for a client. The idempotency key makes a retry return the same customer. */
+  createCustomer(input: { profileId: string; idempotencyKey: string }): Promise<string>;
+
+  /** Deletes a Stripe Customer that holds no payment method. Used only for a duplicate created by a lost race. */
+  deleteCustomer(customerId: string): Promise<void>;
+  /** True when the customer already has at least one saved card. */
+  hasReusableCard(customerId: string): Promise<boolean>;
 
   /** Starts a hosted subscription checkout for the Pro plan. */
   createProPlanCheckout(input: ProPlanCheckoutInput): Promise<CheckoutCreated>;

@@ -309,3 +309,64 @@ test("createTransfer without a charge: no source_transaction, funded from the pl
     ]).toString(),
   );
 });
+
+// Item 6: saved cards. Customer and setup_future_usage are sent only when a customer is known.
+test("checkout with a customer: sends customer and saves the card; without one, sends neither", async () => {
+  const { p, calls } = provider([{ data: { id: "cs_2", url: "https://checkout.stripe.test/cs_2" } }, { data: { id: "cs_3", url: "https://checkout.stripe.test/cs_3" } }]);
+  await p.createCheckout({ ...checkoutInput, customerId: "cus_123" });
+  await p.createCheckout(checkoutInput);
+  const withCustomer = new URLSearchParams(calls[0].body);
+  assert.equal(withCustomer.get("customer"), "cus_123");
+  assert.equal(withCustomer.get("payment_intent_data[setup_future_usage]"), "off_session");
+  assert.equal(withCustomer.has("payment_method_types[0]"), false, "wallets appear automatically, so no type restriction");
+  const without = new URLSearchParams(calls[1].body);
+  assert.equal(without.has("customer"), false);
+  assert.equal(without.has("payment_intent_data[setup_future_usage]"), false);
+});
+
+test("checkout: redisplay filter includes limited cards, and saveCard false drops setup_future_usage", async () => {
+  const { p, calls } = provider([{ data: { id: "cs_4", url: "u" } }, { data: { id: "cs_5", url: "u" } }]);
+  await p.createCheckout({ ...checkoutInput, customerId: "cus_123" });
+  await p.createCheckout({ ...checkoutInput, customerId: "cus_123", saveCard: false });
+  const saving = new URLSearchParams(calls[0].body);
+  assert.equal(saving.get("saved_payment_method_options[allow_redisplay_filters][0]"), "always");
+  assert.equal(saving.get("saved_payment_method_options[allow_redisplay_filters][1]"), "limited");
+  assert.equal(saving.get("payment_intent_data[setup_future_usage]"), "off_session");
+  const reuse = new URLSearchParams(calls[1].body);
+  assert.equal(reuse.get("customer"), "cus_123");
+  assert.equal(reuse.get("saved_payment_method_options[allow_redisplay_filters][1]"), "limited");
+  assert.equal(reuse.has("payment_intent_data[setup_future_usage]"), false);
+});
+
+test("hasReusableCard: true when the customer has a saved card, false when none", async () => {
+  const { p, calls } = provider([{ data: { data: [{ id: "pm_1" }] } }, { data: { data: [] } }]);
+  assert.equal(await p.hasReusableCard("cus_123"), true);
+  assert.equal(await p.hasReusableCard("cus_123"), false);
+  assert.match(calls[0].url, /\/v1\/payment_methods\?customer=cus_123&type=card&limit=1$/);
+});
+
+test("createCustomer: sends the idempotency key and the profile metadata only", async () => {
+  const { p, calls } = provider([{ data: { id: "cus_9" } }]);
+  const id = await p.createCustomer({ profileId: "client-1", idempotencyKey: "client-customer:client-1:test" });
+  assert.equal(id, "cus_9");
+  assert.equal(calls[0].url, "https://api.stripe.com/v1/customers");
+  assert.equal(calls[0].headers["Idempotency-Key"], "client-customer:client-1:test");
+  const body = new URLSearchParams(calls[0].body);
+  assert.deepEqual([...body.keys()], ["metadata[listavy_profile_id]"]);
+});
+
+test("deleteCustomer: calls DELETE on the customer", async () => {
+  const { p, calls } = provider([{ data: { id: "cus_9", deleted: true } }]);
+  await p.deleteCustomer("cus_9");
+  assert.equal(calls[0].method, "DELETE");
+  assert.equal(calls[0].url, "https://api.stripe.com/v1/customers/cus_9");
+});
+
+test("portal: passes the client configuration when given", async () => {
+  const { p, calls } = provider([{ data: { url: "https://billing.stripe.test/p/1" } }]);
+  const out = await p.createPortalSession({ customerId: "cus_1", returnUrl: "https://app.test/cuenta", configurationId: "bpc_client" });
+  assert.deepEqual(out, { url: "https://billing.stripe.test/p/1" });
+  const body = new URLSearchParams(calls[0].body);
+  assert.equal(body.get("configuration"), "bpc_client");
+  assert.equal(body.get("customer"), "cus_1");
+});
