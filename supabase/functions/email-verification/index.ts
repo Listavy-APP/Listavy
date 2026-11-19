@@ -3,7 +3,7 @@
 //   { action: "send",   email }  -> emails a 6-digit code (Resend), stores its hash, 15 min, 5 sends per 10 min
 //   { action: "verify", code }   -> checks the newest unused code; 3 wrong attempts lock it;
 //                                   on success writes profiles.email and email_verified_at (service role).
-// The email is never a login method. Phone OTP stays the only login.
+// Phone OTP is the primary login. A verified email is a second login key for the same account (v3).
 // Deployed as v2 (2026-11-18): adds CORS and OPTIONS handling so the browser preflight succeeds.
 // v1 returned 405 to OPTIONS, so no POST arrived.
 // v3 (2026-11-18): verify also sets the same email on the auth user (confirmed), so it can sign in by code.
