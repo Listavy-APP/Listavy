@@ -8,6 +8,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 type Step = "email" | "code";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// Auth email codes are 8 digits today. Accept 6 to 10 so a future length change does not lock users out.
+const CODE_RE = /^\d{6,10}$/;
 
 /**
  * Sign-in by email code. Works only for an email already verified on an account.
@@ -55,8 +57,8 @@ export function EmailLoginForm({ next }: { next: string }) {
     e.preventDefault();
     if (inFlight.current) return;
     setError(null);
-    if (!/^\d{6}$/.test(code)) {
-      setError(es.login.invalidCode);
+    if (!CODE_RE.test(code)) {
+      setError(es.login.emailInvalidCode);
       return;
     }
     if (!sentTo) return;
@@ -81,11 +83,12 @@ export function EmailLoginForm({ next }: { next: string }) {
           {es.login.emailSentTo} {sentTo}
         </p>
         <label className="field">
-          <span>{es.login.codeLabel}</span>
+          <span>{es.login.emailCodeLabel}</span>
           <input
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={6}
+            pattern="[0-9]{6,10}"
+            maxLength={10}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             required
@@ -93,7 +96,7 @@ export function EmailLoginForm({ next }: { next: string }) {
         </label>
         <p className="muted">{es.login.emailCodeHint}</p>
         {error && <p className="error" role="alert">{error}</p>}
-        <button className="button" type="submit" disabled={busy}>
+        <button className="button" type="submit" disabled={busy || !CODE_RE.test(code)}>
           {busy ? es.login.verifying : es.login.verify}
         </button>
         <button
@@ -128,7 +131,7 @@ export function EmailLoginForm({ next }: { next: string }) {
       <p className="muted">{es.login.emailLoginHint}</p>
       {error && <p className="error" role="alert">{error}</p>}
       <button className="button" type="submit" disabled={busy || !email.trim()}>
-        {busy ? es.login.sending : es.login.sendCode}
+        {busy ? es.login.sending : es.login.emailSendCode}
       </button>
     </form>
   );
