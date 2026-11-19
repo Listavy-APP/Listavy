@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -6,4 +7,10 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
 };
 
-export default nextConfig;
+// Source maps are not uploaded: no auth token is configured. The build never depends on Sentry.
+export default withSentryConfig(nextConfig, {
+  org: "listavy",
+  project: "listavy",
+  silent: true,
+  sourcemaps: { disable: true },
+});

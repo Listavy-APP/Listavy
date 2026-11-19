@@ -100,6 +100,7 @@ const GROUPS: NavGroup[] = [
       { href: "/admin/pendientes", label: es.adminPending.title, icon: "clock", badge: "pendientes" },
       { href: "/admin/disputas", label: es.admin.navDisputes, icon: "alert", badge: "disputas" },
       { href: "/admin/pagos", label: es.admin.navPayments, icon: "wallet" },
+      { href: "/admin/ingresos", label: es.admin.navRevenue, icon: "wallet" },
     ],
   },
   {
