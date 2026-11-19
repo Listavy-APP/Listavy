@@ -12,7 +12,7 @@ export function LoginMethods({ next }: { next: string }) {
   const [method, setMethod] = useState<Method>("phone");
   return (
     <div className="stack">
-      <nav className="tabs" aria-label={es.login.methodLabel}>
+      <nav className="tabs login-tabs" aria-label={es.login.methodLabel}>
         <button
           className="tab"
           type="button"

@@ -4,6 +4,8 @@ import { useRef, useState, type FormEvent } from "react";
 import { sendEmailLoginCode, verifyEmailLoginCode } from "@/lib/data/auth";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { recordLegalAcceptance } from "@/lib/data/legal";
+import { AcceptLegal } from "@/components/AcceptLegal";
 
 type Step = "email" | "code";
 
@@ -20,10 +22,13 @@ export function EmailLoginForm({ next }: { next: string }) {
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Ref, not state: a second submit in the same tick must see the lock at once.
   const inFlight = useRef(false);
+  // Set once the code is verified, so a retry after a failed acceptance write skips verification.
+  const verified = useRef(false);
 
   async function onSendCode(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,6 +37,10 @@ export function EmailLoginForm({ next }: { next: string }) {
     const normalized = email.trim().toLowerCase();
     if (!EMAIL_RE.test(normalized)) {
       setError(es.login.emailInvalid);
+      return;
+    }
+    if (!accepted) {
+      setError(es.legal.acceptRequired);
       return;
     }
     inFlight.current = true;
@@ -64,13 +73,26 @@ export function EmailLoginForm({ next }: { next: string }) {
     if (!sentTo) return;
     inFlight.current = true;
     setBusy(true);
+    // Guard: if the page has not left after 10 s, release the form instead of hanging.
+    const guard = window.setTimeout(() => {
+      inFlight.current = false;
+      setError(verified.current ? es.login.acceptanceFailed : es.login.verifyFailed);
+      setBusy(false);
+    }, 10000);
     try {
-      await verifyEmailLoginCode(createSupabaseBrowserClient(), sentTo, code);
+      const supabase = createSupabaseBrowserClient();
+      if (!verified.current) {
+        await verifyEmailLoginCode(supabase, sentTo, code);
+        verified.current = true;
+      }
+      // Recorded before leaving, same as the phone form.
+      await recordLegalAcceptance(supabase, ["terms", "privacy"]);
       // Full load, so the server reads the new session cookie.
       window.location.assign(next);
     } catch {
+      window.clearTimeout(guard);
       inFlight.current = false;
-      setError(es.login.verifyFailed);
+      setError(verified.current ? es.login.acceptanceFailed : es.login.verifyFailed);
       setBusy(false);
     }
   }
@@ -129,6 +151,7 @@ export function EmailLoginForm({ next }: { next: string }) {
         />
       </label>
       <p className="muted">{es.login.emailLoginHint}</p>
+      <AcceptLegal kind="client" checked={accepted} onChange={setAccepted} />
       {error && <p className="error" role="alert">{error}</p>}
       <button className="button" type="submit" disabled={busy || !email.trim()}>
         {busy ? es.login.sending : es.login.emailSendCode}
