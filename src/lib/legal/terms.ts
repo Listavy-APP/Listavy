@@ -102,7 +102,7 @@ export const TERMS_OF_USE: LegalDocument = {
     {
       title: "Plan Pro",
       paragraphs: [
-        "LISTAVY ofrece el plan Pro para profesionales: RD$2,950 al mes. Con el plan Pro, la comisión es de 8% por trabajo, sin mínimo. El pago del plan Pro es anticipado y se renueva mensualmente. El usuario acepta que se realicen cobros recurrentes según el período elegido. El usuario se compromete a notificar a LISTAVY al correo listavyapp@gmail.com en caso de que no quiera que se genere el siguiente cobro, mínimo 5 días hábiles antes de su próxima fecha de cobro.",
+        "LISTAVY ofrece el plan Pro para profesionales: RD$2,950 al mes. Con el plan Pro, la comisión es de 8% por trabajo, sin mínimo. El pago del plan Pro es anticipado y se renueva mensualmente. El usuario acepta que se realicen cobros recurrentes según el período elegido. El usuario se compromete a notificar a LISTAVY al correo soporte@listavy.com en caso de que no quiera que se genere el siguiente cobro, mínimo 5 días hábiles antes de su próxima fecha de cobro.",
         "Las compras realizadas son finales y no existe devolución del período ya pagado. Si el usuario no utiliza el servicio contratado, no tendrá el derecho de solicitar reembolso, desembolso o devolución de la totalidad o una fracción del monto pagado.",
       ],
     },
@@ -155,13 +155,13 @@ export const TERMS_OF_USE: LegalDocument = {
     {
       title: "Ley aplicable y resolución de conflictos",
       paragraphs: [
-        "Estos Términos de Uso y el uso de la Plataforma, el servicio de acceso y el servicio de inicio de sesión y los Servicios se rigen por las leyes del estado de Pensilvania, Estados Unidos de América. Cualquier controversia, reclamo o asunto relacionado con estos Términos de Uso o con el uso de la Plataforma será resuelto exclusivamente por los tribunales del estado de Pensilvania, Estados Unidos de América. Usted acepta someterse a la jurisdicción exclusiva de dichos tribunales. Sus derechos sobre sus datos personales bajo la Ley 172-13 de la República Dominicana (acceso, rectificación y eliminación) se ejercen a través de la Plataforma: descargue sus datos en /ajustes, elimine su cuenta en /cuenta, o solicítelo por correo a listavyapp@gmail.com.",
+        "Estos Términos de Uso y el uso de la Plataforma, el servicio de acceso y el servicio de inicio de sesión y los Servicios se rigen por las leyes del estado de Pensilvania, Estados Unidos de América. Cualquier controversia, reclamo o asunto relacionado con estos Términos de Uso o con el uso de la Plataforma será resuelto exclusivamente por los tribunales del estado de Pensilvania, Estados Unidos de América. Usted acepta someterse a la jurisdicción exclusiva de dichos tribunales. Sus derechos sobre sus datos personales bajo la Ley 172-13 de la República Dominicana (acceso, rectificación y eliminación) se ejercen a través de la Plataforma: descargue sus datos en /ajustes, elimine su cuenta en /cuenta, o solicítelo por correo a hola@listavy.com.",
       ],
     },
     {
       title: "Cómo contactarnos",
       paragraphs: [
-        "Si tiene preguntas o comentarios sobre estos Términos de Uso, por favor póngase en contacto con nosotros en: Espiga Capital LLC, operadora de Listavy. Correo: listavyapp@gmail.com.",
+        "Si tiene preguntas o comentarios sobre estos Términos de Uso, por favor póngase en contacto con nosotros en: Espiga Capital LLC, operadora de Listavy. Correo: hola@listavy.com.",
       ],
     },
   ],

@@ -91,7 +91,7 @@ export const PRO_TERMS: LegalDocument = {
     {
       title: "Cómo contactarnos",
       paragraphs: [
-        "Si tiene preguntas sobre estas políticas, comuníquese con nosotros a listavyapp@gmail.com. Operador: Espiga Capital LLC, marca Listavy.",
+        "Si tiene preguntas sobre estas políticas, comuníquese con nosotros a hola@listavy.com. Operador: Espiga Capital LLC, marca Listavy.",
       ],
     },
   ],

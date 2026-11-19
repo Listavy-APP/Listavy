@@ -84,7 +84,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       title: "Rectificar, bloquear o eliminar su información",
       paragraphs: [
         "Usted puede solicitar un extracto de registro que contenga información sobre los datos personales que estamos procesando sobre usted de acuerdo con la norma aplicable No. 172-13, Ley de datos personales de la República Dominicana. También tiene derecho a recibir esta información de forma gratuita de acuerdo con los requisitos legales aplicables. Puede descargar sus datos en /ajustes.",
-        "Además, en cualquier momento, puede solicitar por correo a listavyapp@gmail.com que rectifiquemos, bloqueemos o eliminemos datos personales conforme con la norma aplicable No. 172-13, Ley de datos personales de la República Dominicana. Puede eliminar su cuenta en /cuenta.",
+        "Además, en cualquier momento, puede solicitar por correo a hola@listavy.com que rectifiquemos, bloqueemos o eliminemos datos personales conforme con la norma aplicable No. 172-13, Ley de datos personales de la República Dominicana. Puede eliminar su cuenta en /cuenta.",
       ],
     },
     {
@@ -118,8 +118,8 @@ export const PRIVACY_POLICY: LegalDocument = {
     {
       title: "Cómo contactarnos",
       paragraphs: [
-        "Si tiene preguntas o comentarios sobre esta Política de Privacidad, comuníquese con nosotros a listavyapp@gmail.com.",
-        "El controlador de sus datos personales es Espiga Capital LLC, operadora de Listavy. Contacto: listavyapp@gmail.com.",
+        "Si tiene preguntas o comentarios sobre esta Política de Privacidad, comuníquese con nosotros a hola@listavy.com.",
+        "El controlador de sus datos personales es Espiga Capital LLC, operadora de Listavy. Contacto: hola@listavy.com.",
       ],
     },
   ],
