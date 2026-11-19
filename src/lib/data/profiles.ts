@@ -7,7 +7,7 @@ import type { Profile } from "@/lib/types/database";
  */
 
 const PROFILE_COLUMNS =
-  "id, role, full_name, phone, created_at, email, email_verified_at, zone, avatar_path, admin_role";
+  "id, role, full_name, phone, created_at, email, email_verified_at, email_prompt_dismissed_at, zone, avatar_path, admin_role";
 
 export async function getCurrentProfile(supabase: SupabaseClient): Promise<Profile | null> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -44,4 +44,13 @@ export async function setCustomerAvatar(
 ): Promise<void> {
   const { error } = await supabase.from("profiles").update({ avatar_path: path }).eq("id", userId);
   if (error) throw new Error(`No se pudo guardar la foto: ${error.message}`);
+}
+
+/** Stamps the one-time email prompt as handled. Owner-only through profiles_update_own (migration 0088). */
+export async function dismissEmailPrompt(supabase: SupabaseClient, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ email_prompt_dismissed_at: new Date().toISOString() })
+    .eq("id", userId);
+  if (error) throw new Error(`No se pudo guardar: ${error.message}`);
 }

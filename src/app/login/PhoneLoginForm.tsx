@@ -8,6 +8,18 @@ import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { recordLegalAcceptance } from "@/lib/data/legal";
 import { AcceptLegal } from "@/components/AcceptLegal";
+import { getCurrentProfile } from "@/lib/data/profiles";
+import { EmailPromptStep } from "./EmailPromptStep";
+
+/** True only for an account with no email on file that has not dismissed the prompt. Fails open. */
+async function emailPromptNeeded(supabase: ReturnType<typeof createSupabaseBrowserClient>): Promise<boolean> {
+  try {
+    const profile = await getCurrentProfile(supabase);
+    return !!profile && !profile.email && !profile.email_prompt_dismissed_at;
+  } catch {
+    return false;
+  }
+}
 
 type Step = "phone" | "code";
 
@@ -26,6 +38,8 @@ export function PhoneLoginForm({ next }: { next: string }) {
   // Set once the code is verified. A one-time code cannot be verified twice, so a retry after a
   // failed acceptance write must skip verification and only repeat the write.
   const verified = useRef(false);
+  // Set after the acceptance is recorded, when the one-time email prompt must be shown before leaving.
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
 
   async function onSendCode(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -87,6 +101,14 @@ export function PhoneLoginForm({ next }: { next: string }) {
       // Recorded before leaving, so the acceptance row exists for the account that was just created or entered.
       await recordLegalAcceptance(supabase, ["terms", "privacy"]);
       setError(null);
+      // One-time email step, only when no email is on file. Acceptance is already recorded above.
+      if (await emailPromptNeeded(supabase)) {
+        window.clearTimeout(guard);
+        inFlight.current = false;
+        setBusy(false);
+        setShowEmailPrompt(true);
+        return;
+      }
       // Full load, so the server reads the new session cookie. Client router state can be stale.
       window.location.assign(next);
     } catch {
@@ -96,6 +118,10 @@ export function PhoneLoginForm({ next }: { next: string }) {
       setError(verified.current ? es.login.acceptanceFailed : es.login.verifyFailed);
       setBusy(false);
     }
+  }
+
+  if (showEmailPrompt) {
+    return <EmailPromptStep next={next} />;
   }
 
   if (step === "code") {

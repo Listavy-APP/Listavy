@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { callEmailVerification, type EmailVerificationBody } from "@/lib/data/emailVerification";
 
 /**
  * Email is a contact field. The code flow runs in the email-verification Edge Function,
@@ -19,21 +20,8 @@ export function EmailForm(props: { current: string | null; verified: boolean }) 
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function call(body: Record<string, string>) {
-    const supabase = createSupabaseBrowserClient();
-    const { data, error: fnError } = await supabase.functions.invoke("email-verification", { body });
-    if (fnError) {
-      // Edge Function errors return a JSON body; surface its message when present.
-      let msg: string = es.profile.actionFailed;
-      try {
-        const ctx = (fnError as { context?: Response }).context;
-        if (ctx) msg = ((await ctx.json()) as { error?: string }).error ?? msg;
-      } catch {
-        // keep the generic message
-      }
-      throw new Error(msg);
-    }
-    return data as { ok?: boolean; email?: string; error?: string };
+  async function call(body: EmailVerificationBody) {
+    return callEmailVerification(createSupabaseBrowserClient(), body);
   }
 
   async function onSend(e: React.FormEvent<HTMLFormElement>) {
@@ -72,6 +60,24 @@ export function EmailForm(props: { current: string | null; verified: boolean }) 
   }
 
   const showVerifiedPanel = props.verified && !!props.current && !pending && !changing;
+  // Verify Email Early: an unverified address already on the profile gets a one-tap send.
+  const oneTap = !!props.current && !props.verified && !pending && !changing;
+
+  async function onSendToCurrent() {
+    if (!props.current) return;
+    setError(null);
+    setMessage(null);
+    setBusy(true);
+    try {
+      await call({ action: "send", email: props.current });
+      setPending(props.current.trim().toLowerCase());
+      setCode("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (showVerifiedPanel) {
     return (
@@ -103,7 +109,16 @@ export function EmailForm(props: { current: string | null; verified: boolean }) 
           <span className="muted">({props.verified ? es.profile.emailVerified : es.profile.emailUnverified})</span>
         ) : null}
       </p>
-      {pending ? (
+      {oneTap ? (
+        <div className="stack">
+          <button className="button" type="button" onClick={onSendToCurrent} disabled={busy}>
+            {busy ? es.profile.sendingCode : es.profile.sendCodeTo(props.current ?? "")}
+          </button>
+          <button className="button secondary" type="button" onClick={() => setChanging(true)} disabled={busy}>
+            {es.profile.emailChange}
+          </button>
+        </div>
+      ) : pending ? (
         <form className="stack" onSubmit={onVerify}>
           <p className="muted">
             {es.profile.codeSentTo} {pending}
