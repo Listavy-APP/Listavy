@@ -85,6 +85,26 @@ export default async function ProfilePage() {
     </div>
   ) : null;
 
+  // Verify Email Early: a card while the email is missing or unverified; one slim line once verified.
+  const emailVerified = !!profile.email && !!profile.email_verified_at;
+  const protectionNotice = emailVerified ? (
+    <p className="muted">{es.profile.protectedLine}</p>
+  ) : (
+    <div className="panel stack">
+      <b>{es.profile.protectTitle}</b>
+      <p>
+        {es.profile.protectPhone}: {formatPhoneDisplay(profile.phone)} · {es.profile.protectPhoneVerified}
+      </p>
+      <p>
+        {es.profile.protectEmail}:{" "}
+        {profile.email ? `${profile.email} · ${es.profile.protectEmailUnverified}` : es.profile.protectEmailMissing}
+      </p>
+      <Link className="button secondary" href="/cuenta/correo">
+        {profile.email ? es.profile.protectVerifyNow : es.profile.protectAddEmail}
+      </Link>
+    </div>
+  );
+
   return (
     <section className="stack">
       <div className="page-head">
@@ -111,6 +131,7 @@ export default async function ProfilePage() {
           {profile.full_name ? es.profile.hello(profile.full_name.split(" ")[0]) : es.profile.helloFallback}
         </p>
       </div>
+      {protectionNotice}
       {standingNotice}
       {clientView ? <ClaimReferral track="client" /> : null}
 
@@ -139,7 +160,15 @@ export default async function ProfilePage() {
       <Link className="contact-row contact-row-email" href="/cuenta/correo">
         <span className="icon-box"><Icon name="mail" /></span>
         <span className="contact-label">{es.profile.emailLabel}</span>
-        <span className="contact-value">{profile.email ?? "—"}</span>
+        <span className="contact-value">
+          {profile.email ?? es.profile.protectEmailMissing}
+          {profile.email && !profile.email_verified_at ? (
+            <>
+              {" "}
+              <span className="status-pill">{es.profile.emailUnverified}</span>
+            </>
+          ) : null}
+        </span>
       </Link>
 
       <Link className="contact-row" href="/cuenta/guardados">

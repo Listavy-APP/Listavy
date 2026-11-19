@@ -710,6 +710,18 @@ await check("profile: service role (verification function) can set email", async
   assert.ok(r.rows[0].email_verified_at);
 });
 
+await check("profile: owner can stamp own email prompt, not another user's", async () => {
+  await db.exec(`update public.profiles set email_prompt_dismissed_at = null where id = '${CUST_OWN}'`);
+  await asUser(HOMEOWNER, `update public.profiles set email_prompt_dismissed_at = now() where id = '${CUST_OWN}'`);
+  const own = await db.query(`select email_prompt_dismissed_at from public.profiles where id = '${CUST_OWN}'`);
+  assert.ok(own.rows[0].email_prompt_dismissed_at, "owner stamp should persist");
+
+  await db.exec(`update public.profiles set email_prompt_dismissed_at = null where id = '${CUST_OWN}'`);
+  await asUser(OUTSIDER_PRO, `update public.profiles set email_prompt_dismissed_at = now() where id = '${CUST_OWN}'`);
+  const other = await db.query(`select email_prompt_dismissed_at from public.profiles where id = '${CUST_OWN}'`);
+  assert.equal(other.rows[0].email_prompt_dismissed_at, null, "other user must not stamp this row");
+});
+
 await check("profile: other users cannot read a customer's email", async () => {
   const r = await asUser(OUTSIDER_PRO, `select email from public.profiles where id = '${CUST_OWN}'`);
   assert.equal(r.rows.length, 0);
