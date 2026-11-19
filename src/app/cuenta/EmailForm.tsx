@@ -14,6 +14,7 @@ export function EmailForm(props: { current: string | null; verified: boolean }) 
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState<string | null>(null);
+  const [changing, setChanging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export function EmailForm(props: { current: string | null; verified: boolean }) 
     try {
       await call({ action: "verify", code });
       setPending(null);
+      setChanging(false);
       setEmail("");
       setMessage(es.profile.emailSaved);
       router.refresh();
@@ -67,6 +69,30 @@ export function EmailForm(props: { current: string | null; verified: boolean }) 
     } finally {
       setBusy(false);
     }
+  }
+
+  const showVerifiedPanel = props.verified && !!props.current && !pending && !changing;
+
+  if (showVerifiedPanel) {
+    return (
+      <div className="stack">
+        <div className="stack" role="status">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M7.5 12.5l3 3 6-6.5" />
+          </svg>
+          <p className="ok">{es.profile.emailVerifiedTitle}</p>
+          <p>
+            <a href={`mailto:${props.current}`}>{props.current}</a>
+          </p>
+        </div>
+        <button className="button secondary" type="button" onClick={() => setChanging(true)}>
+          {es.profile.emailChange}
+        </button>
+        {message ? <p className="ok">{message}</p> : null}
+        {error ? <p className="error">{error}</p> : null}
+      </div>
+    );
   }
 
   return (

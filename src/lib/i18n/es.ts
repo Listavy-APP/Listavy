@@ -345,6 +345,8 @@ export const es = {
     verifyCode: "Confirmar correo",
     verifying: "Confirmando…",
     emailSaved: "Correo verificado.",
+    emailVerifiedTitle: "Tu correo está verificado",
+    emailChange: "Cambiar correo",
     tripsTitle: "Mis trabajos",
     noTrips: "Todavía no tienes trabajos.",
     reviewsTitle: "Mis reseñas",
