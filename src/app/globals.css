@@ -652,6 +652,12 @@ a.contact-row.contact-row-email .contact-value { flex: 1 1 0; min-width: 0; max-
   margin-bottom: -1px;
 }
 .tab[aria-current="page"] { color: var(--ink); border-bottom-color: var(--primary); }
+button.tab { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; font: inherit; font-size: 15px; cursor: pointer; }
+/* Login method tabs: muted when unselected, so the selected underline and ink text read at a glance. */
+.login-tabs .tab { color: var(--muted); }
+.login-tabs .tab[aria-current="page"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--primary); }
+.login-tabs .tab:not([aria-current="page"]):hover { color: var(--ink); background: var(--primary-tint); }
+.login-tabs .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .account-hello { margin: 0; font-size: 18px; font-weight: 600; }
 .icon-box {
   display: inline-flex;
