@@ -13,7 +13,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { SaveProButton } from "@/components/SaveProButton";
 import { ReportProButton } from "@/components/ReportProButton";
 import { listSavedProIds } from "@/lib/data/saved";
-import { getProReviewSummary, listDemoReviews, listProReviews } from "@/lib/data/reviews";
+import { getProReviewSummary, listDemoReviews, listMyAuthoredReviewIds, listMyFlaggedReviewIds, listProReviews } from "@/lib/data/reviews";
+import { ReviewReport } from "@/components/ReviewReport";
 
 export const metadata = { title: es.proDetail.title };
 export const instant = false;
@@ -67,6 +68,10 @@ export default async function ProDetailPage({
   const yearsOnPlatform = stats.joinedAt ? Math.floor((Date.now() - new Date(stats.joinedAt).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
   const reviews = pro.is_demo ? [] : await listProReviews(supabase, pro.id);
   const demoReviews = pro.is_demo ? await listDemoReviews(supabase, pro.id) : [];
+  // Reports are per viewer. Anonymous visitors get no report control.
+  const reviewIds = reviews.map((r) => r.id);
+  const myFlaggedIds = userId ? await listMyFlaggedReviewIds(supabase, reviewIds) : new Set<string>();
+  const myAuthoredIds = userId ? await listMyAuthoredReviewIds(supabase, reviewIds) : new Set<string>();
   // Demo pros keep their reviews in demo_reviews, which pro_review_summary does not read.
   const headerAverage =
     pro.is_demo && demoReviews.length > 0
@@ -199,6 +204,9 @@ export default async function ProDetailPage({
                       <p className="muted">
                         <b>{es.reviews.respondTitle}:</b> {r.response.body}
                       </p>
+                    ) : null}
+                    {userId && !myAuthoredIds.has(r.id) ? (
+                      <ReviewReport reviewId={r.id} alreadyReported={myFlaggedIds.has(r.id)} />
                     ) : null}
                   </article>
                 ))}

@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { es } from "@/lib/i18n/es";
+import { ReviewReport } from "@/components/ReviewReport";
 import {
   editReview,
-  flagReview,
   respondToReview,
   reviewHasContactDetails,
   submitClientRating,
@@ -15,11 +15,6 @@ import {
 } from "@/lib/data/reviews";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Reasons the reporter can pick. "personal_data" is left out on purpose: the backend hides the
-// review at once for that reason, and reporting must not hide reviews.
-const FLAG_REASONS = ["abuse", "false_claim", "advertising", "other"] as const;
-type FlagReason = (typeof FLAG_REASONS)[number];
 
 interface Props {
   jobId: string;
@@ -46,7 +41,7 @@ export function ReviewPanel({ jobId, role, jobStatus, paid, disputeOpen, review,
 
   return (
     <>
-      {review ? <ProResponse review={review} disputeOpen={disputeOpen} /> : null}
+      {review ? <ProResponse review={review} disputeOpen={disputeOpen} alreadyReported={reported} /> : null}
       {!hasClientRating ? <ClientRatingForm jobId={jobId} /> : null}
     </>
   );
@@ -154,10 +149,6 @@ function OwnReview({ review, disputeOpen, alreadyReported }: { review: ReviewRow
   const [cleanliness, setCleanliness] = useState(review.cleanliness ?? 0);
   const [comment, setComment] = useState(review.comment ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [reported, setReported] = useState(alreadyReported);
-  const [picking, setPicking] = useState(false);
-  const [flagReason, setFlagReason] = useState<FlagReason | null>(null);
-  const [flagBusy, setFlagBusy] = useState(false);
 
   // eslint-disable-next-line react-hooks/purity -- Render-time clock. Moving it into state would change when the edit window closes. Flagged for review.
   const withinEdit = Date.now() - new Date(review.created_at).getTime() < DAY_MS;
@@ -197,22 +188,6 @@ function OwnReview({ review, disputeOpen, alreadyReported }: { review: ReviewRow
     }
   }
 
-  async function onFlag() {
-    if (!flagReason) return;
-    setError(null);
-    setFlagBusy(true);
-    try {
-      await flagReview(createSupabaseBrowserClient(), review.id, flagReason);
-      setReported(true);
-      setPicking(false);
-      setFlagReason(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : es.reviews.fail);
-    } finally {
-      setFlagBusy(false);
-    }
-  }
-
   if (editing) {
     return (
       <form className="panel stack" onSubmit={onSave}>
@@ -239,50 +214,13 @@ function OwnReview({ review, disputeOpen, alreadyReported }: { review: ReviewRow
       ) : (
         <p className="muted">{es.reviews.editClosed}</p>
       )}
-      {reported ? (
-        <p className="muted" role="status">{es.reviews.flagged}</p>
-      ) : picking ? (
-        <fieldset className="stack">
-          <legend>{es.reviews.flagPrompt}</legend>
-          {FLAG_REASONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              className={flagReason === r ? "button" : "button secondary"}
-              aria-pressed={flagReason === r}
-              disabled={flagBusy}
-              onClick={() => setFlagReason(r)}
-            >
-              {es.reviews.flagReasons[r]}
-            </button>
-          ))}
-          <p className="muted">{es.reviews.flagNote}</p>
-          <button className="button" type="button" disabled={!flagReason || flagBusy} onClick={onFlag}>
-            {es.reviews.flagSubmit}
-          </button>
-          <button
-            className="button secondary"
-            type="button"
-            disabled={flagBusy}
-            onClick={() => {
-              setPicking(false);
-              setFlagReason(null);
-            }}
-          >
-            {es.reviews.flagCancel}
-          </button>
-        </fieldset>
-      ) : (
-        <button className="button secondary" type="button" onClick={() => setPicking(true)}>
-          {es.reviews.flag}
-        </button>
-      )}
+      <ReviewReport reviewId={review.id} alreadyReported={alreadyReported} />
       {error ? <p className="error">{error}</p> : null}
     </div>
   );
 }
 
-function ProResponse({ review, disputeOpen }: { review: ReviewRow; disputeOpen: boolean }) {
+function ProResponse({ review, disputeOpen, alreadyReported }: { review: ReviewRow; disputeOpen: boolean; alreadyReported: boolean }) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -295,6 +233,7 @@ function ProResponse({ review, disputeOpen }: { review: ReviewRow; disputeOpen: 
         <b>{es.reviews.respondTitle}</b>
         <p>{review.response.body}</p>
         {review.response.edited ? <span className="muted">{es.reviews.responseEdited}</span> : null}
+        <ReviewReport reviewId={review.id} alreadyReported={alreadyReported} />
       </div>
     );
   }
@@ -330,6 +269,7 @@ function ProResponse({ review, disputeOpen }: { review: ReviewRow; disputeOpen: 
       />
       {error ? <p className="error">{error}</p> : null}
       <button className="button" type="submit">{es.reviews.respond}</button>
+      <ReviewReport reviewId={review.id} alreadyReported={alreadyReported} />
     </form>
   );
 }

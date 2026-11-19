@@ -101,7 +101,7 @@ export default async function JobPage({
   const disputes = await listJobDisputes(supabase, id);
   const jobReview = await getJobReview(supabase, id);
   const clientRated = role === "pro" ? await hasClientRating(supabase, id) : false;
-  const reviewReported = jobReview && role === "homeowner" ? await hasReviewFlag(supabase, jobReview.id) : false;
+  const reviewReported = jobReview ? await hasReviewFlag(supabase, jobReview.id) : false;
   const disputeEvidence = await listEvidence(supabase, disputes.map((d) => d.id));
   const disputePhotoRows = await listDisputePhotos(supabase, disputes.map((d) => d.id));
   const disputePhotos = await Promise.all(

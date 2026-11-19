@@ -43,6 +43,7 @@ export const es = {
     flagged: "Reporte enviado. Lo revisaremos.",
     flagPrompt: "¿Por qué reportas esta reseña?",
     flagReasons: {
+      personal_data: "Datos personales",
       abuse: "Ofensiva o abusiva",
       false_claim: "Falsa o no corresponde a este trabajo",
       advertising: "Publicidad o spam",
@@ -51,6 +52,7 @@ export const es = {
     flagSubmit: "Enviar reporte",
     flagCancel: "Cancelar",
     flagNote: "Tu reporte lo revisa el equipo de Listavy. La reseña sigue publicada mientras tanto.",
+    flagNoteHidden: "Si la reseña muestra datos personales, se ocultará de inmediato.",
     privateTitle: "Califica al cliente (privado)",
     privateNote: "Esta calificación no se muestra en ningún perfil público.",
     punctualityClient: "Puntualidad del cliente",
