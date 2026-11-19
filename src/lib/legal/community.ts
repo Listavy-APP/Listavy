@@ -60,7 +60,7 @@ export const COMMUNITY_RULES: LegalDocument = {
     {
       title: "Reportar un problema",
       paragraphs: [
-        "Si alguien viola estas reglas, repórtelo con el botón \"Reportar\" en el perfil del profesional o escriba a listavyapp@gmail.com. Listavy investiga los reportes y toma las medidas que correspondan.",
+        "Si alguien viola estas reglas, repórtelo con el botón \"Reportar\" en el perfil del profesional o escriba a soporte@listavy.com. Listavy investiga los reportes y toma las medidas que correspondan.",
       ],
     },
     {

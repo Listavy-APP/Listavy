@@ -1042,7 +1042,7 @@ export const es = {
     aboutTitle: "Acerca de Listavy",
     aboutBody: "Listavy conecta a propietarios con plomeros, electricistas y técnicos de aire acondicionado verificados en Santo Domingo.",
     contactTitle: "Contacto",
-    contactEmail: "Correo: listavyapp@gmail.com",
+    contactEmail: "Correo: hola@listavy.com",
     privacyTitle: "Política de privacidad",
     privacyLink: "Política de privacidad",
     termsTitle: "Términos de uso",

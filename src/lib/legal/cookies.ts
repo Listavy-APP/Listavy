@@ -41,7 +41,7 @@ export const COOKIES_POLICY: LegalDocument = {
     {
       title: "Cómo contactarnos",
       paragraphs: [
-        "Si tiene preguntas sobre esta Política de Cookies, comuníquese con nosotros a listavyapp@gmail.com.",
+        "Si tiene preguntas sobre esta Política de Cookies, comuníquese con nosotros a hola@listavy.com.",
       ],
     },
   ],
