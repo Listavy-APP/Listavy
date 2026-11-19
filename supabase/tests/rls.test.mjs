@@ -142,86 +142,26 @@ async function asUser(uid, sql) {
   }
 }
 
+/**
+ * Runs seed SQL as the owning user's identity (auth.uid() = uid), keeping the role as the seed role.
+ * Job inserts pass through the suspension trigger (0075, is_client_suspended in 0076), which only
+ * allows the subject or an admin. Seeding as the owner keeps that trigger active instead of disabling it.
+ */
+async function asOwner(uid, fn) {
+  await db.exec(`set request.jwt.claim.sub = '${uid}'`);
+  try {
+    return await fn();
+  } finally {
+    // If fn left an open transaction aborted, this reset fails. The enclosing withRollback
+    // rolls the SET back, so the identity is cleared either way. Never mask fn's own error.
+    await db.exec("reset request.jwt.claim.sub").catch(() => {});
+  }
+}
+
 // Known-red checks. Each entry is a test-side defect with its reason. Group: TEST STALE.
 // Product-behavior questions: none (suspension trigger is kept by decision, 2026-11-18).
 // Fix list: the suite repair step before item 4. Remove an entry when its check passes.
-const KNOWN_RED = {
-  "job FX rate must be positive": "TEST STALE: stale expectation: the RLS policy rejects the insert before the check constraint runs; the first assertion already accepts both messages; the second uses a direct insert with no auth.uid() (trigger path).",
-  "anti-ghosting: 5 unbooked requests in 30 days blocks new requests": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "completion code: five failures lock the job": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0014 link: a credit may only come from a diagnostic job": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0014 link: an unpaid diagnostic cannot be credited": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0014 link: only one repair per diagnostic": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0014 apply: credited repair charges RD$5,250, marks the job paid": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0016 apply: the stripe event row is marked processed": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0017 pros: a pro cannot set their own payout account": "TEST STALE: stale expectation: the guard now blocks stripe_account_id with the 0086 message; the test still expects the older 'asigna Listavy' text. Behavior is correct.",
-  "0017 release: approval starts a 24 h clock on the held payment": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0017 release: claim returns a payment only after its 24 h window": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0017 release: a payment is marked released once": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0014 apply: a repeated Stripe event id is a no-op": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0014 apply: charging the full quote (RD$6,000) with a credit is refused": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0014 apply: a split that does not add up is refused by the table": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0014 apply: a failed apply leaves no event row, so Stripe can retry": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0018 cancel: client cancels an accepted unpaid job with no refund": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0018 cancel: client cancels a held job and a full refund is queued": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0018 cancel: pro cancel queues a refund and records a strike": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0018 cancel: the wrong party cannot cancel": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0018 cancel: a cancelled job cannot be cancelled again": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0018 cancel: a job in progress cannot be cancelled here": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0018 refunds: only one open or succeeded refund per payment": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0018 processor: claim, then mark succeeded moves payment and job to refunded": "TEST STALE: stale fixture: seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0018 refunds: signed-in users see no refund or strike rows": "TEST STALE: stale fixture: seedJobPayment, seedHeldJob inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0019 open: a pre-release dispute freezes the payment": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0019 open: a stranger cannot open a dispute": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0019 open: nothing can be disputed after 48 h": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0019 open: after release only a latent defect is accepted": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0019 claim: a disputed payment is not released": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0019 outcome: release_full returns a frozen payment to held": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0019 outcome: release_full sets the legacy status and redo keeps the dispute open": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0019 outcome: full_refund queues a dispute refund and marks the payment refunded": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0019 outcome: partial refund splits the payment, commission on the kept portion only": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0019 guarantee: a post-release refund is refused while the reserve is empty": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0019 guarantee: a funded reserve pays the refund and records the recovery": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0019 guarantee: a post-release refund cannot exceed the job amount": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0019 access: parties cannot insert or update disputes directly": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0019 access: reserve and recovery rows are not visible to signed-in users": "TEST STALE: stale fixture: depends on seeded data created by a helper that the suspension trigger rejects. Route the seed through seedFixture.",
-  "0020 admin: an admin reads the reserve ledger and recoveries; pros and homeowners do not": "TEST STALE: stale fixture: depends on seeded data created by a helper that the suspension trigger rejects. Route the seed through seedFixture.",
-  "0020 admin: reserve and recoveries stay read-only for admins": "TEST STALE: stale fixture: depends on seeded data created by a helper that the suspension trigger rejects. Route the seed through seedFixture.",
-  "0021 release: funds 10% of the retained commission": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0021 release: a repeat release adds no second funding row": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0021 release: a partial split funds 10% of the kept commission only": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0027 window: an admin decision before the evidence window closes is refused": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0027 evidence: a party can submit a statement; an outsider cannot": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0021 release: a zero commission adds no funding row": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture. stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0022 netting: a debt larger than the payout takes the whole payout, and release is recorded": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0022 netting: a smaller debt is cleared and the pro keeps the rest": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0022 netting: debts are cleared oldest first, and the remainder stays owed": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0022 netting: a repeat claim reuses the stored netting and deducts nothing twice": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0022 reversal: a full refund before release returns the debt to owed": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0022 reversal: a partial pre-release split re-nets on the next claim, on the kept payout": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0022 reversal: a release keeps its deduction": "TEST STALE: stale call: an admin-only function runs with no admin context. Call it via asUser(ADMIN) with aal2.",
-  "0023 provider: jobs default to stripe and refuse an unknown provider": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0023 provider: payments refuse an unknown provider": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0023 provider: a job's provider cannot change once it has a payment": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0024 tip: a tip is stored; the charge is quote minus credit plus tip; payout includes the tip": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0024 tip: a tip over 20% of the quote is refused": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0024 tip: an amount that leaves out the tip is refused": "TEST STALE: stale fixture: seedCreditPair inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0030 submit: the paying homeowner reviews a completed job; a stranger cannot": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0030 submit: under 4 stars needs 20 characters; contact details are refused": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0030 submit: one review per job": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0030 hold: an open dispute blocks the review form and hides the review from the public": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0030 edit: allowed within 24 hours, refused after, and the pro gets one response edit": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0030 private rating: only the pro rates the client; low average is flagged": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0030 dispute: a full refund removes the review; the admin reason is kept": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0030 moderation: only the admin moderates; a removal needs a reason": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0030 flags: a personal-data flag hides the review at once": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0030 names: a visitor sees the reviewer as first name plus last initial, never the full name": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0031 refunds: an admin reads refund rows; a pro does not; the trigger function is not an RPC": "TEST STALE: stale fixture: seedJobPayment inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0032 standing: two low ratings give no warning; three give a warning but no block": "TEST STALE: stale fixture: depends on seeded data created by a helper that the suspension trigger rejects. Route the seed through seedFixture.",
-  "0032 block: five low ratings stop new job requests; the form refuses the insert": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0032 window: low ratings older than 90 days stop counting and the block lifts": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-  "0032 clear: only an admin clears the count, with a reason; the block lifts and new lows count again": "TEST STALE: stale fixture: a direct db insert inserts a job with no auth.uid(); the suspension trigger (0075) rejects it. Route the seed through seedFixture.",
-};
+const KNOWN_RED = {};
 
 const results = [];
 const ranNames = new Set();
@@ -295,11 +235,14 @@ await check("job FX rate must be positive", async () => {
     ),
     /row-level security|check constraint/,
   );
-  await assert.rejects(
-    asUser(HOMEOWNER, `insert into public.jobs (homeowner_id, trade, zone, description, fx_rate_dop_per_usd)
-       values ('${HOMEOWNER}', 'plumber', 'Naco', 'TEST: x', 0)`),
-    /check constraint/,
-  );
+  // As the seed role (no RLS), so the check constraint itself is what refuses the row.
+  await withRollback(async () => {
+    await assert.rejects(
+      asOwner(HOMEOWNER, () => db.exec(`insert into public.jobs (homeowner_id, trade, zone, description, fx_rate_dop_per_usd)
+         values ('${HOMEOWNER}', 'plumber', 'Naco', 'TEST: x', 0)`)),
+      /check constraint/,
+    );
+  });
 });
 
 // ---- Sprint 1 checks -------------------------------------------------------
@@ -966,8 +909,8 @@ await check("open-request cap: 4th open request is refused", async () => {
 
 await check("anti-ghosting: 5 unbooked requests in 30 days blocks new requests", async () => {
   for (let i = 0; i < 5; i++) {
-    await db.exec(`insert into public.jobs (homeowner_id, trade, zone, description, status, created_at)
-      values ('${HO4}','plumber','Naco','solicitud sin contratar ${i}','requested', now() - interval '10 days')`);
+    await asOwner(HO4, () => db.exec(`insert into public.jobs (homeowner_id, trade, zone, description, status, created_at)
+      values ('${HO4}','plumber','Naco','solicitud sin contratar ${i}','requested', now() - interval '10 days')`));
   }
   await assert.rejects(
     asUser(HO4, `select public.create_job_request('plumber','Naco','${desc}','repair',
@@ -1079,10 +1022,10 @@ await check("completion code: wrong codes are counted, correct code completes th
 
 await check("completion code: five failures lock the job", async () => {
   const id = "10000000-0000-0000-0000-00000000f003";
-  await db.exec(`
+  await asOwner(HO2, () => db.exec(`
     insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, payment_status, job_type)
       values ('${id}','${HO2}','${PRO2}','plumber','Naco','bloqueo de código','awaiting_approval','paid','repair');
-    insert into public.job_secrets (job_id, completion_code, failed_attempts) values ('${id}','123456',5);`);
+    insert into public.job_secrets (job_id, completion_code, failed_attempts) values ('${id}','123456',5);`));
   await assert.rejects(asUser(HO2, `select public.approve_closeout('${id}', '123456')`), /Demasiados intentos/);
 });
 
@@ -1315,6 +1258,7 @@ async function withRollback(fn) {
 
 // Paid diagnostic (RD$750, 113 commission, 637 payout) and accepted repair (RD$6,000 quote).
 async function seedCreditPair() {
+  return asOwner(HOMEOWNER, async () => {
   const { trade } = (await db.query(`select trade from public.pros where id = '${PRO}'`)).rows[0];
   const diag = randomUUID();
   const repair = randomUUID();
@@ -1330,6 +1274,7 @@ async function seedCreditPair() {
                  values ('${quote}', '${repair}', '${PRO}', 6000, 'accepted')`);
   await db.exec(`update public.jobs set approved_quote_id = '${quote}' where id = '${repair}'`);
   return { diag, repair, trade };
+  });
 }
 
 const applyCall = (job, { event = "evt_t1", amountDop = 5250, commission = 630, payout = 4620, sessionId = "cs_t1" } = {}) =>
@@ -1341,8 +1286,8 @@ await check("0014 link: a credit may only come from a diagnostic job", async () 
     const { repair, trade } = await seedCreditPair();
     const other = randomUUID();
     await assert.rejects(
-      db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, credit_from_job_id)
-               values ('${other}', '${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Otra reparación.', 'accepted', 'repair', 'unpaid', '${repair}')`),
+      asOwner(HOMEOWNER, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, credit_from_job_id)
+               values ('${other}', '${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Otra reparación.', 'accepted', 'repair', 'unpaid', '${repair}')`)),
       /debe venir de un diagnóstico/,
     );
   });
@@ -1352,11 +1297,11 @@ await check("0014 link: an unpaid diagnostic cannot be credited", async () => {
   await withRollback(async () => {
     const { trade } = (await db.query(`select trade from public.pros where id = '${PRO}'`)).rows[0];
     const diag = randomUUID();
-    await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status)
-                   values ('${diag}', '${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Diagnóstico sin pagar.', 'accepted', 'diagnostic', 'unpaid')`);
+    await asOwner(HOMEOWNER, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status)
+                   values ('${diag}', '${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Diagnóstico sin pagar.', 'accepted', 'diagnostic', 'unpaid')`));
     await assert.rejects(
-      db.exec(`insert into public.jobs (homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, credit_from_job_id)
-               values ('${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Reparación nueva.', 'accepted', 'repair', 'unpaid', '${diag}')`),
+      asOwner(HOMEOWNER, () => db.exec(`insert into public.jobs (homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, credit_from_job_id)
+               values ('${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Reparación nueva.', 'accepted', 'repair', 'unpaid', '${diag}')`)),
       /no está pagado/,
     );
   });
@@ -1366,8 +1311,8 @@ await check("0014 link: only one repair per diagnostic", async () => {
   await withRollback(async () => {
     const { diag, trade } = await seedCreditPair();
     await assert.rejects(
-      db.exec(`insert into public.jobs (homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, credit_from_job_id)
-               values ('${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Segunda reparación.', 'accepted', 'repair', 'unpaid', '${diag}')`),
+      asOwner(HOMEOWNER, () => db.exec(`insert into public.jobs (homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, credit_from_job_id)
+               values ('${HOMEOWNER}', '${PRO}', '${trade}', 'Naco', 'Segunda reparación.', 'accepted', 'repair', 'unpaid', '${diag}')`)),
       /jobs_one_repair_per_diagnostic/,
     );
   });
@@ -1393,10 +1338,16 @@ await check("0016 apply: the stripe event row is marked processed", async () => 
 });
 
 await check("0017 pros: a pro cannot set their own payout account", async () => {
+  // Two guards refuse this: pros_guard_stripe_account (0017, "asigna Listavy") and
+  // guard_pro_privileges (0086, "Solo un administrador..."). Postgres fires triggers in name order,
+  // so the 0086 guard refuses first and its message is the one returned. The 0017 message is shadowed.
+  // Refused in autocommit, so no transaction to abort. A bypass would fail the rejects check below.
   await assert.rejects(
     asUser(PRO, `update public.pros set stripe_account_id = 'acct_evil' where id = '${PRO}'`),
-    /asigna Listavy/,
+    /Solo un administrador puede verificar/,
   );
+  const r = await db.query(`select stripe_account_id from public.pros where id = '${PRO}'`);
+  assert.equal(r.rows[0].stripe_account_id, null);
 });
 
 await check("0017 release: approval starts a 24 h clock on the held payment", async () => {
@@ -1496,6 +1447,7 @@ await check("0014 apply: signed-in users and anon have no EXECUTE on it", async 
 // 0018 · Refunds slice 1: cancellation, automatic refund rows, processor functions.
 // Rejections run outside withRollback: a failed statement aborts the whole transaction.
 async function seedHeldJob({ status = "accepted", held = true } = {}) {
+  return asOwner(HOMEOWNER, async () => {
   const job = randomUUID();
   await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status)
                  values ('${job}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'Reembolso de prueba.', '${status}', 'repair', '${held ? "paid" : "unpaid"}')`);
@@ -1507,6 +1459,7 @@ async function seedHeldJob({ status = "accepted", held = true } = {}) {
                    values ('${payment}', '${job}', 'stripe', 'USD', 10000, 60, 6000, 720, 5280, 'job', 'held')`);
   }
   return { job, payment };
+  });
 }
 
 await check("0018 cancel: client cancels an accepted unpaid job with no refund", async () => {
@@ -1610,6 +1563,7 @@ await check("0018 refunds: signed-in users see no refund or strike rows", async 
 
 // 0019 · Disputes and guarantee reserve (D1, D4). Rejections run outside withRollback.
 async function seedJobPayment({ status = "held", approvedHoursAgo = 1 } = {}) {
+  return asOwner(HOMEOWNER, async () => {
   const job = randomUUID();
   const payment = randomUUID();
   await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, approved_at)
@@ -1620,6 +1574,7 @@ async function seedJobPayment({ status = "held", approvedHoursAgo = 1 } = {}) {
                  values ('${payment}', '${job}', 'stripe', 'USD', 10000, 60, 6000, 720, 5280, 'job', '${status}',
                          now() - interval '${approvedHoursAgo} hours' + interval '24 hours')`);
   return { job, payment };
+  });
 }
 
 await check("0019 open: a pre-release dispute freezes the payment", async () => {
@@ -2033,8 +1988,8 @@ await check("0022 access: signed-in users cannot read the deduction ledger; admi
 await check("0023 provider: jobs default to stripe and refuse an unknown provider", async () => {
   await withRollback(async () => {
     const job = randomUUID();
-    await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, payment_status)
-                   values ('${job}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'Proveedor de prueba.', 'accepted', 'unpaid')`);
+    await asOwner(HOMEOWNER, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, payment_status)
+                   values ('${job}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'Proveedor de prueba.', 'accepted', 'unpaid')`));
     const p = await db.query(`select payment_provider from public.jobs where id = '${job}'`);
     assert.equal(p.rows[0].payment_provider, "stripe");
     await assert.rejects(db.exec(`update public.jobs set payment_provider = 'azul' where id = '${job}'`), /jobs_payment_provider_known/);
@@ -2217,8 +2172,8 @@ async function seedRatedClientJobs(client, count) {
   for (let i = 0; i < count; i++) {
     const job = randomUUID();
     const payment = randomUUID();
-    await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, approved_at)
-                   values ('${job}', '${client}', '${PRO}', 'plumber', 'Naco', 'Trabajo de prueba de calificación.', 'completed', 'repair', 'paid', now() - interval '1 hour')`);
+    await asOwner(client, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, approved_at)
+                   values ('${job}', '${client}', '${PRO}', 'plumber', 'Naco', 'Trabajo de prueba de calificación.', 'completed', 'repair', 'paid', now() - interval '1 hour')`));
     await db.exec(`insert into public.payments (id, job_id, provider, currency, amount_minor, fx_rate_dop_per_usd,
                      amount_dop, commission_dop, pro_payout_dop, purpose, status, release_after)
                    values ('${payment}', '${job}', 'stripe', 'USD', 10000, 60, 6000, 720, 5280, 'job', 'held', now() + interval '1 day')`);
@@ -2260,7 +2215,7 @@ await check("0032 block: five low ratings stop new job requests; the form refuse
   const st = await standing(C_BLOCK);
   assert.equal(st.blocked, true);
   await assert.rejects(
-    db.query(`insert into public.jobs (homeowner_id, trade, zone, description) values ('${C_BLOCK}', 'plumber', 'Naco', 'Nueva solicitud de prueba')`),
+    asOwner(C_BLOCK, () => db.query(`insert into public.jobs (homeowner_id, trade, zone, description) values ('${C_BLOCK}', 'plumber', 'Naco', 'Nueva solicitud de prueba')`)),
     /calificaciones bajas/,
   );
 });
@@ -2273,7 +2228,7 @@ await check("0032 window: low ratings older than 90 days stop counting and the b
   const st = await standing(C_WINDOW);
   assert.equal(st.low_count, 0);
   assert.equal(st.blocked, false);
-  await db.query(`insert into public.jobs (homeowner_id, trade, zone, description) values ('${C_WINDOW}', 'plumber', 'Naco', 'Nueva solicitud después de la ventana')`);
+  await asOwner(C_WINDOW, () => db.query(`insert into public.jobs (homeowner_id, trade, zone, description) values ('${C_WINDOW}', 'plumber', 'Naco', 'Nueva solicitud después de la ventana')`));
 });
 const C_CLEAR = "00000000-0000-0000-0000-000000000034";
 
@@ -2292,7 +2247,7 @@ await check("0032 clear: only an admin clears the count, with a reason; the bloc
   let st = await standing(C_CLEAR);
   assert.equal(st.blocked, false);
   assert.equal(st.low_count, 0);
-  await db.query(`insert into public.jobs (homeowner_id, trade, zone, description) values ('${C_CLEAR}', 'plumber', 'Naco', 'Nueva solicitud tras la revisión')`);
+  await asOwner(C_CLEAR, () => db.query(`insert into public.jobs (homeowner_id, trade, zone, description) values ('${C_CLEAR}', 'plumber', 'Naco', 'Nueva solicitud tras la revisión')`));
 });
 const C_PRIVACY = "00000000-0000-0000-0000-000000000035";
 
