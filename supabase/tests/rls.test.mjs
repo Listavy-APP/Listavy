@@ -2427,6 +2427,132 @@ await check("0090 read: the schedule follows the job's read policy; an invited p
   assert.equal(outsider.rows[0].n, 0);
 });
 
+// ---------------------------------------------------------------------------
+// 0091 · Notifications: preferences (owner-only), send log (no user access),
+// senders (preference and verification gates), and transition triggers.
+// ---------------------------------------------------------------------------
+const N_USER = "00000000-0000-0000-0000-000000000061";
+await db.exec(`insert into auth.users (id, phone) values ('${N_USER}', '+18095550061')`);
+
+/** Counts log rows for a user, kind and status. Log rows are written by SQL here (edge calls are not run). */
+async function logCount(uid, kind, status) {
+  const r = await db.query(`select count(*)::int as n from public.notification_log
+    where user_id = '${uid}' and kind = '${kind}' and status = '${status}'`);
+  return r.rows[0].n;
+}
+
+await check("0091 preferences: both toggles default to ON; the owner edits own row; another user cannot see or change it", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_preferences (user_id) values ('${N_USER}')`);
+    const d = await db.query(`select job_push, job_email from public.notification_preferences where user_id = '${N_USER}'`);
+    assert.equal(d.rows[0].job_push, true);
+    assert.equal(d.rows[0].job_email, true);
+    const own = await asUser(N_USER, `update public.notification_preferences set job_email = false where user_id = '${N_USER}'`);
+    assert.equal(own.affectedRows ?? own.rowCount, 1);
+    const seen = await asUser(PRO, `select count(*)::int as n from public.notification_preferences where user_id = '${N_USER}'`);
+    assert.equal(seen.rows[0].n, 0);
+    const other = await asUser(PRO, `update public.notification_preferences set job_push = false where user_id = '${N_USER}'`);
+    assert.equal(other.affectedRows ?? other.rowCount, 0);
+    // A pro cannot create a preference row for another user.
+    await refused(() => asUser(PRO, `insert into public.notification_preferences (user_id) values ('${HOMEOWNER}')`), /row-level security/);
+  });
+});
+
+await check("0091 log: no user or anonymous role reads the send log; only the admin reads it, through the definer function", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_log (user_id, channel, kind, status) values ('${N_USER}', 'push', 'job_accepted', 'sent')`);
+    // No user policy exists, so RLS hides every row. A missing table privilege is also a refusal.
+    await db.exec("savepoint log_read");
+    try {
+      await db.exec("set role authenticated");
+      await db.exec(`set request.jwt.claim.sub = '${N_USER}'`);
+      const r = await db.query(`select count(*)::int as n from public.notification_log`).catch((e) => ({ err: e }));
+      if (r.err) assert.match(r.err.message, /permission denied/);
+      else assert.equal(r.rows[0].n, 0, "the owner must see no log rows");
+    } finally {
+      await db.exec("rollback to savepoint log_read");
+    }
+    await refused(() => asUser(PRO, `select * from public.admin_notification_log('${N_USER}', 10)`), /Solo el administrador/);
+    const admin = await asUser(ADMIN, `select count(*)::int as n from public.admin_notification_log('${N_USER}', 10)`);
+    assert.ok(admin.rows[0].n >= 1);
+  });
+});
+
+await check("0091 push gate: a user who turned job push off gets a logged skip; an always-send kind still goes out", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_preferences (user_id, job_push) values ('${N_USER}', false)`);
+    await db.exec("insert into vault.decrypted_secrets (name, decrypted_secret) values ('push_secret', 'test-secret')");
+    await db.exec(`select public.notify_user_push('${N_USER}', 'job_started', 'T', 'B', '/x', false)`);
+    assert.equal(await logCount(N_USER, "job_started", "skipped_preference"), 1);
+    await db.exec(`select public.notify_user_push('${N_USER}', 'job_started', 'T', 'B', '/x', true)`);
+    assert.equal(await logCount(N_USER, "job_started", "skipped_preference"), 1);
+  });
+});
+
+await check("0091 email gate: no email goes to an unverified address; the job-event email gate is separate from the always-send kinds", async () => {
+  await withRollback(async () => {
+    await db.exec("insert into vault.decrypted_secrets (name, decrypted_secret) values ('push_secret', 'test-secret')");
+    await db.exec(`update public.profiles set email_verified_at = null where id = '${N_USER}'`);
+    await db.exec(`select public.notify_user_email('${N_USER}', 'job_accepted', '{}', false, true)`);
+    assert.equal(await logCount(N_USER, "job_accepted", "skipped_unverified"), 1);
+    await db.exec(`select public.notify_user_email('${N_USER}', 'receipt', '{}', true, false)`);
+    assert.equal(await logCount(N_USER, "receipt", "skipped_unverified"), 1);
+    await db.exec(`update public.notification_preferences set job_email = false where user_id = '${N_USER}'`).catch(() => {});
+    await db.exec(`insert into public.notification_preferences (user_id, job_email) values ('${N_USER}', false)
+      on conflict (user_id) do update set job_email = false`);
+    await db.exec(`select public.notify_user_email('${N_USER}', 'job_started', '{}', false, true)`);
+    assert.equal(await logCount(N_USER, "job_started", "skipped_preference"), 1);
+    await db.exec(`update public.profiles set email_verified_at = now() where id = '${N_USER}'`);
+    await db.exec(`select public.notify_user_email('${N_USER}', 'receipt', '{}', true, false)`);
+    assert.equal(await logCount(N_USER, "receipt", "skipped_unverified"), 1, "a verified address logs no skip");
+  });
+});
+
+await check("0091 transitions: a job status change notifies once; re-saving the same status notifies nothing", async () => {
+  await withRollback(async () => {
+    const j = await asOwner(HOMEOWNER, () => db.query(`insert into public.jobs (homeowner_id, trade, zone, description, status)
+      values ('${HOMEOWNER}', 'plumber', 'Naco', 'Transición de prueba de notificaciones', 'requested') returning id`));
+    const id = j.rows[0].id;
+    await db.exec(`insert into public.notification_preferences (user_id, job_push, job_email) values ('${HOMEOWNER}', false, false)
+      on conflict (user_id) do update set job_push = false, job_email = false`);
+    await db.exec(`update public.jobs set status = 'in_progress' where id = '${id}'`);
+    const first = await logCount(HOMEOWNER, "job_started", "skipped_preference");
+    assert.equal(first, 2, "one push skip and one email skip");
+    await db.exec(`update public.jobs set status = 'in_progress' where id = '${id}'`);
+    assert.equal(await logCount(HOMEOWNER, "job_started", "skipped_preference"), first, "re-save must not re-notify");
+  });
+});
+
+await check("0091 transitions: a quote sent to the client notifies once, and a re-save does not", async () => {
+  await withRollback(async () => {
+    const j = await asOwner(HOMEOWNER, () => db.query(`insert into public.jobs (homeowner_id, trade, zone, description, status)
+      values ('${HOMEOWNER}', 'plumber', 'Naco', 'Cotización de prueba de notificaciones', 'requested') returning id`));
+    const id = j.rows[0].id;
+    await db.exec(`insert into public.quotes (job_id, pro_id, status, invited_at) values ('${id}', '${PRO2}', 'invited', now())`);
+    await db.exec(`insert into public.notification_preferences (user_id, job_push, job_email) values ('${HOMEOWNER}', false, false)
+      on conflict (user_id) do update set job_push = false, job_email = false`);
+    await db.exec(`update public.quotes set status = 'sent', amount_dop = 4000, valid_until = now() + interval '7 days' where job_id = '${id}' and pro_id = '${PRO2}'`);
+    assert.equal(await logCount(HOMEOWNER, "job_quote_received", "skipped_preference"), 2);
+    await db.exec(`update public.quotes set status = 'sent' where job_id = '${id}' and pro_id = '${PRO2}'`);
+    assert.equal(await logCount(HOMEOWNER, "job_quote_received", "skipped_preference"), 2, "re-save must not re-notify");
+  });
+});
+
+await check("0091 receipt: a successful payment sends a receipt even with every job toggle off, and only to a verified address", async () => {
+  await withRollback(async () => {
+    const j = await asOwner(HOMEOWNER, () => db.query(`insert into public.jobs (homeowner_id, trade, zone, description, status)
+      values ('${HOMEOWNER}', 'plumber', 'Naco', 'Recibo de prueba de notificaciones', 'accepted') returning id`));
+    const id = j.rows[0].id;
+    await db.exec(`insert into public.notification_preferences (user_id, job_push, job_email) values ('${HOMEOWNER}', false, false)
+      on conflict (user_id) do update set job_push = false, job_email = false`);
+    await db.exec(`update public.profiles set email_verified_at = null where id = '${HOMEOWNER}'`);
+    await db.exec(`insert into public.payments (job_id, provider, currency, amount_minor, fx_rate_dop_per_usd, amount_dop, purpose, status)
+      values ('${id}', 'stripe', 'DOP', 800000, 60, 8000, 'job', 'held')`);
+    assert.equal(await logCount(HOMEOWNER, "receipt", "skipped_unverified"), 1, "unverified: no receipt sent");
+    assert.equal(await logCount(HOMEOWNER, "receipt", "skipped_preference"), 0, "always-send ignores the toggles");
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.
