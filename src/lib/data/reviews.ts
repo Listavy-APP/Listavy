@@ -113,6 +113,17 @@ export async function getJobReview(supabase: SupabaseClient, jobId: string): Pro
   return { ...r, reviewer_name: null, response: firstOrNull(r.review_responses) };
 }
 
+/** Whether the signed-in viewer has already flagged this review. RLS limits reads to their own flags. */
+export async function hasReviewFlag(supabase: SupabaseClient, reviewId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("review_flags")
+    .select("id")
+    .eq("review_id", reviewId)
+    .maybeSingle();
+  if (error) throw new Error(`No se pudo leer el reporte: ${error.message}`);
+  return data !== null;
+}
+
 export async function hasClientRating(supabase: SupabaseClient, jobId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from("private_client_ratings")

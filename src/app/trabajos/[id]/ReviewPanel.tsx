@@ -16,6 +16,11 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Reasons the reporter can pick. "personal_data" is left out on purpose: the backend hides the
+// review at once for that reason, and reporting must not hide reviews.
+const FLAG_REASONS = ["abuse", "false_claim", "advertising", "other"] as const;
+type FlagReason = (typeof FLAG_REASONS)[number];
+
 interface Props {
   jobId: string;
   role: "homeowner" | "pro";
@@ -24,9 +29,10 @@ interface Props {
   disputeOpen: boolean;
   review: ReviewRow | null;
   hasClientRating: boolean;
+  reported: boolean;
 }
 
-export function ReviewPanel({ jobId, role, jobStatus, paid, disputeOpen, review, hasClientRating }: Props) {
+export function ReviewPanel({ jobId, role, jobStatus, paid, disputeOpen, review, hasClientRating, reported }: Props) {
   if (jobStatus !== "completed") return null;
 
   if (role === "homeowner") {
@@ -35,7 +41,7 @@ export function ReviewPanel({ jobId, role, jobStatus, paid, disputeOpen, review,
       if (disputeOpen) return <p className="review-hold" role="status">{es.reviews.inDispute}</p>;
       return <ReviewForm jobId={jobId} />;
     }
-    return <OwnReview review={review} disputeOpen={disputeOpen} />;
+    return <OwnReview review={review} disputeOpen={disputeOpen} alreadyReported={reported} />;
   }
 
   return (
@@ -139,7 +145,7 @@ function ReviewForm({ jobId }: { jobId: string }) {
   );
 }
 
-function OwnReview({ review, disputeOpen }: { review: ReviewRow; disputeOpen: boolean }) {
+function OwnReview({ review, disputeOpen, alreadyReported }: { review: ReviewRow; disputeOpen: boolean; alreadyReported: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [rating, setRating] = useState(review.rating);
@@ -148,7 +154,10 @@ function OwnReview({ review, disputeOpen }: { review: ReviewRow; disputeOpen: bo
   const [cleanliness, setCleanliness] = useState(review.cleanliness ?? 0);
   const [comment, setComment] = useState(review.comment ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [flagged, setFlagged] = useState(false);
+  const [reported, setReported] = useState(alreadyReported);
+  const [picking, setPicking] = useState(false);
+  const [flagReason, setFlagReason] = useState<FlagReason | null>(null);
+  const [flagBusy, setFlagBusy] = useState(false);
 
   // eslint-disable-next-line react-hooks/purity -- Render-time clock. Moving it into state would change when the edit window closes. Flagged for review.
   const withinEdit = Date.now() - new Date(review.created_at).getTime() < DAY_MS;
@@ -188,14 +197,19 @@ function OwnReview({ review, disputeOpen }: { review: ReviewRow; disputeOpen: bo
     }
   }
 
-  // Open question for Fabian: no UI calls onFlag (the review flag button was never wired). Decide before wiring or removing.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function onFlag() {
+    if (!flagReason) return;
+    setError(null);
+    setFlagBusy(true);
     try {
-      await flagReview(createSupabaseBrowserClient(), review.id, "other");
-      setFlagged(true);
-    } catch {
-      setError(es.reviews.fail);
+      await flagReview(createSupabaseBrowserClient(), review.id, flagReason);
+      setReported(true);
+      setPicking(false);
+      setFlagReason(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : es.reviews.fail);
+    } finally {
+      setFlagBusy(false);
     }
   }
 
@@ -225,7 +239,44 @@ function OwnReview({ review, disputeOpen }: { review: ReviewRow; disputeOpen: bo
       ) : (
         <p className="muted">{es.reviews.editClosed}</p>
       )}
-      {flagged ? <p className="muted">{es.reviews.flagged}</p> : null}
+      {reported ? (
+        <p className="muted" role="status">{es.reviews.flagged}</p>
+      ) : picking ? (
+        <fieldset className="stack">
+          <legend>{es.reviews.flagPrompt}</legend>
+          {FLAG_REASONS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              className={flagReason === r ? "button" : "button secondary"}
+              aria-pressed={flagReason === r}
+              disabled={flagBusy}
+              onClick={() => setFlagReason(r)}
+            >
+              {es.reviews.flagReasons[r]}
+            </button>
+          ))}
+          <p className="muted">{es.reviews.flagNote}</p>
+          <button className="button" type="button" disabled={!flagReason || flagBusy} onClick={onFlag}>
+            {es.reviews.flagSubmit}
+          </button>
+          <button
+            className="button secondary"
+            type="button"
+            disabled={flagBusy}
+            onClick={() => {
+              setPicking(false);
+              setFlagReason(null);
+            }}
+          >
+            {es.reviews.flagCancel}
+          </button>
+        </fieldset>
+      ) : (
+        <button className="button secondary" type="button" onClick={() => setPicking(true)}>
+          {es.reviews.flag}
+        </button>
+      )}
       {error ? <p className="error">{error}</p> : null}
     </div>
   );
