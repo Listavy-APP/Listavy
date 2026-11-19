@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { es } from "@/lib/i18n/es";
+import { ReviewReport } from "@/components/ReviewReport";
 import {
   editReview,
-  flagReview,
   respondToReview,
   reviewHasContactDetails,
   submitClientRating,
@@ -24,9 +24,10 @@ interface Props {
   disputeOpen: boolean;
   review: ReviewRow | null;
   hasClientRating: boolean;
+  reported: boolean;
 }
 
-export function ReviewPanel({ jobId, role, jobStatus, paid, disputeOpen, review, hasClientRating }: Props) {
+export function ReviewPanel({ jobId, role, jobStatus, paid, disputeOpen, review, hasClientRating, reported }: Props) {
   if (jobStatus !== "completed") return null;
 
   if (role === "homeowner") {
@@ -35,12 +36,12 @@ export function ReviewPanel({ jobId, role, jobStatus, paid, disputeOpen, review,
       if (disputeOpen) return <p className="review-hold" role="status">{es.reviews.inDispute}</p>;
       return <ReviewForm jobId={jobId} />;
     }
-    return <OwnReview review={review} disputeOpen={disputeOpen} />;
+    return <OwnReview review={review} disputeOpen={disputeOpen} alreadyReported={reported} />;
   }
 
   return (
     <>
-      {review ? <ProResponse review={review} disputeOpen={disputeOpen} /> : null}
+      {review ? <ProResponse review={review} disputeOpen={disputeOpen} alreadyReported={reported} /> : null}
       {!hasClientRating ? <ClientRatingForm jobId={jobId} /> : null}
     </>
   );
@@ -139,7 +140,7 @@ function ReviewForm({ jobId }: { jobId: string }) {
   );
 }
 
-function OwnReview({ review, disputeOpen }: { review: ReviewRow; disputeOpen: boolean }) {
+function OwnReview({ review, disputeOpen, alreadyReported }: { review: ReviewRow; disputeOpen: boolean; alreadyReported: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [rating, setRating] = useState(review.rating);
@@ -148,7 +149,6 @@ function OwnReview({ review, disputeOpen }: { review: ReviewRow; disputeOpen: bo
   const [cleanliness, setCleanliness] = useState(review.cleanliness ?? 0);
   const [comment, setComment] = useState(review.comment ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [flagged, setFlagged] = useState(false);
 
   // eslint-disable-next-line react-hooks/purity -- Render-time clock. Moving it into state would change when the edit window closes. Flagged for review.
   const withinEdit = Date.now() - new Date(review.created_at).getTime() < DAY_MS;
@@ -188,17 +188,6 @@ function OwnReview({ review, disputeOpen }: { review: ReviewRow; disputeOpen: bo
     }
   }
 
-  // Open question for Fabian: no UI calls onFlag (the review flag button was never wired). Decide before wiring or removing.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async function onFlag() {
-    try {
-      await flagReview(createSupabaseBrowserClient(), review.id, "other");
-      setFlagged(true);
-    } catch {
-      setError(es.reviews.fail);
-    }
-  }
-
   if (editing) {
     return (
       <form className="panel stack" onSubmit={onSave}>
@@ -225,13 +214,13 @@ function OwnReview({ review, disputeOpen }: { review: ReviewRow; disputeOpen: bo
       ) : (
         <p className="muted">{es.reviews.editClosed}</p>
       )}
-      {flagged ? <p className="muted">{es.reviews.flagged}</p> : null}
+      <ReviewReport reviewId={review.id} alreadyReported={alreadyReported} />
       {error ? <p className="error">{error}</p> : null}
     </div>
   );
 }
 
-function ProResponse({ review, disputeOpen }: { review: ReviewRow; disputeOpen: boolean }) {
+function ProResponse({ review, disputeOpen, alreadyReported }: { review: ReviewRow; disputeOpen: boolean; alreadyReported: boolean }) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -244,6 +233,7 @@ function ProResponse({ review, disputeOpen }: { review: ReviewRow; disputeOpen: 
         <b>{es.reviews.respondTitle}</b>
         <p>{review.response.body}</p>
         {review.response.edited ? <span className="muted">{es.reviews.responseEdited}</span> : null}
+        <ReviewReport reviewId={review.id} alreadyReported={alreadyReported} />
       </div>
     );
   }
@@ -279,6 +269,7 @@ function ProResponse({ review, disputeOpen }: { review: ReviewRow; disputeOpen: 
       />
       {error ? <p className="error">{error}</p> : null}
       <button className="button" type="submit">{es.reviews.respond}</button>
+      <ReviewReport reviewId={review.id} alreadyReported={alreadyReported} />
     </form>
   );
 }

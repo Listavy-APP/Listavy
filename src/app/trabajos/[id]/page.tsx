@@ -7,7 +7,7 @@ import { JobTimeline } from "./JobTimeline";
 import { VoiceNote } from "./VoiceNote";
 import { DisputePanel } from "./DisputePanel";
 import { ReviewPanel } from "./ReviewPanel";
-import { getJobReview, hasClientRating } from "@/lib/data/reviews";
+import { getJobReview, hasClientRating, hasReviewFlag } from "@/lib/data/reviews";
 import { disputePhotoUrl, listDisputePhotos, listEvidence, listJobDisputes } from "@/lib/data/disputes";
 import { getCompletionCode, getContactPhone, jobFileUrl, type JobPhotoRow, type JobRow, type QuoteRow } from "@/lib/data/jobs";
 import { getProCard } from "@/lib/data/pros";
@@ -101,6 +101,7 @@ export default async function JobPage({
   const disputes = await listJobDisputes(supabase, id);
   const jobReview = await getJobReview(supabase, id);
   const clientRated = role === "pro" ? await hasClientRating(supabase, id) : false;
+  const reviewReported = jobReview ? await hasReviewFlag(supabase, jobReview.id) : false;
   const disputeEvidence = await listEvidence(supabase, disputes.map((d) => d.id));
   const disputePhotoRows = await listDisputePhotos(supabase, disputes.map((d) => d.id));
   const disputePhotos = await Promise.all(
@@ -253,6 +254,7 @@ export default async function JobPage({
         disputeOpen={disputes.some((d) => d.status === "open")}
         review={jobReview}
         hasClientRating={clientRated}
+        reported={reviewReported}
       />
     </section>
   );

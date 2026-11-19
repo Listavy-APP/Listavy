@@ -113,6 +113,36 @@ export async function getJobReview(supabase: SupabaseClient, jobId: string): Pro
   return { ...r, reviewer_name: null, response: firstOrNull(r.review_responses) };
 }
 
+/** Whether the signed-in viewer has already flagged this review. RLS limits reads to their own flags. */
+export async function hasReviewFlag(supabase: SupabaseClient, reviewId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("review_flags")
+    .select("id")
+    .eq("review_id", reviewId)
+    .maybeSingle();
+  if (error) throw new Error(`No se pudo leer el reporte: ${error.message}`);
+  return data !== null;
+}
+
+/** Which of these reviews the signed-in viewer wrote. list_pro_reviews hides reviewer_id, so ask the reviews table. */
+export async function listMyAuthoredReviewIds(supabase: SupabaseClient, reviewIds: string[]): Promise<Set<string>> {
+  if (reviewIds.length === 0) return new Set();
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return new Set();
+  const { data, error } = await supabase.from("reviews").select("id").eq("reviewer_id", uid).in("id", reviewIds);
+  if (error) throw new Error(`No se pudieron leer las reseñas: ${error.message}`);
+  return new Set((data ?? []).map((r: { id: string }) => r.id));
+}
+
+/** Which of these reviews the signed-in viewer already flagged. One query for a whole list. */
+export async function listMyFlaggedReviewIds(supabase: SupabaseClient, reviewIds: string[]): Promise<Set<string>> {
+  if (reviewIds.length === 0) return new Set();
+  const { data, error } = await supabase.from("review_flags").select("review_id").in("review_id", reviewIds);
+  if (error) throw new Error(`No se pudieron leer los reportes: ${error.message}`);
+  return new Set((data ?? []).map((r: { review_id: string }) => r.review_id));
+}
+
 export async function hasClientRating(supabase: SupabaseClient, jobId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from("private_client_ratings")
