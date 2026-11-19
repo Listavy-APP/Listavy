@@ -1,4 +1,4 @@
-import { PhoneLoginForm } from "./PhoneLoginForm";
+import { LoginMethods } from "./LoginMethods";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { safeNext } from "@/lib/nav/safeNext";
@@ -21,5 +21,5 @@ export default async function LoginPage({
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
   if (userData.user) redirect(safeNext(next));
-  return <PhoneLoginForm next={safeNext(next)} />;
+  return <LoginMethods next={safeNext(next)} />;
 }

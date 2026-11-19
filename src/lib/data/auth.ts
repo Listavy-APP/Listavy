@@ -42,6 +42,26 @@ export async function verifyWhatsAppCode(
   if (error) throw error;
 }
 
+/**
+ * Email sign-in: a one-time code to an email that is already verified on an account.
+ * shouldCreateUser is false, so an unknown email never creates an account.
+ * Returns "no_account" when no account has this email. Any other failure is thrown.
+ */
+export async function sendEmailLoginCode(supabase: SupabaseClient, email: string): Promise<"sent" | "no_account"> {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  });
+  if (!error) return "sent";
+  if (/signups? not allowed|user not found|not found/i.test(error.message)) return "no_account";
+  throw error;
+}
+
+export async function verifyEmailLoginCode(supabase: SupabaseClient, email: string, token: string): Promise<void> {
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+  if (error) throw error;
+}
+
 export async function signOut(supabase: SupabaseClient): Promise<void> {
   await supabase.auth.signOut();
 }

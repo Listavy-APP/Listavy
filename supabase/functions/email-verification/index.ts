@@ -5,7 +5,9 @@
 //                                   on success writes profiles.email and email_verified_at (service role).
 // The email is never a login method. Phone OTP stays the only login.
 // Deployed as v2 (2026-11-18): adds CORS and OPTIONS handling so the browser preflight succeeds.
-// v1 returned 405 to OPTIONS, so no POST arrived. Requires RESEND_API_KEY and the verified sending domain listavy.com.
+// v1 returned 405 to OPTIONS, so no POST arrived.
+// v3 (2026-11-18): verify also sets the same email on the auth user (confirmed), so it can sign in by code.
+// Requires RESEND_API_KEY and the verified sending domain listavy.com.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -131,13 +133,26 @@ Deno.serve(async (req) => {
       return json({ error: "El código no es correcto." }, 400);
     }
 
+    // The same email on the auth user, confirmed, so it can sign in by code. Done before the code is
+    // spent: a failure here leaves the code usable, and the update is safe to repeat.
+    const { error: authError } = await admin.auth.admin.updateUserById(userId, {
+      email: row.email,
+      email_confirm: true,
+    });
+    if (authError) {
+      if (/already|registered|exists/i.test(authError.message)) {
+        return json({ error: "Ese correo ya está en otra cuenta." }, 409);
+      }
+      return json({ error: "No pudimos activar tu correo para entrar. Intenta de nuevo." }, 500);
+    }
+
     const now = new Date().toISOString();
-    await admin.from("email_verifications").update({ used_at: now }).eq("id", row.id);
     const { error } = await admin
       .from("profiles")
       .update({ email: row.email, email_verified_at: now })
       .eq("id", userId);
     if (error) return json({ error: "No pudimos guardar tu correo." }, 500);
+    await admin.from("email_verifications").update({ used_at: now }).eq("id", row.id);
     return json({ ok: true, email: row.email });
   }
 
