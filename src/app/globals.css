@@ -652,6 +652,7 @@ a.contact-row.contact-row-email .contact-value { flex: 1 1 0; min-width: 0; max-
   margin-bottom: -1px;
 }
 .tab[aria-current="page"] { color: var(--ink); border-bottom-color: var(--primary); }
+button.tab { background: none; border: 0; border-radius: 0; font: inherit; font-size: 15px; cursor: pointer; }
 .account-hello { margin: 0; font-size: 18px; font-weight: 600; }
 .icon-box {
   display: inline-flex;
