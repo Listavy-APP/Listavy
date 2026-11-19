@@ -202,3 +202,15 @@ export async function getProStats(
   if (pErr) throw new Error(`No se pudo leer la fecha de alta: ${pErr.message}`);
   return { completedJobs: Number(jobs ?? 0), joinedAt: (pro as { created_at: string } | null)?.created_at ?? null };
 }
+
+/** Public weekly hours and today's day-off flag (migration 0090). Null when the pro is not approved or closed. */
+export type ProSchedule = {
+  weekly: { weekday: number; start: string; end: string }[];
+  off_today: boolean;
+};
+
+export async function getProSchedule(supabase: SupabaseClient, proId: string): Promise<ProSchedule | null> {
+  const { data, error } = await supabase.rpc("get_pro_schedule", { p_pro: proId });
+  if (error) throw new Error(`No se pudo cargar el horario: ${error.message}`);
+  return (data as ProSchedule | null) ?? null;
+}

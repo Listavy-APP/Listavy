@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { BackArrow } from "@/components/BackBar";
-import { getProCard, getProStats, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
+import { getProCard, getProSchedule, getProStats, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { customerPhotoUrl } from "@/lib/storage/customerFiles";
@@ -37,6 +37,8 @@ export default async function ProDetailPage({
   const signedIn = Boolean(userData.user);
 
   const pro = await getProCard(supabase, id);
+  // Weekly hours and today's day-off flag. Informational only: it blocks nothing (0090).
+  const schedule = pro ? await getProSchedule(supabase, pro.id) : null;
 
   if (!pro) {
     return (
@@ -157,6 +159,20 @@ export default async function ProDetailPage({
             {es.money.dop(pro.price_min_dop)} – {es.money.dop(pro.price_max_dop)}
           </b>
         </div>
+      </div>
+
+      <div className="pro-section">
+        <h2>{es.schedule.publicTitle}</h2>
+        {schedule?.off_today ? <p><b>{es.schedule.offToday}</b></p> : null}
+        {schedule && schedule.weekly.length > 0 ? (
+          <p className="muted">
+            {schedule.weekly
+              .map((w) => `${es.schedule.pro.dayShort[w.weekday]} ${w.start}–${w.end}`)
+              .join(" · ")}
+          </p>
+        ) : (
+          <p className="muted">{es.schedule.publicNone}</p>
+        )}
       </div>
 
       <div className="pro-section">

@@ -12,6 +12,8 @@ import { disputePhotoUrl, listDisputePhotos, listEvidence, listJobDisputes } fro
 import { getCompletionCode, getContactPhone, jobFileUrl, type JobPhotoRow, type JobRow, type QuoteRow } from "@/lib/data/jobs";
 import { getProCard } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
+import { scheduleText } from "@/components/ScheduleText";
+import { ScheduleEditor } from "./ScheduleEditor";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
@@ -186,6 +188,10 @@ export default async function JobPage({
           <dt className="muted">{es.jobs.dateLabel}</dt>
           <dd>{jobDate(j.created_at)}</dd>
         </div>
+        <div>
+          <dt className="muted">{es.schedule.requested}</dt>
+          <dd>{scheduleText(j.scheduled_date, j.scheduled_window)}</dd>
+        </div>
         {approvedAmount !== null ? (
           <div>
             <dt className="muted">{es.jobs.totalLabel}</dt>
@@ -211,6 +217,11 @@ export default async function JobPage({
         </span>
       </p>
 
+      {role === "homeowner" && j.status === "requested" && !j.approved_quote_id ? (
+        <ScheduleEditor jobId={j.id} date={j.scheduled_date} window={j.scheduled_window} />
+      ) : role === "homeowner" && j.status !== "requested" && j.status !== "cancelled" ? (
+        <p className="muted">{es.schedule.locked}</p>
+      ) : null}
       {j.voice_path ? <VoiceNote url={voiceUrl} /> : null}
       {role === "pro" && j.location_consent && j.payment_status === "paid" ? (
         <p className="notice">{es.location.sharedWithPro}</p>

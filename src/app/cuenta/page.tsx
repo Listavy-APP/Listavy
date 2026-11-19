@@ -224,6 +224,9 @@ export default async function ProfilePage() {
           <Link className="contact-row" href="/pro/estado">
             <span className="contact-label">{es.proHub.availability}</span>
           </Link>
+          <Link className="contact-row" href="/pro/horario">
+            <span className="contact-label">{es.schedule.navLink}</span>
+          </Link>
           <Link className="contact-row" href="/pro/estado">
             <span className="contact-label">{es.account.proStatus}</span>
           </Link>
