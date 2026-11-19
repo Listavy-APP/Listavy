@@ -90,19 +90,23 @@ export default async function ProfilePage() {
   const protectionNotice = emailVerified ? (
     <p className="muted">{es.profile.protectedLine}</p>
   ) : (
-    <div className="panel stack">
-      <b>{es.profile.protectTitle}</b>
-      <p>
-        {es.profile.protectPhone}: {formatPhoneDisplay(profile.phone)} · {es.profile.protectPhoneVerified}
-      </p>
-      <p>
-        {es.profile.protectEmail}:{" "}
-        {profile.email ? `${profile.email} · ${es.profile.protectEmailUnverified}` : es.profile.protectEmailMissing}
-      </p>
-      <Link className="button secondary" href="/cuenta/correo">
+    <Link className="panel protect-card" href="/cuenta/correo">
+      <span className="icon-box"><Icon name="shield" /></span>
+      <span className="protect-text">
+        <b>{es.profile.protectTitle}</b>{" "}
+        <span className="muted">
+          {es.profile.protectStatusPhone}
+          {" · "}
+          {profile.email ? es.profile.protectStatusEmailUnverified : es.profile.protectStatusEmailMissing}
+        </span>
+      </span>
+      <span className="protect-cta">
         {profile.email ? es.profile.protectVerifyNow : es.profile.protectAddEmail}
-      </Link>
-    </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+      </span>
+    </Link>
   );
 
   return (
