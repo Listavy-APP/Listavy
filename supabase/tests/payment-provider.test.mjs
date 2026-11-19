@@ -324,6 +324,27 @@ test("checkout with a customer: sends customer and saves the card; without one, 
   assert.equal(without.has("payment_intent_data[setup_future_usage]"), false);
 });
 
+test("checkout: redisplay filter includes limited cards, and saveCard false drops setup_future_usage", async () => {
+  const { p, calls } = provider([{ data: { id: "cs_4", url: "u" } }, { data: { id: "cs_5", url: "u" } }]);
+  await p.createCheckout({ ...checkoutInput, customerId: "cus_123" });
+  await p.createCheckout({ ...checkoutInput, customerId: "cus_123", saveCard: false });
+  const saving = new URLSearchParams(calls[0].body);
+  assert.equal(saving.get("saved_payment_method_options[allow_redisplay_filters][0]"), "always");
+  assert.equal(saving.get("saved_payment_method_options[allow_redisplay_filters][1]"), "limited");
+  assert.equal(saving.get("payment_intent_data[setup_future_usage]"), "off_session");
+  const reuse = new URLSearchParams(calls[1].body);
+  assert.equal(reuse.get("customer"), "cus_123");
+  assert.equal(reuse.get("saved_payment_method_options[allow_redisplay_filters][1]"), "limited");
+  assert.equal(reuse.has("payment_intent_data[setup_future_usage]"), false);
+});
+
+test("hasReusableCard: true when the customer has a saved card, false when none", async () => {
+  const { p, calls } = provider([{ data: { data: [{ id: "pm_1" }] } }, { data: { data: [] } }]);
+  assert.equal(await p.hasReusableCard("cus_123"), true);
+  assert.equal(await p.hasReusableCard("cus_123"), false);
+  assert.match(calls[0].url, /\/v1\/payment_methods\?customer=cus_123&type=card&limit=1$/);
+});
+
 test("createCustomer: sends the idempotency key and the profile metadata only", async () => {
   const { p, calls } = provider([{ data: { id: "cus_9" } }]);
   const id = await p.createCustomer({ profileId: "client-1", idempotencyKey: "client-customer:client-1:test" });

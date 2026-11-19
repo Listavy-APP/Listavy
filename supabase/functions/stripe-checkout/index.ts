@@ -153,8 +153,12 @@ Deno.serve(async (req: Request) => {
       job.homeowner_id,
     );
 
+    // Save the card only the first time. A second saved copy of the same card adds nothing and clutters the list.
+    const saveCard = customerId ? !(await provider.hasReusableCard(customerId)) : false;
+
     session = await provider.createCheckout({
       customerId,
+      saveCard,
       jobId: job.id,
       purpose: isDiagnostic ? "diagnostic" : "job",
       productName: isDiagnostic ? "Diagnóstico Listavy (prueba)" : "Reparación Listavy (prueba)",
