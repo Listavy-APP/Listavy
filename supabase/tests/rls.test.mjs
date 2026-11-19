@@ -2553,6 +2553,93 @@ await check("0091 receipt: a successful payment sends a receipt even with every 
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0092 · Client Stripe Customers: service role only. No client reads or writes the mapping.
+// The harness re-grants table privileges after migrations, so these checks assert on RLS and
+// policies. The migration's revoke is reviewed in the migration itself.
+// ---------------------------------------------------------------------------
+const C_USER = "00000000-0000-0000-0000-000000000062";
+await db.exec(`insert into auth.users (id, phone) values ('${C_USER}', '+18095550062')`);
+
+/**
+ * Runs one statement as the service role. Supabase's service_role has BYPASSRLS; this harness's
+ * role does not, so the statement runs as the database owner, the same way the other service-only
+ * tables are written here.
+ */
+async function asService(sql) {
+  return db.query(sql);
+}
+
+await check("0092 customers: RLS is on and no policy grants any client a row", async () => {
+  const r = await db.query(`select relrowsecurity from pg_class where oid = 'public.client_stripe_customers'::regclass`);
+  assert.equal(r.rows[0].relrowsecurity, true);
+  const pol = await db.query(`select count(*)::int as n from pg_policies where schemaname = 'public' and tablename = 'client_stripe_customers'`);
+  assert.equal(pol.rows[0].n, 0, "no policy: clients see no rows and write nothing");
+});
+
+await check("0092 customers: the owner cannot read or write their own Stripe customer row", async () => {
+  await withRollback(async () => {
+    await asService(`insert into public.client_stripe_customers (profile_id, stripe_mode, stripe_customer_id)
+      values ('${C_USER}', 'test', 'cus_owner_probe')`);
+    await db.exec("savepoint cust_read");
+    try {
+      const r = await asUser(C_USER, `select count(*)::int as n from public.client_stripe_customers`).catch((e) => ({ err: e }));
+      if (r.err) assert.match(r.err.message, /permission denied/);
+      else assert.equal(r.rows[0].n, 0, "the owner must see no customer rows");
+    } finally {
+      await db.exec("rollback to savepoint cust_read");
+    }
+    await db.exec("savepoint cust_write");
+    try {
+      await assert.rejects(
+        asUser(C_USER, `insert into public.client_stripe_customers (profile_id, stripe_mode, stripe_customer_id)
+          values ('${C_USER}', 'live', 'cus_owner_forged')`),
+        /permission denied|row-level security/,
+      );
+    } finally {
+      await db.exec("rollback to savepoint cust_write");
+    }
+  });
+});
+
+await check("0092 customers: service role keeps one row per client and mode, and the id is unique", async () => {
+  await withRollback(async () => {
+    await asService(`insert into public.client_stripe_customers (profile_id, stripe_mode, stripe_customer_id)
+      values ('${C_USER}', 'test', 'cus_one')`);
+    // The same client and mode cannot get a second row.
+    await db.exec("savepoint dup_pk");
+    await assert.rejects(
+      asService(`insert into public.client_stripe_customers (profile_id, stripe_mode, stripe_customer_id)
+        values ('${C_USER}', 'test', 'cus_two')`),
+      /duplicate key/,
+    );
+    await db.exec("rollback to savepoint dup_pk");
+    // One Stripe customer belongs to one client.
+    await db.exec("savepoint dup_id");
+    await assert.rejects(
+      asService(`insert into public.client_stripe_customers (profile_id, stripe_mode, stripe_customer_id)
+        values ('${HOMEOWNER}', 'test', 'cus_one')`),
+      /duplicate key/,
+    );
+    await db.exec("rollback to savepoint dup_id");
+    // Live and test rows for one client are separate.
+    await asService(`insert into public.client_stripe_customers (profile_id, stripe_mode, stripe_customer_id)
+      values ('${C_USER}', 'live', 'cus_live_one')`);
+  });
+});
+
+await check("0092 customers: a non-Stripe id is refused by the format check", async () => {
+  await withRollback(async () => {
+    await db.exec("savepoint bad_id");
+    await assert.rejects(
+      asService(`insert into public.client_stripe_customers (profile_id, stripe_mode, stripe_customer_id)
+        values ('${C_USER}', 'test', 'pm_not_a_customer')`),
+      /check constraint/,
+    );
+    await db.exec("rollback to savepoint bad_id");
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

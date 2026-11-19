@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { splitPayment } from "./commission.ts";
 import { providerFor } from "../_shared/payments/provider.ts";
+import { ensureClientCustomer } from "../_shared/payments/client-customer.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -115,7 +116,45 @@ Deno.serve(async (req: Request) => {
 
   let session;
   try {
+    // One Stripe Customer per client, created here on first payment. Never at signup.
+    const customerId = await ensureClientCustomer(
+      {
+        mode: "test", // the guard above admits only sk_test_ keys
+        findStored: async (profileId, mode) => {
+          const { data } = await admin
+            .from("client_stripe_customers")
+            .select("stripe_customer_id")
+            .eq("profile_id", profileId)
+            .eq("stripe_mode", mode)
+            .maybeSingle();
+          return data?.stripe_customer_id ?? null;
+        },
+        createCustomer: (input) => provider.createCustomer(input),
+        storeIfAbsent: async (profileId, mode, customer) => {
+          const { data: inserted } = await admin
+            .from("client_stripe_customers")
+            .upsert({ profile_id: profileId, stripe_mode: mode, stripe_customer_id: customer }, {
+              onConflict: "profile_id,stripe_mode",
+              ignoreDuplicates: true,
+            })
+            .select("stripe_customer_id");
+          if (inserted && inserted.length > 0) return inserted[0].stripe_customer_id;
+          const { data: winner, error: winnerErr } = await admin
+            .from("client_stripe_customers")
+            .select("stripe_customer_id")
+            .eq("profile_id", profileId)
+            .eq("stripe_mode", mode)
+            .single();
+          if (winnerErr || !winner) throw new Error("No se pudo guardar el cliente de pago.");
+          return winner.stripe_customer_id;
+        },
+        deleteCustomer: (id) => provider.deleteCustomer(id),
+      },
+      job.homeowner_id,
+    );
+
     session = await provider.createCheckout({
+      customerId,
       jobId: job.id,
       purpose: isDiagnostic ? "diagnostic" : "job",
       productName: isDiagnostic ? "Diagnóstico Listavy (prueba)" : "Reparación Listavy (prueba)",
