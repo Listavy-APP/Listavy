@@ -8,6 +8,8 @@ import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
+import { listPriceGuides } from "@/lib/data/price-guides";
+import { guideFor, type PriceGuide } from "@/lib/domain/price-guides";
 
 export const metadata = { title: es.jobs.requestTitle };
 export const instant = false;
@@ -40,6 +42,16 @@ export default async function RequestPage({
   const cards = (await Promise.all(ids.map((id) => getProCard(supabase, id)))).filter(
     (c): c is NonNullable<typeof c> => c !== null,
   );
+
+  // Typical range for the chosen trade, when every chosen pro shares one trade. Never blocks the request.
+  let guide: PriceGuide | null = null;
+  if (cards.length > 0 && cards.every((c) => c.trade === cards[0].trade)) {
+    try {
+      guide = guideFor(await listPriceGuides(supabase), cards[0].trade);
+    } catch {
+      guide = null;
+    }
+  }
 
   const standing = await getClientStanding(supabase);
   if (standing.blocked) {
@@ -92,6 +104,7 @@ export default async function RequestPage({
     <RequestForm
       userId={userData.user.id}
       pros={cards.map((c) => ({ id: c.id, name: c.full_name, trade: c.trade, zone: c.zone, pro_type: c.pro_type }))}
+      guide={guide}
     />
     </>
   );

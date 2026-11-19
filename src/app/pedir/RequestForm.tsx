@@ -11,13 +11,14 @@ import { createJobRequest, setLocationConsent, uploadJobFile, type JobType, type
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
 import { cityOfZone } from "@/lib/domain/catalog";
+import { formatRange, type PriceGuide } from "@/lib/domain/price-guides";
 import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { SCHEDULE_WINDOWS, maxScheduleDate, santoDomingoToday, scheduleProblem, type ScheduleWindow } from "@/lib/domain/schedule";
 
 type ProOption = { id: string; name: string | null; trade: string; zone: string; pro_type: "individual" | "company" };
 
-export function RequestForm(props: { userId: string; pros: ProOption[] }) {
+export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: PriceGuide | null }) {
   const router = useRouter();
   const trade = props.pros[0].trade;
   const sameTrade = props.pros.every((p) => p.trade === trade);
@@ -122,6 +123,16 @@ export function RequestForm(props: { userId: string; pros: ProOption[] }) {
   return (
     <form className="stack" onSubmit={onSubmit}>
       <h1>{es.jobs.requestTitle}</h1>
+      {props.guide && sameTrade ? (
+        <div className="panel stack">
+          <p>
+            <b>
+              {es.priceGuide.typical}: {formatRange(props.guide.low, props.guide.high, es.money.dop)}
+            </b>
+          </p>
+          <p className="muted">{es.priceGuide.basedOn(props.guide.sample)}</p>
+        </div>
+      ) : null}
       <ClaimReferral track="client" />
       <ul className="list">
         {props.pros.map((p) => (
