@@ -2640,6 +2640,154 @@ await check("0092 customers: a non-Stripe id is refused by the format check", as
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0093 pro tools (item 7a)
+// ---------------------------------------------------------------------------
+const T_JOB_A = "10000000-0000-0000-0000-0000000000a1";
+const T_JOB_B = "10000000-0000-0000-0000-0000000000b1";
+const T_JOB_C = "10000000-0000-0000-0000-0000000000c1";
+
+async function seedProToolJobs() {
+  await seedFixture(`
+    insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type) values
+      ('${T_JOB_A}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'pt a', 'completed', 'repair'),
+      ('${T_JOB_B}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'pt b', 'accepted', 'repair'),
+      ('${T_JOB_C}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'pt c', 'accepted', 'repair');
+  `);
+}
+
+await check("0093 templates: a pro saves and reads own templates; another pro and a client cannot see, edit or delete them", async () => {
+  await withRollback(async () => {
+    await asUser(PRO, `insert into public.pro_quote_templates (pro_id, title, amount_dop, note)
+      values ('${PRO}', 'Cambio de llave', 1800, 'Incluye mano de obra')`);
+    const own = await asUser(PRO, `select count(*)::int as n from public.pro_quote_templates where pro_id = '${PRO}'`);
+    assert.equal(own.rows[0].n, 1);
+    const other = await asUser(OUTSIDER_PRO, `select count(*)::int as n from public.pro_quote_templates where pro_id = '${PRO}'`);
+    assert.equal(other.rows[0].n, 0);
+    const upd = await asUser(OUTSIDER_PRO, `update public.pro_quote_templates set amount_dop = 1 where pro_id = '${PRO}'`);
+    assert.equal(upd.affectedRows ?? upd.rowCount, 0);
+    const del = await asUser(OUTSIDER_PRO, `delete from public.pro_quote_templates where pro_id = '${PRO}'`);
+    assert.equal(del.affectedRows ?? del.rowCount, 0);
+    const client = await asUser(HOMEOWNER, `select count(*)::int as n from public.pro_quote_templates`);
+    assert.equal(client.rows[0].n, 0);
+    await refused(() => asUser(HOMEOWNER, `insert into public.pro_quote_templates (pro_id, title, amount_dop)
+      values ('${PRO}', 'x', 100)`), /row-level security/);
+  });
+});
+
+await check("0093 templates: amount, title and note limits are enforced; a 21st template is refused", async () => {
+  await withRollback(async () => {
+    await refused(() => asUser(PRO, `insert into public.pro_quote_templates (pro_id, title, amount_dop)
+      values ('${PRO}', '   ', 100)`), /check constraint/);
+    await refused(() => asUser(PRO, `insert into public.pro_quote_templates (pro_id, title, amount_dop)
+      values ('${PRO}', 'x', 0)`), /check constraint/);
+    for (let i = 0; i < 20; i++) {
+      await asUser(PRO, `insert into public.pro_quote_templates (pro_id, title, amount_dop) values ('${PRO}', 'T${i}', 100)`);
+    }
+    await refused(() => asUser(PRO, `insert into public.pro_quote_templates (pro_id, title, amount_dop)
+      values ('${PRO}', 'T20', 100)`), /20 plantillas/);
+  });
+});
+
+await check("0093 earnings: released totals split net, commission, tip and gross; held is pending and never released", async () => {
+  await withRollback(async () => {
+    await seedProToolJobs();
+    const base = (await asUser(PRO, `select public.pro_earnings_summary() as s`)).rows[0].s;
+    // Released: charged 2900 + tip 100 = amount 3000. Commission 400. Pro net = 2900 - 400 + 100 = 2600.
+    await asService(`insert into public.payments (job_id, currency, amount_minor, fx_rate_dop_per_usd, status, purpose,
+        amount_dop, commission_dop, pro_payout_dop, tip_dop, released_at)
+      values ('${T_JOB_A}', 'USD', 5000, 60, 'released', 'job', 3000, 400, 2600, 100, now())`);
+    // Held: 1000 net, not released.
+    await asService(`insert into public.payments (job_id, currency, amount_minor, fx_rate_dop_per_usd, status, purpose,
+        amount_dop, commission_dop, pro_payout_dop, tip_dop)
+      values ('${T_JOB_B}', 'USD', 1700, 60, 'held', 'job', 1150, 150, 1000, 0)`);
+    const s = (await asUser(PRO, `select public.pro_earnings_summary() as s`)).rows[0].s;
+    const d = (k) => Number(s[k]) - Number(base[k]);
+    assert.equal(d("this_month"), 2600);
+    assert.equal(d("all_time"), 2600);
+    assert.equal(d("pending"), 1000);
+    assert.equal(s.monthly.length, 6);
+    assert.equal(Number(s.monthly[5].amount) - Number(base.monthly[5].amount), 2600, "current month is the last bucket");
+    const other = await asUser(OUTSIDER_PRO, `select public.pro_earnings_summary() as s`);
+    assert.equal(Number(other.rows[0].s.all_time), 0);
+  });
+});
+
+await check("0093 earnings: a client or anonymous caller is refused; owner-only grants hold", async () => {
+  await withRollback(async () => {
+    await refused(() => asUser(HOMEOWNER, `select public.pro_earnings_summary()`), /No autorizado/);
+    await refused(() => asUser(HOMEOWNER, `select public.pro_annual_statement(2026)`), /No autorizado/);
+    const g = await db.query(`select has_function_privilege('anon', 'public.pro_earnings_summary()', 'execute') as a,
+      has_function_privilege('authenticated', 'public.pro_earnings_summary()', 'execute') as u`);
+    assert.equal(g.rows[0].a, false);
+    assert.equal(g.rows[0].u, true);
+  });
+});
+
+await check("0093 statement: released payments only, one year, with pending kept out of totals", async () => {
+  await withRollback(async () => {
+    await seedProToolJobs();
+    const yr = await asUser(PRO, `select extract(year from now() at time zone 'America/Santo_Domingo')::int as y`);
+    const year = yr.rows[0].y;
+    const before = (await asUser(PRO, `select public.pro_annual_statement(${year}) as s`)).rows[0].s;
+    await asService(`insert into public.payments (job_id, currency, amount_minor, fx_rate_dop_per_usd, status, purpose,
+        amount_dop, commission_dop, pro_payout_dop, tip_dop, released_at)
+      values ('${T_JOB_A}', 'USD', 5000, 60, 'released', 'job', 3000, 400, 2600, 100, now())`);
+    await asService(`insert into public.payments (job_id, currency, amount_minor, fx_rate_dop_per_usd, status, purpose,
+        amount_dop, commission_dop, pro_payout_dop, tip_dop)
+      values ('${T_JOB_B}', 'USD', 1700, 60, 'held', 'job', 1150, 150, 1000, 0)`);
+    const years = await asUser(PRO, `select public.pro_statement_years() as ys`);
+    assert.ok(years.rows[0].ys.includes(year));
+    const s = (await asUser(PRO, `select public.pro_annual_statement(${year}) as s`)).rows[0].s;
+    const d = (k) => Number(s.totals[k]) - Number(before.totals[k]);
+    assert.equal(d("gross"), 2900);
+    assert.equal(d("commission"), 400);
+    assert.equal(d("tips"), 100);
+    assert.equal(d("net"), 2600);
+    assert.equal(Number(s.pending) - Number(before.pending), 1000);
+    assert.equal(s.lines.length - before.lines.length, 1);
+    const mine = s.lines.find((l) => Number(l.gross) === 2900);
+    assert.ok(mine, "the new released line is listed");
+    assert.equal(Number(mine.net), 2600);
+    const empty = await asUser(PRO, `select public.pro_annual_statement(2001) as s`);
+    assert.equal(empty.rows[0].s.lines.length, 0);
+    await refused(() => asUser(PRO, `select public.pro_annual_statement(1999)`), /Año no válido/);
+  });
+});
+
+await check("0093 performance: counts, acceptance, response hours match an independent calculation; revisions and old quotes excluded", async () => {
+  await withRollback(async () => {
+    await seedProToolJobs();
+    // Accepted: invited 1 day ago, answered 2 h later.
+    await asService(`insert into public.quotes (job_id, pro_id, amount_dop, status, invited_at, responded_at)
+      values ('${T_JOB_A}', '${PRO}', 2000, 'accepted', now() - interval '1 day', now() - interval '1 day' + interval '2 hours')`);
+    // Rejected: answered 4 h later.
+    await asService(`insert into public.quotes (job_id, pro_id, amount_dop, status, invited_at, responded_at)
+      values ('${T_JOB_B}', '${PRO}', 2500, 'rejected', now() - interval '2 days', now() - interval '2 days' + interval '4 hours')`);
+    // Expired invite: no response, not counted.
+    await asService(`insert into public.quotes (job_id, pro_id, status, invited_at)
+      values ('${T_JOB_C}', '${PRO}', 'expired', now() - interval '3 days')`);
+    // Older than 90 days: other pro, not counted.
+    await asService(`insert into public.quotes (job_id, pro_id, amount_dop, status, invited_at, responded_at)
+      values ('${T_JOB_C}', '${OUTSIDER_PRO}', 900, 'accepted', now() - interval '120 days', now() - interval '120 days' + interval '1 hour')`);
+    const s = (await asUser(PRO, `select public.pro_performance_summary() as s`)).rows[0].s;
+    // Independent calculation over the same rows, straight from quotes.
+    const ref = (await db.query(`
+      select count(*) filter (where responded_at is not null and status in ('sent','accepted','rejected','withdrawn'))::int as submitted,
+             count(*) filter (where responded_at is not null and status = 'accepted')::int as accepted,
+             round((avg(extract(epoch from (responded_at - invited_at))) filter (where responded_at is not null
+               and status in ('sent','accepted','rejected','withdrawn','declined'))) / 3600.0, 1) as hours
+        from public.quotes where pro_id = '${PRO}' and revision_of is null and invited_at >= now() - interval '90 days'`)).rows[0];
+    assert.equal(s.days, 90);
+    assert.equal(s.submitted, ref.submitted);
+    assert.equal(s.accepted, ref.accepted);
+    assert.equal(Number(s.avg_response_hours), Number(ref.hours));
+    assert.equal(s.acceptance_rate, Math.round(ref.accepted * 100 / ref.submitted));
+    // The two new quotes alone: 1 accepted of 2 submitted, average (2 h + 4 h) / 2 = 3 h.
+    assert.ok(ref.submitted >= 2 && ref.accepted >= 1);
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

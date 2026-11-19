@@ -220,6 +220,9 @@ export default async function ProfilePage() {
           <Link className="contact-row" href="/pro/pagos">
             <span className="contact-label">{es.proHub.payouts}</span>
           </Link>
+          <Link className="contact-row" href="/pro/plantillas">
+            <span className="contact-label">{es.proHub.templates}</span>
+          </Link>
           {myPro?.verification_status === "approved" ? (
             <Link className="contact-row" href={`/pro/${myPro.id}`}>
               <span className="contact-label">{es.proHub.publicProfile}</span>

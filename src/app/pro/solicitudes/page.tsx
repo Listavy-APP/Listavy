@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
 import { jobFileUrl } from "@/lib/data/jobs";
+import { listTemplates, type QuoteTemplate } from "@/lib/data/pro-tools";
 
 export const metadata = { title: es.jobs.inboxTitle };
 export const instant = false;
@@ -28,6 +29,13 @@ export default async function InboxPage() {
   if (error) throw new Error(`No se pudieron leer tus solicitudes: ${error.message}`);
 
   const rows = (data ?? []) as unknown as Quote[];
+  // Saved quote templates for the picker in each open invite. A failed read hides the picker, nothing else.
+  let templates: QuoteTemplate[] = [];
+  try {
+    templates = await listTemplates(supabase);
+  } catch {
+    templates = [];
+  }
   // A job moves to "quoted" when the first pro answers, and still accepts quotes from the other
   // invited pros (submit_quote). Both states are open for an invited pro.
   const jobOpen = (r: Quote) => r.job !== null && (r.job.status === "requested" || r.job.status === "quoted");
@@ -64,7 +72,7 @@ export default async function InboxPage() {
       <h1>{es.jobs.inboxTitle}</h1>
       {open.length === 0 ? <p className="muted">{es.jobs.inboxEmpty}</p> : null}
       {open.map((r) => (
-        <InviteCard key={r.id} quote={r} photoUrls={photosByJob.get(r.job!.id) ?? []} voiceUrl={voiceByJob.get(r.job!.id) ?? null} />
+        <InviteCard key={r.id} quote={r} photoUrls={photosByJob.get(r.job!.id) ?? []} voiceUrl={voiceByJob.get(r.job!.id) ?? null} templates={templates} />
       ))}
       {sent.length > 0 ? <h2>{es.jobs.sentQuotesTitle}</h2> : null}
       {sent.map((r) => (
