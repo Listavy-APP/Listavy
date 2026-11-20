@@ -499,6 +499,58 @@ begin
 end;
 $$;
 
+-- 10b. Preview for the cancel panel. Read-only; uses the same rules as cancel_job_with_refund.
+create or replace function public.cancellation_preview(p_job uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  j record;
+  uid uuid := (select auth.uid());
+  v_paid integer;
+  v_first record;
+  v_fee integer := 0;
+  v_fee_applies boolean := false;
+  v_side text;
+begin
+  select * into j from public.jobs where id = p_job;
+  if not found then raise exception 'Trabajo no encontrado.' using errcode = 'P0002'; end if;
+  if uid is null or (j.homeowner_id is distinct from uid and j.pro_id is distinct from uid) then
+    raise exception 'Solo las partes del trabajo pueden ver la cancelación.' using errcode = '42501';
+  end if;
+  v_side := case when j.homeowner_id = uid then 'homeowner' else 'pro' end;
+
+  if j.status not in ('requested', 'quoted', 'accepted') then
+    return jsonb_build_object('cancelable', false);
+  end if;
+
+  select coalesce(sum(amount_dop), 0)::int into v_paid from public.payments
+   where job_id = j.id and purpose in ('job', 'diagnostic') and status = 'held';
+
+  select * into v_first from public.payments
+   where job_id = j.id and purpose = 'job' and status = 'held'
+   order by created_at, id limit 1;
+
+  if v_side = 'homeowner' and j.status = 'accepted' and found then
+    v_fee_applies := v_first.created_at <= now() - interval '2 hours';
+    if v_fee_applies then
+      v_fee := greatest(0, least(300, coalesce(v_first.amount_dop, 0) - coalesce(v_first.tip_dop, 0)));
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'cancelable', true,
+    'side', v_side,
+    'paid_dop', v_paid,
+    'fee_dop', v_fee,
+    'fee_applies', v_fee_applies,
+    'refund_dop', v_paid - v_fee
+  );
+end;
+$$;
+
 -- 11. Grants.
 revoke all on function public._settle_cancellation(uuid, text, boolean) from public, anon, authenticated;
 revoke all on function public.pro_mark_arrived(uuid) from public, anon;
@@ -513,3 +565,5 @@ revoke all on function public.claim_due_payments(integer) from public, anon, aut
 grant execute on function public.claim_due_payments(integer) to service_role;
 revoke all on function public.mark_refund_succeeded(uuid, text) from public, anon, authenticated;
 grant execute on function public.mark_refund_succeeded(uuid, text) to service_role;
+revoke all on function public.cancellation_preview(uuid) from public, anon;
+grant execute on function public.cancellation_preview(uuid) to authenticated;

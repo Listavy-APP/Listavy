@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { closeDispute, decideDispute, finishRedo, type DisputeOutcome, type DisputeRow } from "@/lib/data/disputes";
+import { closeDispute, decideDispute, decideFeeDispute, finishRedo, type DisputeOutcome, type DisputeRow } from "@/lib/data/disputes";
+import { formatDop } from "@/lib/domain/cancellation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const OUTCOMES: { value: DisputeOutcome; label: string; post: boolean }[] = [
@@ -13,6 +14,61 @@ const OUTCOMES: { value: DisputeOutcome; label: string; post: boolean }[] = [
 ];
 
 export function DisputeDecision({ dispute }: { dispute: DisputeRow }) {
+  return dispute.fee_dispute ? <FeeDisputeDecision dispute={dispute} /> : <StandardDisputeDecision dispute={dispute} />;
+}
+
+const FEE_OUTCOMES: { value: "fee_uphold" | "fee_reverse"; label: string }[] = [
+  { value: "fee_uphold", label: "Mantener la tarifa para el profesional" },
+  { value: "fee_reverse", label: "Revertir la tarifa y reembolsar al cliente" },
+];
+
+/** Decides a cancellation-fee dispute (resolve_fee_dispute). The job is not reopened. */
+function FeeDisputeDecision({ dispute }: { dispute: DisputeRow }) {
+  const router = useRouter();
+  const [outcome, setOutcome] = useState<"fee_uphold" | "fee_reverse">("fee_uphold");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const windowOpen = dispute.evidence_due_at ? new Date(dispute.evidence_due_at) > new Date() : false;
+
+  if (dispute.stage !== "evidence") return <p className="muted">Esta disputa de tarifa ya fue decidida.</p>;
+  if (windowOpen) return <p className="muted">La ventana de evidencia está abierta. No se puede decidir antes de que venza.</p>;
+
+  return (
+    <div className="stack">
+      {error ? <p className="error" role="alert">{error}</p> : null}
+      <p className="muted">Disputa de tarifa de cancelación ({formatDop(300)} máximo). El trabajo no se reabre.</p>
+      <div className="chip-wrap">
+        {FEE_OUTCOMES.map((o) => (
+          <button key={o.value} type="button" className={outcome === o.value ? "chip on" : "chip"} onClick={() => setOutcome(o.value)}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <label className="field">
+        Motivo (se envía a ambas partes)
+        <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      <button className="button" type="button" disabled={busy || reason.trim().length < 10}
+        onClick={async () => {
+          setError(null);
+          setBusy(true);
+          try {
+            await decideFeeDispute(createSupabaseBrowserClient(), { disputeId: dispute.id, outcome, reason: reason.trim() });
+            router.refresh();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "No se pudo completar la acción.");
+          } finally {
+            setBusy(false);
+          }
+        }}>
+        Registrar decisión
+      </button>
+    </div>
+  );
+}
+
+function StandardDisputeDecision({ dispute }: { dispute: DisputeRow }) {
   const router = useRouter();
   const [outcome, setOutcome] = useState<DisputeOutcome>("release_full");
   const [refund, setRefund] = useState("");

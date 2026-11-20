@@ -4181,6 +4181,37 @@ await check("0107 dispute: only an admin with AAL2 decides, with a reason", asyn
   });
 });
 
+await check("0107 preview: homeowner sees RD$300 fee after grace, refund is the rest; before grace no fee", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    const early = (await asUser(HOMEOWNER, `select public.cancellation_preview('${job}') as r`)).rows[0].r;
+    assert.equal(early.cancelable, true);
+    assert.equal(early.fee_dop, 0, "inside grace");
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    const late = (await asUser(HOMEOWNER, `select public.cancellation_preview('${job}') as r`)).rows[0].r;
+    assert.equal(late.fee_dop, 300);
+    assert.equal(late.refund_dop, 5700);
+    assert.equal(late.fee_applies, true);
+    // The preview must agree with what cancel would do.
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    const [rf] = await refundsOf(job);
+    assert.equal(rf.amount_dop, late.refund_dop);
+    assert.equal((await paymentOf(payment)).keep_dop, late.fee_dop);
+  });
+});
+
+await check("0107 preview: pro side never shows a fee; a stranger is refused", async () => {
+  await withRollback(async () => {
+    const { job } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    const pro = (await asUser(PRO, `select public.cancellation_preview('${job}') as r`)).rows[0].r;
+    assert.equal(pro.side, "pro");
+    assert.equal(pro.fee_dop, 0);
+    assert.equal(pro.refund_dop, 6000);
+    await expectCode(() => asUser(OUTSIDER_PRO, `select public.cancellation_preview('${job}')`), "42501");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 0105 · Admin list of approved pros (view-as doorway). Admin-gated, read-only, approved and open only.
 // ---------------------------------------------------------------------------

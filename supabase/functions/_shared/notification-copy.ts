@@ -68,6 +68,15 @@ export function renderEmail(kind: string, data: Record<string, unknown>, ctx: Co
         subject: "Revisa y aprueba tu trabajo",
         text: `${hi}\n\nEl profesional marcó tu trabajo (${jobLine(ctx)}) como terminado. Revísalo y apruébalo para liberar el pago.\n\nRevisar: ${jobUrl}${footer()}`,
       };
+    case "job_cancelled_refund": {
+      const refund = typeof data.refund_dop === "number" ? `RD$${data.refund_dop.toLocaleString("es-DO")}` : "";
+      const fee = typeof data.fee_dop === "number" ? data.fee_dop : 0;
+      const feeLine = fee > 0 ? ` Se descontó una tarifa de cancelación de RD$${fee.toLocaleString("es-DO")} para el profesional.` : "";
+      return {
+        subject: "Tu trabajo fue cancelado",
+        text: `${hi}\n\nTu trabajo (${jobLine(ctx)}) fue cancelado.${refund ? ` Reembolso: ${refund}.` : ""}${feeLine}\n\nDetalles: ${jobUrl}${footer()}`,
+      };
+    }
     case "job_paid":
       return {
         subject: "Pago liberado",

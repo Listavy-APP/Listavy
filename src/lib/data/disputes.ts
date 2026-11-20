@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type DisputeStage = "filed" | "evidence" | "decided" | "executed" | "closed";
 export type DisputeOutcome = "release_full" | "partial_refund" | "full_refund" | "redo";
+export type FeeDisputeOutcome = "fee_uphold" | "fee_reverse";
 
 export interface DisputeRow {
   id: string;
@@ -14,7 +15,8 @@ export interface DisputeRow {
   reason: string;
   stage: DisputeStage;
   status: string;
-  outcome: DisputeOutcome | null;
+  outcome: DisputeOutcome | FeeDisputeOutcome | null;
+  fee_dispute: boolean;
   refund_dop: number | null;
   opened_at: string;
   evidence_due_at: string | null;
@@ -33,7 +35,7 @@ export interface EvidenceRow {
 export async function listAdminDisputes(supabase: SupabaseClient): Promise<DisputeRow[]> {
   const { data, error } = await supabase
     .from("disputes")
-    .select("id, job_id, opened_side, phase, latent_defect, reason, stage, status, outcome, refund_dop, opened_at, evidence_due_at, decided_at, decision_reason, payments(amount_dop, status)")
+    .select("id, job_id, opened_side, phase, latent_defect, reason, stage, status, outcome, refund_dop, fee_dispute, opened_at, evidence_due_at, decided_at, decision_reason, payments(amount_dop, status)")
     .order("opened_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as DisputeRow[];
@@ -112,7 +114,7 @@ export async function listMyNotifications(supabase: SupabaseClient): Promise<Not
 export async function listJobDisputes(supabase: SupabaseClient, jobId: string): Promise<DisputeRow[]> {
   const { data, error } = await supabase
     .from("disputes")
-    .select("id, job_id, opened_side, phase, latent_defect, reason, stage, status, outcome, refund_dop, opened_at, evidence_due_at, decided_at, decision_reason, payments(amount_dop, status)")
+    .select("id, job_id, opened_side, phase, latent_defect, reason, stage, status, outcome, refund_dop, fee_dispute, opened_at, evidence_due_at, decided_at, decision_reason, payments(amount_dop, status)")
     .eq("job_id", jobId)
     .order("opened_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -176,4 +178,16 @@ export async function disputePhotoUrl(supabase: SupabaseClient, path: string, se
   const { data, error } = await supabase.storage.from(DISPUTE_PHOTO_BUCKET).createSignedUrl(path, seconds);
   if (error) return null;
   return data.signedUrl;
+}
+
+/** Admin decision on a cancellation-fee dispute (resolve_fee_dispute, migration 0107). */
+export async function decideFeeDispute(
+  supabase: SupabaseClient,
+  input: { disputeId: string; outcome: FeeDisputeOutcome; reason: string },
+): Promise<void> {
+  fail((await supabase.rpc("resolve_fee_dispute", {
+    p_dispute: input.disputeId,
+    p_outcome: input.outcome,
+    p_reason: input.reason,
+  })).error);
 }

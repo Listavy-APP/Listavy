@@ -19,6 +19,7 @@ export interface JobRow {
   status: string;
   job_type: JobType;
   payment_status: string;
+  arrived_at: string | null;
   voice_path: string | null;
   location_consent: boolean;
   approved_at: string | null;
@@ -194,6 +195,27 @@ export async function cancelJobWithRefund(
   by: "homeowner" | "pro",
 ): Promise<"refund_pending" | "cancelled"> {
   const { data, error } = await supabase.rpc("cancel_job_with_refund", { p_job: jobId, p_by: by });
+  fail(error);
+  return data === "refund_pending" ? "refund_pending" : "cancelled";
+}
+
+export type CancellationPreview =
+  | { cancelable: false }
+  | { cancelable: true; side: "homeowner" | "pro"; paid_dop: number; fee_dop: number; fee_applies: boolean; refund_dop: number };
+
+export async function getCancellationPreview(supabase: SupabaseClient, jobId: string): Promise<CancellationPreview> {
+  const { data, error } = await supabase.rpc("cancellation_preview", { p_job: jobId });
+  fail(error);
+  return data as CancellationPreview;
+}
+
+export async function markArrived(supabase: SupabaseClient, jobId: string): Promise<void> {
+  fail((await supabase.rpc("pro_mark_arrived", { p_job: jobId })).error);
+}
+
+/** Pro reports the client absent after arrival. Returns the same values as cancel_job_with_refund. */
+export async function reportClientNoShow(supabase: SupabaseClient, jobId: string): Promise<"refund_pending" | "cancelled"> {
+  const { data, error } = await supabase.rpc("pro_report_client_no_show", { p_job: jobId });
   fail(error);
   return data === "refund_pending" ? "refund_pending" : "cancelled";
 }
