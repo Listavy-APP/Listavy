@@ -10,7 +10,7 @@ const TABS = [
   { href: "/", label: es.nav.home },
   { href: "/buscar", label: es.nav.search },
   { href: "/trabajos", label: es.nav.jobs },
-  { href: "/avisos", label: es.nav.notifications },
+  { href: "/notificaciones", label: es.nav.notifications },
   { href: "/cuenta", label: es.nav.account },
 ] as const;
 
@@ -36,7 +36,7 @@ function TabIcon({ href }: { href: (typeof TABS)[number]["href"] }) {
           <path d="M3 12.5h18" />
         </svg>
       );
-    case "/avisos":
+    case "/notificaciones":
       return (
         <svg {...common}>
           <path d="M6 9.5a6 6 0 1 1 12 0c0 4.5 1.8 6 1.8 6H4.2S6 14 6 9.5Z" />

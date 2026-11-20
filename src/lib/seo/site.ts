@@ -25,7 +25,6 @@ export const PUBLIC_STATIC_PATHS = [
 export const PRIVATE_PATHS = [
   "/admin",
   "/ajustes",
-  "/avisos",
   "/cuenta",
   "/login",
   "/notificaciones",
