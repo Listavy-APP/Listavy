@@ -3862,6 +3862,71 @@ await check("0104 pro cards: a by-id fetch returns a pro in another city, and ci
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0103 · Pro price and zone editor. Owner-only RPC; the lockdown on direct writes stays intact.
+// ---------------------------------------------------------------------------
+await check("0103 pricing: the owner can update own price range and zone, city follows the zone", async () => {
+  await withRollback(async () => {
+    await asUser(PRO, "select public.pro_update_pricing_zone(1200, 3400, 'Naco')");
+    const r = (await db.query(`select price_min_dop, price_max_dop, zone, city from public.pros where id = '${PRO}'`)).rows[0];
+    assert.equal(r.price_min_dop, 1200);
+    assert.equal(r.price_max_dop, 3400);
+    assert.equal(r.zone, "Naco");
+    assert.equal(r.city, "santo_domingo", "city re-derived by pros_set_city");
+  });
+});
+
+await check("0103 pricing: the function has no target id, so another pro's row is never written", async () => {
+  await withRollback(async () => {
+    const sig = (await db.query(
+      `select pronargs, pg_get_function_identity_arguments(oid) as args from pg_proc
+        where proname = 'pro_update_pricing_zone' and pronamespace = 'public'::regnamespace`,
+    )).rows;
+    assert.equal(sig.length, 1);
+    assert.equal(sig[0].pronargs, 3);
+    assert.doesNotMatch(sig[0].args, /uuid/i, "no uuid parameter");
+    const before = (await db.query(`select price_min_dop, zone from public.pros where id = '${PRO2}'`)).rows[0];
+    await asUser(PRO, "select public.pro_update_pricing_zone(900, 1000, 'Gazcue')");
+    const after = (await db.query(`select price_min_dop, zone from public.pros where id = '${PRO2}'`)).rows[0];
+    assert.deepEqual(after, before, "PRO2 row unchanged");
+  });
+});
+
+await check("0103 pricing: invalid ranges and zones are rejected", async () => {
+  await withRollback(async () => {
+    await expectCode(() => asUser(PRO, "select public.pro_update_pricing_zone(3000, 1000, 'Naco')"), "22023");
+    await expectCode(() => asUser(PRO, "select public.pro_update_pricing_zone(-1, 1000, 'Naco')"), "22023");
+    await expectCode(() => asUser(PRO, "select public.pro_update_pricing_zone(100, 200, 'Atlantis')"), "22023");
+    await expectCode(() => asUser(PRO, "select public.pro_update_pricing_zone(null, 200, 'Naco')"), "22023");
+  });
+});
+
+await check("0103 pricing: anonymous callers are refused", async () => {
+  await withRollback(async () => {
+    await expectCode(() => asAnon("select public.pro_update_pricing_zone(100, 200, 'Naco')"), "42501");
+  });
+});
+
+await check("0103 pricing: direct table updates to price and zone are refused and change nothing", async () => {
+  await withRollback(async () => {
+    const before = (await db.query(`select price_min_dop, price_max_dop, zone from public.pros where id = '${PRO}'`)).rows[0];
+    const attempts = [
+      `update public.pros set zone = 'Naco' where id = '${PRO}'`,
+      `update public.pros set price_min_dop = 1 where id = '${PRO}'`,
+      `update public.pros set price_max_dop = 9 where id = '${PRO}'`,
+    ];
+    for (const sql of attempts) {
+      await db.exec("savepoint direct_refused");
+      let code = null;
+      try { await asUser(PRO, sql); } catch (e) { code = e.code; } finally { await db.exec("rollback to savepoint direct_refused"); }
+      // The guard trigger raises P0001 for these; the column grant does not stop them first.
+      assert.equal(code, "P0001", `refused by the guard: ${sql}`);
+    }
+    const after = (await db.query(`select price_min_dop, price_max_dop, zone from public.pros where id = '${PRO}'`)).rows[0];
+    assert.deepEqual(after, before, "row unchanged");
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.
