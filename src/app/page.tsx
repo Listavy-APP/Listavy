@@ -8,6 +8,7 @@ export const metadata = pageMetadata({ title: es.seo.homeTitle, description: es.
 import { TRADES, DEFAULT_CITY, CITIES, isCity, type City } from "@/lib/domain/catalog";
 import { getMyReferralCode, referralProgramEnabled } from "@/lib/data/referrals";
 import { listProCards } from "@/lib/data/pros";
+import { verifiedKindsByPro } from "@/lib/data/verifiedFlags";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { CityZoneSelect } from "@/components/CityZoneSelect";
@@ -71,6 +72,13 @@ async function HomeContent({
   const newest = [...pros]
     .sort((a, b) => (b.verified_at ?? "").localeCompare(a.verified_at ?? ""))
     .slice(0, NEW_LIMIT);
+
+  // Verified icon for the rail cards only (one call for both rails).
+  const railIds = [...new Map([...nearby, ...newest].map((p) => [p.id, p])).values()];
+  const verifiedKinds = await verifiedKindsByPro(
+    supabase,
+    railIds.map((p) => ({ id: p.id, isCompany: p.pro_type === "company" })),
+  );
   const avatarFor = (p: ProCard) => avatarUrl(supabase, p.avatar_path);
 
   return (
@@ -141,7 +149,7 @@ async function HomeContent({
           </div>
         ) : (
           <div className="rail">
-            {nearby.map((p) => <ProMiniCard key={p.id} pro={p} avatarSrc={avatarFor(p)} />)}
+            {nearby.map((p) => <ProMiniCard key={p.id} pro={p} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
           </div>
         )}
       </section>
@@ -155,7 +163,7 @@ async function HomeContent({
           </div>
         ) : (
           <div className="rail">
-            {newest.map((p) => <ProMiniCard key={p.id} pro={p} avatarSrc={avatarFor(p)} />)}
+            {newest.map((p) => <ProMiniCard key={p.id} pro={p} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
           </div>
         )}
       </section>

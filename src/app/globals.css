@@ -1412,3 +1412,13 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
 .tour-dot.on { background: var(--primary); }
 .tour-actions { display: flex; gap: var(--s2); justify-content: space-between; margin-top: var(--s2); }
 .tour-actions .button { min-height: 44px; flex: 1; }
+
+/* Verified icon (check-seal), sized to the name text. Shown only for identity or company verified pros. */
+.verified-icon {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  vertical-align: -3px;
+  flex: none;
+}

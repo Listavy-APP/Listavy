@@ -1,3 +1,4 @@
+import { verifiedKindsByPro } from "@/lib/data/verifiedFlags";
 import Link from "next/link";
 import { BackArrow } from "@/components/BackBar";
 import { getProCardsByIds, listBoostedProIds, listProCards } from "@/lib/data/pros";
@@ -82,6 +83,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     ),
   );
 
+  const verifiedKinds = await verifiedKindsByPro(
+    supabase,
+    pros.map((p) => ({ id: p.id, isCompany: p.pro_type === "company" })),
+  );
+
   const toPicker = (p: (typeof pros)[number], boosted: boolean) => {
     const sm = summaries.get(p.id);
     const reviewLabel =
@@ -102,6 +108,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       avatarSrc: avatarUrl(supabase, p.avatar_path),
       boosted,
       isCompany: p.pro_type === "company",
+      verified: verifiedKinds.get(p.id) ?? null,
       companyName: p.pro_type === "company" ? p.razon_social : null,
     };
   };

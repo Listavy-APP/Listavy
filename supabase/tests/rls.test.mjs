@@ -3814,6 +3814,32 @@ await check("0101 client tour: anonymous callers cannot stamp", async () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0102 · Verified icon: batch stage read. Approved and unexpired stages only.
+// ---------------------------------------------------------------------------
+await check("0102 verified flags: returns approved, unexpired stage names only, for any caller", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.pro_verifications (pro_id, stage, status, verified_at, verified_by, expires_at, consent_version)
+      values ('${PRO}', 'identity', 'approved', now(), '${ADMIN}', null, null),
+             ('${PRO}', 'selfie', 'approved', now(), '${ADMIN}', null, null),
+             ('${PRO}', 'insurance', 'approved', now(), '${ADMIN}', '2000-01-01', null),
+             ('${OUTSIDER_PRO}', 'identity', 'pending', null, null, null, 'v1')`);
+    const r = await asAnon(`select pro_id::text as id, stages from public.pro_verified_flags(array['${PRO}','${OUTSIDER_PRO}']::uuid[])`);
+    assert.equal(r.rows.length, 1, "pending and absent pros return no row");
+    assert.equal(r.rows[0].id, PRO);
+    assert.deepEqual(r.rows[0].stages, ["identity", "selfie"], "expired insurance is excluded");
+  });
+});
+
+await check("0102 verified flags: no rows for an empty list, and no direct read of pro_verifications", async () => {
+  await withRollback(async () => {
+    const r = await asAnon("select count(*)::int as n from public.pro_verified_flags('{}'::uuid[])");
+    assert.equal(r.rows[0].n, 0);
+    const direct = await asAnon(`select count(*)::int as n from public.pro_verifications`);
+    assert.equal(direct.rows[0].n, 0, "anon sees no verification rows directly");
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

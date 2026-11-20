@@ -1,9 +1,11 @@
+import { VerifiedIcon } from "@/components/VerifiedIcon";
+import type { VerifiedKind } from "@/lib/domain/verifiedIcon";
 import { Avatar } from "@/components/Avatar";
 import type { QuoteRow } from "@/lib/data/jobs";
 import { formatWindow } from "@/lib/domain/window";
 import { es } from "@/lib/i18n/es";
 
-type ProInfo = { name: string | null; avatarUrl: string | null };
+type ProInfo = { name: string | null; avatarUrl: string | null; verified: VerifiedKind | null };
 
 /** One quote, laid out so up to three can be compared at a glance: who, how much, when, what is included. */
 export function QuoteCard(props: {
@@ -22,7 +24,10 @@ export function QuoteCard(props: {
       <div className="quote-head">
         <Avatar name={pro?.name ?? null} src={pro?.avatarUrl ?? null} />
         <div className="card-body">
-          <p className="card-name">{name}</p>
+          <p className="card-name">
+            {name}
+            {pro?.verified ? <> <VerifiedIcon kind={pro.verified} /></> : null}
+          </p>
           {!sent ? (
             <p className="muted">{es.jobs.quoteStatus[q.status as keyof typeof es.jobs.quoteStatus] ?? q.status}</p>
           ) : null}
