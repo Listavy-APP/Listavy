@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { es } from "@/lib/i18n/es";
+import { pageMetadata } from "@/lib/seo/metadata";
+
+export const metadata = pageMetadata({ title: es.seo.homeTitle, description: es.seo.homeDescription, path: "/" });
 import { TRADES, DEFAULT_CITY, CITIES, isCity, type City } from "@/lib/domain/catalog";
 import { getMyReferralCode, referralProgramEnabled } from "@/lib/data/referrals";
 import { listProCards } from "@/lib/data/pros";
