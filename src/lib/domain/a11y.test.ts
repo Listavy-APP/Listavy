@@ -48,4 +48,8 @@ test("urgent and attention badges: white text meets 4.5:1", () => {
   assert.ok(ratio("#ffffff", "#dc2626") >= 4.5, "urgent badge");
 });
 
+test("button focus ring: white inner ring contrasts with navy fill (3:1)", () => {
+  assert.ok(ratio("#ffffff", token("primary")) >= 3, "white ring on primary");
+});
+
 console.log("a11y token tests passed");

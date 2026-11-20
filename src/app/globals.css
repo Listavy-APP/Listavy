@@ -173,6 +173,13 @@ select:focus {
   cursor: pointer;
   transition: opacity 120ms ease;
 }
+
+/* Focus ring for every .button: white inner ring reads on navy, navy outer ring reads on white. */
+.button:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--primary);
+}
 .button:hover { opacity: 0.92; }
 .button:disabled { opacity: 0.5; cursor: default; }
 .button.secondary {
