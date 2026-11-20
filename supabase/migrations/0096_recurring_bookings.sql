@@ -331,6 +331,9 @@ begin
       update public.recurring_bookings set status = 'paused', paused_reason = 'pro_unavailable', updated_at = now() where id = r.id;
       perform public.notify_user_push(r.client_id, 'recurring_auto_paused', 'Pausamos tu trabajo recurrente',
         'Tu profesional ya no está disponible para este servicio. Revisa tus trabajos recurrentes.', '/cuenta/recurrentes', false);
+      -- Email too: a client whose series stops must not be able to miss it. p_always skips the
+      -- job-email preference; the unverified-address rule inside notify_user_email still applies.
+      perform public.notify_user_email(r.client_id, 'recurring_auto_paused', jsonb_build_object('trade', r.trade), true, false);
       v_paused := v_paused + 1;
       continue;
     end if;
