@@ -140,12 +140,15 @@ export type PaymentSplit = {
 export type PaymentSplitWithReferral = PaymentSplit & {
   /** Referral discount taken off the charge. Listavy funds it. The pro is not affected. */
   referralDiscountDop: number;
+  /** Promo code discount taken off the charge (0095). Listavy funds it. The pro is not affected. */
+  promoDiscountDop: number;
 };
 
 /**
- * Referral discount (Invita y gana). It reduces what the homeowner is charged. Commission and the
- * pro's payout are still computed on the amount before the discount, so the pro is paid in full.
- * Invariant: proPayoutDop + commissionDop = amountDop + referralDiscountDop.
+ * Referral discount (Invita y gana) and promo code discount (0095). Both reduce what the homeowner is
+ * charged. Commission and the pro's payout are computed on the amount before either discount, so the
+ * pro is paid in full. Only one of them can apply to a job (the database enforces it).
+ * Invariant: proPayoutDop + commissionDop = amountDop + referralDiscountDop + promoDiscountDop.
  */
 export function splitPayment(input: {
   quoteDop: number;
@@ -154,14 +157,20 @@ export function splitPayment(input: {
   kind: JobKind;
   plan: PlanTier;
   discountDop?: number;
+  promoDiscountDop?: number;
 }): PaymentSplitWithReferral {
   const { quoteDop, creditDop, tipDop, kind, plan } = input;
   const discount = input.discountDop ?? 0;
+  const promo = input.promoDiscountDop ?? 0;
   if (!Number.isInteger(discount) || discount < 0) throw new Error("El descuento no es válido.");
+  if (!Number.isInteger(promo) || promo < 0) throw new Error("El descuento no es válido.");
   const tip = validateTip(tipDop, quoteDop);
   const beforeReferral = kind === "diagnostic" ? quoteDop : Math.max(0, quoteDop - creditDop);
-  if (discount >= beforeReferral && discount > 0) throw new Error("El descuento supera el monto del trabajo.");
-  const chargedDop = beforeReferral - discount;
+  const totalDiscount = discount + promo;
+  if (totalDiscount >= beforeReferral && totalDiscount > 0) throw new Error("El descuento supera el monto del trabajo.");
+  // Promo rule: the client always pays at least RD$100 of the job amount.
+  if (promo > 0 && beforeReferral - promo < 100) throw new Error("El descuento deja menos de RD$100 por cobrar.");
+  const chargedDop = beforeReferral - totalDiscount;
   if (chargedDop <= 0) throw new Error("No hay monto que cobrar.");
   const commission = computeCommission({ amountDop: beforeReferral, kind, plan });
   return {
@@ -172,5 +181,6 @@ export function splitPayment(input: {
     proPayoutDop: commission.proPayoutDop + tip,
     ratePct: commission.ratePct,
     referralDiscountDop: discount,
+    promoDiscountDop: promo,
   };
 }

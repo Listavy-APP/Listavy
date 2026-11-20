@@ -115,6 +115,7 @@ const GROUPS: NavGroup[] = [
     title: "Crecimiento",
     items: [
       { href: "/admin/referidos", label: es.referral.navLabel, icon: "gift" },
+      { href: "/admin/promociones", label: es.promo.admin.navLabel, icon: "gift" },
       { href: "/admin/destacados", label: es.admin.navBoosts, icon: "zap" },
     ],
   },

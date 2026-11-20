@@ -26,6 +26,8 @@ export type CheckoutInput = {
   saveCard?: boolean;
   successUrl: string;
   cancelUrl: string;
+  /** Unix seconds when the session stops accepting payment. Set for promo reservations (0095). */
+  expiresAtUnix?: number;
 };
 
 export type BoostCheckoutInput = {

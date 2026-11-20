@@ -45,6 +45,13 @@ Deno.serve(async (req: Request) => {
     return json({ error: "La propina debe ser un número entero de pesos." }, 400);
   }
 
+  // Optional promo code (0095). Applied only when the client taps Pagar with a code they previewed.
+  const promoRaw = body?.promo_code;
+  if (promoRaw !== undefined && promoRaw !== null && typeof promoRaw !== "string") {
+    return json({ error: "El código no es válido." }, 400);
+  }
+  const promoCode = typeof promoRaw === "string" && promoRaw.trim() !== "" ? promoRaw.trim() : null;
+
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
   const { data: job } = await admin
@@ -87,13 +94,31 @@ Deno.serve(async (req: Request) => {
   // Referral discount (Invita y gana). Reserved for this job, so two jobs cannot share one reward.
   // Returns 0 while the program is off.
   const beforeReferralDop = isDiagnostic ? quoteDop : Math.max(0, quoteDop - creditDop);
-  const { data: discountData, error: discountErr } = await admin.rpc("reserve_referral_discount", {
-    p_job: job.id,
-    p_quote: quoteDop,
-    p_before: beforeReferralDop,
-  });
-  if (discountErr) return json({ error: "No se pudo revisar el descuento de referido." }, 502);
-  const discountDop = Number(discountData ?? 0);
+  // A promo code and the referral discount never apply to the same job (0095). With a code, the code
+  // reserves and the referral is not reserved. Without one, any earlier promo reservation for this job is released.
+  let discountDop = 0;
+  let promoDop = 0;
+  let promoReserved = false;
+  if (promoCode) {
+    const { data: promoData, error: promoErr } = await admin.rpc("reserve_promo_code", {
+      p_job: job.id,
+      p_client: user.id,
+      p_code: promoCode,
+    });
+    // The database raises the Spanish reason (not found, expired, limit, stacking, amount too small, and so on).
+    if (promoErr) return json({ error: promoErr.message }, 400);
+    promoDop = Number(promoData.discount_dop);
+    promoReserved = true;
+  } else {
+    await admin.rpc("release_promo_reservation", { p_job: job.id });
+    const { data: discountData, error: discountErr } = await admin.rpc("reserve_referral_discount", {
+      p_job: job.id,
+      p_quote: quoteDop,
+      p_before: beforeReferralDop,
+    });
+    if (discountErr) return json({ error: "No se pudo revisar el descuento de referido." }, 502);
+    discountDop = Number(discountData ?? 0);
+  }
 
   let split;
   try {
@@ -104,9 +129,11 @@ Deno.serve(async (req: Request) => {
       kind: isDiagnostic ? "diagnostic" : "repair",
       plan: proPlan,
       discountDop,
+      promoDiscountDop: promoDop,
     });
   } catch (e) {
     await admin.rpc("release_referral_reservation", { p_job: job.id });
+    if (promoReserved) await admin.rpc("release_promo_reservation", { p_job: job.id });
     return json({ error: e instanceof Error ? e.message : "No se pudo calcular el pago." }, 400);
   }
 
@@ -171,9 +198,12 @@ Deno.serve(async (req: Request) => {
       tipDop: split.tipDop,
       successUrl: appUrl + "/trabajos/" + job.id + "?pago=ok",
       cancelUrl: appUrl + "/trabajos/" + job.id + "?pago=cancelado",
+      // A promo reservation is stale after 2 hours with no payment. The session ends first (110 minutes).
+      expiresAtUnix: promoReserved ? Math.floor(Date.now() / 1000) + 110 * 60 : undefined,
     });
   } catch (e) {
     await admin.rpc("release_referral_reservation", { p_job: job.id });
+    if (promoReserved) await admin.rpc("release_promo_reservation", { p_job: job.id });
     return json({ error: "No se pudo iniciar el pago.", detail: e instanceof Error ? e.message : null }, 502);
   }
 
@@ -184,5 +214,6 @@ Deno.serve(async (req: Request) => {
     amount_dop: split.amountDop,
     commission_dop: split.commissionDop,
     referral_discount_dop: split.referralDiscountDop,
+    promo_discount_dop: split.promoDiscountDop,
   });
 });
