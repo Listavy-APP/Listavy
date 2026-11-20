@@ -33,6 +33,7 @@ export function PhoneChangeForm({ initialPhone }: { initialPhone: string | null 
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   // Ref, not state: a second submit in the same tick must see the lock at once.
   const inFlight = useRef(false);
@@ -41,9 +42,10 @@ export function PhoneChangeForm({ initialPhone }: { initialPhone: string | null 
     e.preventDefault();
     if (inFlight.current) return;
     setError(null);
+    setPhoneError(null);
     const lengthError = phoneLengthError(country, local);
     if (lengthError) {
-      setError(lengthError);
+      setPhoneError(lengthError);
       return;
     }
     const normalized = normalizePhone(phoneInput);
@@ -150,6 +152,8 @@ export function PhoneChangeForm({ initialPhone }: { initialPhone: string | null 
           local={local}
           onCountry={setCountry}
           onLocal={setLocal}
+          error={phoneError}
+          errorId="phone-length-error"
         />
         <button className="button" type="submit" disabled={busy}>
           {es.phoneChange.sendCode}

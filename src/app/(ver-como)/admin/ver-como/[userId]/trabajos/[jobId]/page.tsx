@@ -7,6 +7,7 @@ import { jobFileUrl } from "@/lib/data/jobs";
 import { es } from "@/lib/i18n/es";
 import { esViewAs } from "@/lib/i18n/view-as";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isUuid } from "@/lib/domain/uuid";
 
 export const instant = false;
 
@@ -54,6 +55,7 @@ export default async function ViewAsJob({
   params: Promise<{ userId: string; jobId: string }>;
 }) {
   const { userId, jobId } = await params;
+  if (!isUuid(userId) || !isUuid(jobId)) notFound();
   await connection();
   const supabase = await createSupabaseServerClient();
 

@@ -33,6 +33,7 @@ export function PhoneLoginForm({ next }: { next: string }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   // Ref, not state: a second submit in the same tick must see the lock at once.
   const inFlight = useRef(false);
   // Set once the code is verified. A one-time code cannot be verified twice, so a retry after a
@@ -45,9 +46,10 @@ export function PhoneLoginForm({ next }: { next: string }) {
     e.preventDefault();
     if (inFlight.current) return;
     setError(null);
+    setPhoneError(null);
     const lengthError = phoneLengthError(country, local);
     if (lengthError) {
-      setError(lengthError);
+      setPhoneError(lengthError);
       return;
     }
     const normalized = normalizePhone(phoneInput);
@@ -174,6 +176,8 @@ export function PhoneLoginForm({ next }: { next: string }) {
         local={local}
         onCountry={setCountry}
         onLocal={setLocal}
+        error={phoneError}
+        errorId="phone-length-error"
       />
       <p className="muted">{es.phoneField.hint}</p>
       <AcceptLegal kind="client" checked={accepted} onChange={setAccepted} />

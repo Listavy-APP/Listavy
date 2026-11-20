@@ -3359,6 +3359,20 @@ await check("0097 support: five open tickets at most; closing one frees a slot",
   });
 });
 
+await check("0106 support queue paging: pages are ordered and disjoint; offsets validate; non-admins refused", async () => {
+  await withRollback(async () => {
+    await supCreate(SUP_CLIENT, "pagos", "Pagina uno", supBody);
+    await supCreate(SUP_CLIENT, "pagos", "Pagina dos", supBody);
+    const ids = async (offset) => (await asSession(ADMIN, "aal2", `select id from public.admin_list_support_tickets(null, ${offset})`)).rows.map((x) => x.id);
+    const all = await ids(0);
+    assert.ok(all.length >= 2, "fixture has at least two tickets");
+    assert.deepEqual(await ids(1), all.slice(1), "offset 1 is the rest of page one, in the same order");
+    assert.deepEqual(await ids(all.length), [], "an offset past the end returns no rows");
+    await expectCode(() => asSession(ADMIN, "aal2", "select * from public.admin_list_support_tickets(null, -1)"), "22023");
+    await refused(() => asUser(HOMEOWNER, `select * from public.admin_list_support_tickets(null, 0)`), /No autorizado/);
+  });
+});
+
 await check("0097 support: admin definers are gated; non-admins and anonymous callers are refused", async () => {
   await withRollback(async () => {
     const id = (await supCreate(SUP_CLIENT, "pagos", "Cobro extra", supBody)).rows[0].id;

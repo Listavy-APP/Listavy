@@ -11,6 +11,8 @@ export function PhoneField({
   local,
   onCountry,
   onLocal,
+  error,
+  errorId,
 }: {
   label: string;
   countryLabel: string;
@@ -18,9 +20,12 @@ export function PhoneField({
   local: string;
   onCountry: (code: string) => void;
   onLocal: (value: string) => void;
+  /** Validation error for the number. Linked to the number input and to the group, so it is announced on the field. */
+  error?: string | null;
+  errorId?: string;
 }) {
   return (
-    <div className="stack">
+    <div className="stack" role="group" aria-describedby={error && errorId ? errorId : undefined}>
       <label className="field">
         <span>{countryLabel}</span>
         <select value={country} onChange={(e) => onCountry(e.target.value)}>
@@ -39,8 +44,11 @@ export function PhoneField({
           value={local}
           onChange={(e) => onLocal(e.target.value)}
           required
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error && errorId ? errorId : undefined}
         />
       </label>
+      {error && errorId ? <p id={errorId} className="error" role="alert">{error}</p> : null}
     </div>
   );
 }

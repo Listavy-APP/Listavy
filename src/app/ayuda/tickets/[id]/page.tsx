@@ -5,6 +5,7 @@ import { ThreadReply } from "./ThreadReply";
 import { getMyTicket } from "@/lib/data/support";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isUuid } from "@/lib/domain/uuid";
 
 export const metadata = { title: es.support.thread };
 
@@ -17,6 +18,7 @@ function when(iso: string): string {
 
 export default async function TicketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
