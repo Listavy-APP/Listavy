@@ -3840,6 +3840,28 @@ await check("0102 verified flags: no rows for an empty list, and no direct read 
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0104 · Public profile fetch by id works outside the default city. City search still filters.
+// ---------------------------------------------------------------------------
+await check("0104 pro cards: a by-id fetch returns a pro in another city, and city search still filters", async () => {
+  await withRollback(async () => {
+    // Move an approved pro to Santiago. pros_set_city derives the city from the zone.
+    await db.exec(`update public.pros set zone = 'Centro' where id = '${OUTSIDER_PRO}'`);
+    const city = (await db.query(`select city from public.pros where id = '${OUTSIDER_PRO}'`)).rows[0].city;
+    assert.equal(city, "santiago", "fixture is in Santiago");
+
+    // By id, no city passed (default santo_domingo): the card is returned.
+    const byId = await asUser(HOMEOWNER, `select id from public.list_pro_cards(null, null, '${OUTSIDER_PRO}'::uuid)`);
+    assert.deepEqual(byId.rows.map((x) => x.id), [OUTSIDER_PRO], "by-id fetch works cross-city");
+
+    // City search without an id still filters by city.
+    const defaultCity = await asUser(HOMEOWNER, `select id from public.list_pro_cards()`);
+    assert.equal(defaultCity.rows.some((x) => x.id === OUTSIDER_PRO), false, "default-city search excludes Santiago");
+    const santiagoSearch = await asUser(HOMEOWNER, `select id from public.list_pro_cards(null, null, null, 'santiago')`);
+    assert.ok(santiagoSearch.rows.some((x) => x.id === OUTSIDER_PRO), "Santiago search includes the pro");
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.
