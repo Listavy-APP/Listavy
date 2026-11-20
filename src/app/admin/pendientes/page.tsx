@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { PendingProActions } from "./PendingProActions";
+import { ViewAsButton } from "@/components/ViewAsButton";
 import { BackBar } from "@/components/BackBar";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { BUCKETS, signedUrl } from "@/lib/storage/proFiles";
@@ -134,6 +135,7 @@ export default async function AdminPendingProsPage() {
             <p className="muted">ID: {pro.id}</p>
 
             <PendingProActions proId={pro.id} />
+            {profile.admin_role === "super_admin" ? <ViewAsButton userId={pro.id} /> : null}
           </article>
         );
       })}

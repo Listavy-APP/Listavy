@@ -3577,6 +3577,153 @@ await check("0099 nudge: dismissal persists, is the pro's own, and only accepts 
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0100 · Admin view-as (read-only). Gate matrix, parity with each user's own reads,
+// one audit row per entry, masked payout, and no change to any target row.
+// ---------------------------------------------------------------------------
+
+/** Like asUser, with the session level set by the caller (aal1 or aal2). */
+async function asSession(uid, aal, sql) {
+  await db.exec(
+    `set role authenticated; set request.jwt.claim.sub = '${uid}';
+     set request.jwt.claims = '{"sub":"${uid}","role":"authenticated","aal":"${aal}"}';`,
+  );
+  try {
+    return await db.query(sql);
+  } finally {
+    await db.exec("reset role; reset request.jwt.claim.sub; reset request.jwt.claims;").catch(() => {});
+  }
+}
+
+/** Expects a refusal with the given SQLSTATE; the savepoint keeps the transaction usable. */
+async function expectCode(run, code) {
+  await db.exec("savepoint view_as_refused");
+  try {
+    await assert.rejects(run(), (e) => e.code === code, `expected SQLSTATE ${code}`);
+  } finally {
+    await db.exec("rollback to savepoint view_as_refused");
+  }
+}
+
+/** Every read definer, for one target, as the given caller. */
+const viewAsReads = (uid, aal, target) => [
+  () => asSession(uid, aal, `select * from public.admin_view_as_profile('${target}')`),
+  () => asSession(uid, aal, `select * from public.admin_view_as_jobs('${target}')`),
+  () => asSession(uid, aal, `select * from public.admin_view_as_notifications('${target}', 50)`),
+  () => asSession(uid, aal, `select * from public.admin_view_as_payout('${target}')`),
+];
+
+/** Byte fingerprint of every row the target owns, across the tables the preview reads. */
+async function targetFingerprint(target) {
+  const parts = [
+    `select id::text as k, row_to_json(p)::text as v from public.profiles p where id = '${target}'`,
+    `select id::text as k, row_to_json(j)::text as v from public.jobs j where homeowner_id = '${target}' or pro_id = '${target}'`,
+    `select q.id::text as k, row_to_json(q)::text as v from public.quotes q join public.jobs j on j.id = q.job_id where j.homeowner_id = '${target}' or q.pro_id = '${target}'`,
+    `select id::text as k, row_to_json(n)::text as v from public.notification_log n where user_id = '${target}'`,
+    `select pro_id::text as k, row_to_json(d)::text as v from public.pro_payout_details d where pro_id = '${target}'`,
+  ];
+  const lines = [];
+  for (const sql of parts) {
+    const r = await db.query(`select coalesce(string_agg(k || '=' || v, E'\n' order by k), '') as f from (${sql}) x`);
+    lines.push(r.rows[0].f);
+  }
+  return lines.join("\n--\n");
+}
+
+await check("0100 view-as gate: only a super admin with aal2 reads; every other caller gets 42501", async () => {
+  await withRollback(async () => {
+    // A regular admin (admin_role = 'admin') with a verified session. Fixture SQL, no user, so the guard allows it.
+    await db.exec(`update public.profiles set role = 'admin', admin_role = 'admin' where id = '${OUTSIDER_PRO}'`);
+    // Super admin, aal1 (no verified TOTP): is_admin() is false, so refused.
+    for (const run of viewAsReads(ADMIN, "aal1", HOMEOWNER)) await expectCode(run, "42501");
+    // Regular admin, aal2: refused by the super-admin check.
+    for (const run of viewAsReads(OUTSIDER_PRO, "aal2", HOMEOWNER)) await expectCode(run, "42501");
+    // Non-admins: a homeowner, a pro, and the target looking at themselves.
+    for (const run of viewAsReads(HOMEOWNER, "aal2", HOMEOWNER)) await expectCode(run, "42501");
+    for (const run of viewAsReads(PRO, "aal2", HOMEOWNER)) await expectCode(run, "42501");
+    // Anonymous callers have no execute grant at all.
+    await expectCode(() => asAnon(`select * from public.admin_view_as_profile('${HOMEOWNER}')`), "42501");
+    await expectCode(() => asAnon(`select public.admin_view_as_enter('${HOMEOWNER}')`), "42501");
+    // Super admin, aal2: reads work, and a missing target is P0002.
+    const ok = await asSession(ADMIN, "aal2", `select count(*)::int as n from public.admin_view_as_profile('${HOMEOWNER}')`);
+    assert.equal(ok.rows[0].n, 1);
+    await expectCode(() => asSession(ADMIN, "aal2", `select * from public.admin_view_as_profile('00000000-0000-0000-0000-00000000ffff')`), "P0002");
+  });
+});
+
+await check("0100 view-as parity: the preview returns the same jobs and quotes the user's own RLS returns", async () => {
+  await withRollback(async () => {
+    const own = await asUser(HOMEOWNER, `select id::text as id from public.jobs where homeowner_id = '${HOMEOWNER}' order by id`);
+    const view = await asSession(ADMIN, "aal2", `select job_id::text as id from public.admin_view_as_jobs('${HOMEOWNER}') where viewer_role = 'homeowner' order by job_id`);
+    assert.deepEqual(view.rows.map((r) => r.id), own.rows.map((r) => r.id));
+    for (const { id } of own.rows) {
+      const mine = await asUser(HOMEOWNER, `select id::text as id from public.quotes where job_id = '${id}' order by id`);
+      const seen = await asSession(ADMIN, "aal2", `select quote_id::text as id from public.admin_view_as_quotes('${HOMEOWNER}', '${id}') order by quote_id`);
+      assert.deepEqual(seen.rows.map((r) => r.id), mine.rows.map((r) => r.id), `homeowner quotes on ${id}`);
+    }
+    const proQuotes = await asUser(PRO, `select job_id::text as job from public.quotes where pro_id = '${PRO}'`);
+    for (const { job } of proQuotes.rows) {
+      const mine = await asUser(PRO, `select id::text as id from public.quotes where job_id = '${job}' and pro_id = '${PRO}' order by id`);
+      const seen = await asSession(ADMIN, "aal2", `select quote_id::text as id from public.admin_view_as_quotes('${PRO}', '${job}') order by quote_id`);
+      assert.deepEqual(seen.rows.map((r) => r.id), mine.rows.map((r) => r.id), `pro sees only own quote on ${job}`);
+    }
+  });
+});
+
+await check("0100 view-as payout: the preview shows the pro's account masked to the last four digits", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.pro_payout_details (pro_id, bank_code, branch_code, account_number)
+      values ('${PRO}', '001', '0001', '123456789012')`);
+    const r = await asSession(ADMIN, "aal2", `select account_masked from public.admin_view_as_payout('${PRO}')`);
+    assert.equal(r.rows[0].account_masked, "•••• 9012");
+  });
+});
+
+await check("0100 view-as notifications: the preview lists only the target's own inbox", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_log (user_id, channel, kind, status, link)
+      values ('${HOMEOWNER}', 'push', 'view_as_probe', 'sent', '/trabajos/${JOB}')`);
+    const h = await asSession(ADMIN, "aal2", `select notice_kind from public.admin_view_as_notifications('${HOMEOWNER}', 50)`);
+    assert.ok(h.rows.some((r) => r.notice_kind === "view_as_probe"), "the target's own row appears");
+    const p = await asSession(ADMIN, "aal2", `select notice_kind from public.admin_view_as_notifications('${PRO}', 50)`);
+    assert.ok(!p.rows.some((r) => r.notice_kind === "view_as_probe"), "another user's rows never appear");
+  });
+});
+
+await check("0100 view-as audit: entering the mode writes exactly one row; refusals and reads write none", async () => {
+  await withRollback(async () => {
+    const count = async () => (await db.query(
+      `select count(*)::int as n from public.admin_audit_log where action = 'view_as_start' and target_id = '${HOMEOWNER}'`,
+    )).rows[0].n;
+    const before = await count();
+    await expectCode(() => asSession(OUTSIDER_PRO, "aal2", `select public.admin_view_as_enter('${HOMEOWNER}')`), "42501");
+    assert.equal(await count(), before, "a refused entry writes nothing");
+    await asSession(ADMIN, "aal2", `select public.admin_view_as_enter('${HOMEOWNER}')`);
+    assert.equal(await count(), before + 1, "one entry, one row");
+    const row = await db.query(`select actor_id::text as actor from public.admin_audit_log
+      where action = 'view_as_start' and target_id = '${HOMEOWNER}' order by created_at desc limit 1`);
+    assert.equal(row.rows[0].actor, ADMIN, "the row names the super admin as actor");
+    for (const run of viewAsReads(ADMIN, "aal2", HOMEOWNER)) await run();
+    assert.equal(await count(), before + 1, "reading the preview does not add rows");
+  });
+});
+
+await check("0100 view-as read-only: calling every read definer leaves the target's rows byte-identical", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_log (user_id, channel, kind, status, link)
+      values ('${HOMEOWNER}', 'email', 'job_accepted', 'sent', '/trabajos/${JOB}')`);
+    await db.exec(`insert into public.pro_payout_details (pro_id, bank_code, branch_code, account_number)
+      values ('${PRO}', '001', null, '5550001234')`);
+    const targets = [HOMEOWNER, PRO, OUTSIDER_PRO];
+    const before = {};
+    for (const t of targets) before[t] = await targetFingerprint(t);
+    for (const t of targets) for (const run of viewAsReads(ADMIN, "aal2", t)) await run();
+    for (const t of targets) {
+      assert.equal(await targetFingerprint(t), before[t], `rows of ${t} changed`);
+    }
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.
