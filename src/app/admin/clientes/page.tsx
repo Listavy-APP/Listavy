@@ -6,6 +6,7 @@ import { listClientsByName, listSuspendedClients } from "@/lib/data/trust";
 import { esTrust } from "@/lib/i18n/trust";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ClientSuspensionActions } from "./ClientSuspensionActions";
+import { ViewAsButton } from "@/components/ViewAsButton";
 
 export const metadata = { title: esTrust.adminClients.title };
 
@@ -48,6 +49,7 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
           <h2>{c.full_name ?? "—"}</h2>
           <p className="muted">{suspendedIds.has(c.id) ? esTrust.adminClients.suspendedTitle : ""}</p>
           <ClientSuspensionActions clientId={c.id} suspended={suspendedIds.has(c.id)} />
+          {profile.admin_role === "super_admin" ? <ViewAsButton userId={c.id} /> : null}
         </article>
       ))}
 
