@@ -14,6 +14,9 @@ import { HashScroll } from "@/components/HashScroll";
 import { Icon } from "@/components/Icon";
 import { JobCard } from "@/components/JobCard";
 import { getCurrentProfile } from "@/lib/data/profiles";
+import { ClientTour } from "@/components/ClientTour";
+import { CLIENT_TOUR_STRINGS } from "@/lib/onboarding/clientTour";
+import { shouldShowClientTour } from "@/lib/domain/clientTour";
 import { getMyPro } from "@/lib/data/pros";
 import { listMyJobs, listMyReviews } from "@/lib/data/customer";
 import { getClientStanding } from "@/lib/data/standing";
@@ -31,7 +34,8 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
 }
 
-export default async function ProfilePage() {
+export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ como?: string }> }) {
+  const { como } = await searchParams;
   // Per-request render: the session and profile are read at request time.
   await connection();
   const supabase = await createSupabaseServerClient();
@@ -58,6 +62,8 @@ export default async function ProfilePage() {
   // Dual role: an approved pro who has also requested services sees the client sections too.
   const isPro = profile.role === "pro";
   const clientView = !isPro || jobs.length > 0;
+  // First-run tour (8g): once per client. Replay from the "Cómo funciona" link never changes the flag.
+  const tourMode = shouldShowClientTour(profile, jobs.length > 0) ? "first" : como === "1" && clientView ? "replay" : null;
   const myPro = isPro ? await getMyPro(supabase) : null;
   const verificationRows = myPro ? await listMyVerifications(supabase, profile.id) : [];
   const verification = myPro ? summarizeVerifications(stagesFor(myPro.pro_type, myPro.trade), verificationRows) : null;
@@ -135,7 +141,13 @@ export default async function ProfilePage() {
           {profile.full_name ? es.profile.hello(profile.full_name.split(" ")[0]) : es.profile.helloFallback}
         </p>
       </div>
+      {tourMode ? <ClientTour mode={tourMode} /> : null}
       {protectionNotice}
+      {clientView ? (
+        <Link className="panel" href="/cuenta?como=1">
+          <b>{CLIENT_TOUR_STRINGS.replayLink}</b>
+        </Link>
+      ) : null}
       {standingNotice}
       {clientView ? <ClaimReferral track="client" /> : null}
 

@@ -7,7 +7,7 @@ import type { Profile } from "@/lib/types/database";
  */
 
 const PROFILE_COLUMNS =
-  "id, role, full_name, phone, created_at, email, email_verified_at, email_prompt_dismissed_at, zone, avatar_path, admin_role";
+  "id, role, full_name, phone, created_at, email, email_verified_at, email_prompt_dismissed_at, client_tour_completed_at, zone, avatar_path, admin_role";
 
 export async function getCurrentProfile(supabase: SupabaseClient): Promise<Profile | null> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -53,4 +53,10 @@ export async function dismissEmailPrompt(supabase: SupabaseClient, userId: strin
     .update({ email_prompt_dismissed_at: new Date().toISOString() })
     .eq("id", userId);
   if (error) throw new Error(`No se pudo guardar: ${error.message}`);
+}
+
+/** Stamps the client tour as completed or skipped. Owner-only: the RPC takes no id (migration 0101). */
+export async function stampClientTour(supabase: SupabaseClient): Promise<void> {
+  const { error } = await supabase.rpc("stamp_client_tour");
+  if (error) throw new Error(error.message);
 }

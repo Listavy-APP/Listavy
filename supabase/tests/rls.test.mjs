@@ -3789,6 +3789,31 @@ await check("0100 view-as read-only: calling every read definer leaves the targe
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0101 · Client tour flag. Owner-only, idempotent, refused for anon.
+// ---------------------------------------------------------------------------
+await check("0101 client tour: the stamp is owner-only and keeps the first completion time", async () => {
+  await withRollback(async () => {
+    const flag = async (uid) => (await db.query(
+      `select client_tour_completed_at::text as t from public.profiles where id = '${uid}'`,
+    )).rows[0].t;
+    assert.equal(await flag(HOMEOWNER), null, "starts unset");
+    await asUser(HOMEOWNER, "select public.stamp_client_tour()");
+    assert.ok(await flag(HOMEOWNER), "the owner's own flag is stamped");
+    assert.equal(await flag(PRO), null, "another user's flag is untouched");
+    // Idempotent: a stamp never moves an existing completion time. Fixed value, so now() cannot hide a change.
+    await db.exec(`update public.profiles set client_tour_completed_at = '2026-01-01T00:00:00Z' where id = '${HOMEOWNER}'`);
+    await asUser(HOMEOWNER, "select public.stamp_client_tour()");
+    assert.match(await flag(HOMEOWNER), /^2026-01-01 00:00:00/, "second stamp keeps the first time");
+  });
+});
+
+await check("0101 client tour: anonymous callers cannot stamp", async () => {
+  await withRollback(async () => {
+    await expectCode(() => asAnon("select public.stamp_client_tour()"), "42501");
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.
