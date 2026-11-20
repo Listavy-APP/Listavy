@@ -27,7 +27,8 @@ create policy notification_log_owner_mark_read on public.notification_log
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
--- Events, not channel rows. Rows of one event share kind and the job or ticket UUID in their link,
+-- Events, not channel rows. Preference skips (status skipped_preference) are a user's choice and never
+-- appear. Delivery gaps (no_subscription, skipped_unverified, failed) do. Rows of one event share kind and the job or ticket UUID in their link,
 -- and the push and email of one event land within minutes of each other. Rows join a group while
 -- each is within 5 minutes of the previous one in the group. Rows with no UUID group by kind and time.
 -- Security invoker: RLS limits the rows to the caller, and no user_id or detail column is read.
@@ -40,6 +41,7 @@ returns table (
   last_at timestamptz,
   row_ids uuid[],
   channels text[],
+  statuses text[],
   delivered boolean,
   unread boolean
 )
@@ -52,6 +54,7 @@ as $$
     select n.id, n.kind, n.channel, n.status, n.created_at, n.read_at, n.link,
            coalesce((regexp_match(coalesce(n.link, ''), '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})'))[1], '') as subj
     from public.notification_log n
+    where n.status <> 'skipped_preference'
     order by n.created_at desc
     limit 500
   ),
@@ -74,6 +77,7 @@ as $$
     max(g.created_at) as last_at,
     array_agg(g.id order by g.created_at) as row_ids,
     array_agg(distinct g.channel) as channels,
+    array_agg(distinct g.status) as statuses,
     bool_or(g.status = 'sent') as delivered,
     bool_or(g.read_at is null) as unread
   from grouped g

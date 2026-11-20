@@ -3459,9 +3459,12 @@ await check("0098 groups: a paired push and email form one entry; a failed singl
       ('${HOMEOWNER}', 'push',  'job_paid', 'sent', '/trabajos/${GRP_JOB_A}', '2026-11-19 10:00:00+00'),
       ('${HOMEOWNER}', 'email', 'job_paid', 'sent', '/trabajos/${GRP_JOB_A}', '2026-11-19 10:00:40+00'),
       ('${HOMEOWNER}', 'push',  'job_paid', 'no_subscription', '/trabajos/${GRP_JOB_B}', '2026-11-19 12:00:00+00'),
-      ('${HOMEOWNER}', 'email', 'job_paid', 'skipped_unverified', '/trabajos/${GRP_JOB_B}', '2026-11-19 12:00:20+00')`);
-    const groups = (await asUser(HOMEOWNER, `select group_id, row_ids, channels, delivered, unread from public.my_notification_groups(50) where kind = 'job_paid' order by first_at`)).rows;
+      ('${HOMEOWNER}', 'email', 'job_paid', 'skipped_unverified', '/trabajos/${GRP_JOB_B}', '2026-11-19 12:00:20+00'),
+      ('${HOMEOWNER}', 'email', 'job_paid', 'skipped_preference', '/trabajos/00000000-0000-4000-8000-0000000002c1', '2026-11-19 13:00:00+00')`);
+    const groups = (await asUser(HOMEOWNER, `select group_id, row_ids, channels, statuses, delivered, unread from public.my_notification_groups(50) where kind = 'job_paid' order by first_at`)).rows;
     assert.equal(groups.length, 2, "two events, two entries");
+    assert.equal(groups.every((g) => !g.statuses.includes("skipped_preference")), true, "preference skips never appear");
+    assert.equal(groups.find((g) => !g.delivered).statuses.sort().join(","), "no_subscription,skipped_unverified", "delivery gaps keep their reasons");
     const paired = groups.find((g) => g.row_ids.length === 2 && g.delivered);
     assert.ok(paired, "the paired event is one entry with both rows");
     assert.deepEqual([...paired.channels].sort(), ["email", "push"]);

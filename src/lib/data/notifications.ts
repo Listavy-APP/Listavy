@@ -12,6 +12,8 @@ export type InboxEntry = {
   link: string | null;
   last_at: string;
   channels: ("push" | "email")[];
+  /** Attempt outcomes for the event. Preference skips never appear. */
+  statuses: string[];
   delivered: boolean;
   unread: boolean;
   row_ids: string[];
@@ -25,6 +27,7 @@ type GroupRow = {
   last_at: string;
   row_ids: string[];
   channels: ("push" | "email")[];
+  statuses: string[];
   delivered: boolean;
   unread: boolean;
 };
@@ -40,6 +43,7 @@ export async function listMyInbox(supabase: SupabaseClient): Promise<InboxEntry[
     link: g.link && INTERNAL_LINK.test(g.link) ? g.link : null,
     last_at: g.last_at,
     channels: g.channels,
+    statuses: g.statuses,
     delivered: g.delivered,
     unread: g.unread,
     row_ids: g.row_ids,
