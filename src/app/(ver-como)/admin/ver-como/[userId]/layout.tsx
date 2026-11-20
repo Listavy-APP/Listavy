@@ -40,6 +40,10 @@ export default async function ViewAsLayout({
   const target = ((data ?? []) as { full_name: string | null }[])[0];
   if (!target) notFound();
 
+  // Bitácora: one entry per session per target, whatever the entry path. Repeat renders add nothing.
+  const { error: enterError } = await supabase.rpc("admin_view_as_enter", { p_target: userId });
+  if (enterError) throw new Error(`No se pudo registrar la vista: ${enterError.message}`);
+
   return (
     <div className="view-as">
       <header className="view-as-banner" aria-label={esViewAs.bannerLabel}>

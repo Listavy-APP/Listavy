@@ -29,16 +29,32 @@ end;
 $$;
 revoke execute on function public.admin_view_as_require(uuid) from public, anon, authenticated;
 
--- 2. Entry. The only write in this feature: one audit row per entry into the mode. ----------
+-- 2. Entry. The only write in this feature. One audit row per admin, target and session.
+--    Called by the preview layout on every render, so a direct URL is logged too. Repeat calls in the
+--    same session add nothing. The advisory lock stops two parallel first loads from both logging.
+--    Session key: the session_id claim of the access token. Without it, all sessions share one key
+--    (the 'no-session' fallback). Sam verifies the claim is present on production tokens.
 create or replace function public.admin_view_as_enter(p_target uuid)
 returns void
 language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_actor uuid := (select auth.uid());
+  v_session text := coalesce((select auth.jwt()) ->> 'session_id', 'no-session');
 begin
   perform public.admin_view_as_require(p_target);
-  perform public.admin_log('view_as_start', p_target, '{}'::jsonb);
+  perform pg_advisory_xact_lock(hashtextextended(v_actor::text || ':' || p_target::text || ':' || v_session, 0));
+  if not exists (
+    select 1 from public.admin_audit_log l
+     where l.actor_id = v_actor
+       and l.action = 'view_as_start'
+       and l.target_id = p_target
+       and l.details ->> 'session_id' = v_session
+  ) then
+    perform public.admin_log('view_as_start', p_target, jsonb_build_object('session_id', v_session));
+  end if;
 end;
 $$;
 revoke execute on function public.admin_view_as_enter(uuid) from public, anon;
@@ -144,7 +160,7 @@ $$;
 -- Quotes on one job, as the target may read them. Mirrors quotes_select (0001):
 -- a pro sees only their own quote; the job's homeowner sees all quotes.
 create or replace function public.admin_view_as_quotes(p_target uuid, p_job uuid)
-returns table (quote_id uuid, pro_name text, amount_dop integer, quote_status text, created_at timestamptz)
+returns table (quote_id uuid, pro_name text, amount_dop integer, quote_status text, created_at timestamptz, is_revision boolean)
 language plpgsql
 stable
 security definer
@@ -153,7 +169,7 @@ as $$
 begin
   perform public.admin_view_as_require(p_target);
   return query
-    select q.id, pp.full_name, q.amount_dop, q.status, q.created_at
+    select q.id, pp.full_name, q.amount_dop, q.status, q.created_at, (q.revision_of is not null)
       from public.quotes q
       join public.jobs j on j.id = q.job_id
       left join public.profiles pp on pp.id = q.pro_id
@@ -232,6 +248,85 @@ begin
 end;
 $$;
 
+
+-- Photos the target may see: the job's homeowner, its pro, or a pro who quoted (can_view_job_photo, 0011).
+-- The page signs URLs only for paths returned here.
+create or replace function public.admin_view_as_job_photos(p_target uuid, p_job uuid)
+returns table (photo_id uuid, photo_kind text, storage_path text, created_at timestamptz)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.admin_view_as_require(p_target);
+  return query
+    select jp.id, jp.kind, jp.storage_path, jp.created_at
+      from public.job_photos jp
+      join public.jobs j on j.id = jp.job_id
+     where jp.job_id = p_job
+       and (j.homeowner_id = p_target or j.pro_id = p_target
+            or exists (select 1 from public.quotes q where q.job_id = p_job and q.pro_id = p_target))
+     order by jp.created_at;
+end;
+$$;
+
+-- Payment summary: amount, currency and status only. No provider ids, no card data.
+create or replace function public.admin_view_as_job_payments(p_target uuid, p_job uuid)
+returns table (amount_minor bigint, currency text, payment_status text, created_at timestamptz)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.admin_view_as_require(p_target);
+  return query
+    select py.amount_minor, py.currency, py.status, py.created_at
+      from public.payments py
+      join public.jobs j on j.id = py.job_id
+     where py.job_id = p_job
+       and (j.homeowner_id = p_target or j.pro_id = p_target)
+     order by py.created_at;
+end;
+$$;
+
+-- Dispute status for the job's parties. Statuses, dates and the decision. No evidence statements.
+create or replace function public.admin_view_as_job_disputes(p_target uuid, p_job uuid)
+returns table (
+  dispute_id uuid,
+  opened_by_target boolean,
+  stage text,
+  dispute_status text,
+  outcome text,
+  refund_dop integer,
+  opened_at timestamptz,
+  decided_at timestamptz,
+  decision_reason text,
+  payment_amount_minor bigint,
+  payment_currency text
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.admin_view_as_require(p_target);
+  return query
+    select d.id,
+           (d.opened_side = case when j.homeowner_id = p_target then 'homeowner' else 'pro' end),
+           d.stage, d.status, d.outcome, d.refund_dop, d.opened_at, d.decided_at, d.decision_reason,
+           py.amount_minor, py.currency
+      from public.disputes d
+      join public.jobs j on j.id = d.job_id
+      left join public.payments py on py.id = d.payment_id
+     where d.job_id = p_job
+       and (j.homeowner_id = p_target or j.pro_id = p_target)
+     order by d.opened_at desc;
+end;
+$$;
+
 -- 4. Grants. Read definers: authenticated only. Each one re-checks the gate itself. -----------
 revoke execute on function public.admin_view_as_profile(uuid) from public, anon;
 revoke execute on function public.admin_view_as_jobs(uuid) from public, anon;
@@ -239,9 +334,15 @@ revoke execute on function public.admin_view_as_job(uuid, uuid) from public, ano
 revoke execute on function public.admin_view_as_quotes(uuid, uuid) from public, anon;
 revoke execute on function public.admin_view_as_notifications(uuid, integer) from public, anon;
 revoke execute on function public.admin_view_as_payout(uuid) from public, anon;
+revoke execute on function public.admin_view_as_job_photos(uuid, uuid) from public, anon;
+revoke execute on function public.admin_view_as_job_payments(uuid, uuid) from public, anon;
+revoke execute on function public.admin_view_as_job_disputes(uuid, uuid) from public, anon;
 grant execute on function public.admin_view_as_profile(uuid) to authenticated;
 grant execute on function public.admin_view_as_jobs(uuid) to authenticated;
 grant execute on function public.admin_view_as_job(uuid, uuid) to authenticated;
 grant execute on function public.admin_view_as_quotes(uuid, uuid) to authenticated;
 grant execute on function public.admin_view_as_notifications(uuid, integer) to authenticated;
 grant execute on function public.admin_view_as_payout(uuid) to authenticated;
+grant execute on function public.admin_view_as_job_photos(uuid, uuid) to authenticated;
+grant execute on function public.admin_view_as_job_payments(uuid, uuid) to authenticated;
+grant execute on function public.admin_view_as_job_disputes(uuid, uuid) to authenticated;

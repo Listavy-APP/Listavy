@@ -3595,6 +3595,19 @@ async function asSession(uid, aal, sql) {
   }
 }
 
+/** Like asSession, with a session_id claim (the entry dedupe key). */
+async function asSessionId(uid, sessionId, sql) {
+  await db.exec(
+    `set role authenticated; set request.jwt.claim.sub = '${uid}';
+     set request.jwt.claims = '{"sub":"${uid}","role":"authenticated","aal":"aal2","session_id":"${sessionId}"}';`,
+  );
+  try {
+    return await db.query(sql);
+  } finally {
+    await db.exec("reset role; reset request.jwt.claim.sub; reset request.jwt.claims;").catch(() => {});
+  }
+}
+
 /** Expects a refusal with the given SQLSTATE; the savepoint keeps the transaction usable. */
 async function expectCode(run, code) {
   await db.exec("savepoint view_as_refused");
@@ -3611,6 +3624,11 @@ const viewAsReads = (uid, aal, target) => [
   () => asSession(uid, aal, `select * from public.admin_view_as_jobs('${target}')`),
   () => asSession(uid, aal, `select * from public.admin_view_as_notifications('${target}', 50)`),
   () => asSession(uid, aal, `select * from public.admin_view_as_payout('${target}')`),
+  () => asSession(uid, aal, `select * from public.admin_view_as_job('${target}', '${JOB}')`),
+  () => asSession(uid, aal, `select * from public.admin_view_as_quotes('${target}', '${JOB}')`),
+  () => asSession(uid, aal, `select * from public.admin_view_as_job_photos('${target}', '${JOB}')`),
+  () => asSession(uid, aal, `select * from public.admin_view_as_job_payments('${target}', '${JOB}')`),
+  () => asSession(uid, aal, `select * from public.admin_view_as_job_disputes('${target}', '${JOB}')`),
 ];
 
 /** Byte fingerprint of every row the target owns, across the tables the preview reads. */
@@ -3621,6 +3639,9 @@ async function targetFingerprint(target) {
     `select q.id::text as k, row_to_json(q)::text as v from public.quotes q join public.jobs j on j.id = q.job_id where j.homeowner_id = '${target}' or q.pro_id = '${target}'`,
     `select id::text as k, row_to_json(n)::text as v from public.notification_log n where user_id = '${target}'`,
     `select pro_id::text as k, row_to_json(d)::text as v from public.pro_payout_details d where pro_id = '${target}'`,
+    `select ph.id::text as k, row_to_json(ph)::text as v from public.job_photos ph join public.jobs j on j.id = ph.job_id where j.homeowner_id = '${target}' or j.pro_id = '${target}'`,
+    `select py.id::text as k, row_to_json(py)::text as v from public.payments py join public.jobs j on j.id = py.job_id where j.homeowner_id = '${target}' or j.pro_id = '${target}'`,
+    `select d.id::text as k, row_to_json(d)::text as v from public.disputes d join public.jobs j on j.id = d.job_id where j.homeowner_id = '${target}' or j.pro_id = '${target}'`,
   ];
   const lines = [];
   for (const sql of parts) {
@@ -3670,6 +3691,41 @@ await check("0100 view-as parity: the preview returns the same jobs and quotes t
   });
 });
 
+await check("0100 view-as job detail: photos, payments and disputes match what the party's own RLS returns", async () => {
+  await withRollback(async () => {
+    const owner = (await db.query(`select homeowner_id::text as h from public.jobs where id = '${JOB}'`)).rows[0].h;
+    await db.exec(`insert into public.job_photos (job_id, uploaded_by, kind, storage_path)
+      values ('${JOB}', '${owner}', 'before', 'view-as-probe/${JOB}.jpg')`);
+    await db.exec(`insert into public.payments (job_id, currency, amount_minor, fx_rate_dop_per_usd, status)
+      values ('${JOB}', 'DOP', 600000, 1, 'held')`);
+    const side = (await db.query(`select (exists (select 1 from public.jobs where id = '${JOB}' and homeowner_id = '${owner}')) as ok`)).rows[0].ok;
+    assert.equal(side, true);
+
+    const ownPhotos = await asUser(owner, `select storage_path from public.job_photos where job_id = '${JOB}' order by storage_path`);
+    const viewPhotos = await asSession(ADMIN, "aal2", `select storage_path from public.admin_view_as_job_photos('${owner}', '${JOB}') order by storage_path`);
+    assert.deepEqual(viewPhotos.rows, ownPhotos.rows, "photos as the homeowner sees them");
+    assert.ok(viewPhotos.rows.some((r) => r.storage_path === "view-as-probe/" + JOB + ".jpg"), "the probe photo is listed");
+
+    const ownPay = await asUser(owner, `select amount_minor::text as a, status from public.payments where job_id = '${JOB}' order by created_at`);
+    const viewPay = await asSession(ADMIN, "aal2", `select amount_minor::text as a, payment_status as status from public.admin_view_as_job_payments('${owner}', '${JOB}') order by created_at`);
+    assert.deepEqual(viewPay.rows, ownPay.rows, "payment summary as the homeowner sees it");
+
+    const ownDisp = await asUser(owner, `select id::text as id, stage, status from public.disputes where job_id = '${JOB}' order by opened_at desc`);
+    const viewDisp = await asSession(ADMIN, "aal2", `select dispute_id::text as id, stage, dispute_status as status from public.admin_view_as_job_disputes('${owner}', '${JOB}') order by opened_at desc`);
+    assert.deepEqual(viewDisp.rows, ownDisp.rows, "dispute status as the homeowner sees it");
+
+    // A stranger with no role on this job gets nothing from the job-scoped definers.
+    for (const q of [
+      `select * from public.admin_view_as_job_photos('${OUTSIDER_PRO}', '${JOB}')`,
+      `select * from public.admin_view_as_job_payments('${OUTSIDER_PRO}', '${JOB}')`,
+      `select * from public.admin_view_as_job_disputes('${OUTSIDER_PRO}', '${JOB}')`,
+    ]) {
+      const r = await asSession(ADMIN, "aal2", q);
+      assert.equal(r.rows.length, 0, q);
+    }
+  });
+});
+
 await check("0100 view-as payout: the preview shows the pro's account masked to the last four digits", async () => {
   await withRollback(async () => {
     await db.exec(`insert into public.pro_payout_details (pro_id, bank_code, branch_code, account_number)
@@ -3698,13 +3754,22 @@ await check("0100 view-as audit: entering the mode writes exactly one row; refus
     const before = await count();
     await expectCode(() => asSession(OUTSIDER_PRO, "aal2", `select public.admin_view_as_enter('${HOMEOWNER}')`), "42501");
     assert.equal(await count(), before, "a refused entry writes nothing");
-    await asSession(ADMIN, "aal2", `select public.admin_view_as_enter('${HOMEOWNER}')`);
+    await asSessionId(ADMIN, "view-as-s1", `select public.admin_view_as_enter('${HOMEOWNER}')`);
     assert.equal(await count(), before + 1, "one entry, one row");
+    await asSessionId(ADMIN, "view-as-s1", `select public.admin_view_as_enter('${HOMEOWNER}')`);
+    await asSessionId(ADMIN, "view-as-s1", `select public.admin_view_as_enter('${HOMEOWNER}')`);
+    assert.equal(await count(), before + 1, "repeat loads in the same session add nothing");
+    await asSessionId(ADMIN, "view-as-s2", `select public.admin_view_as_enter('${HOMEOWNER}')`);
+    assert.equal(await count(), before + 2, "a new session logs its own entry");
+    const keyed = await db.query(`select count(*)::int as n from public.admin_audit_log
+      where action = 'view_as_start' and target_id = '${HOMEOWNER}' and details ->> 'session_id' = 'view-as-s2'`);
+    assert.equal(keyed.rows[0].n, 1, "the new row carries the session key");
     const row = await db.query(`select actor_id::text as actor from public.admin_audit_log
       where action = 'view_as_start' and target_id = '${HOMEOWNER}' order by created_at desc limit 1`);
     assert.equal(row.rows[0].actor, ADMIN, "the row names the super admin as actor");
+    const beforeReads = await count();
     for (const run of viewAsReads(ADMIN, "aal2", HOMEOWNER)) await run();
-    assert.equal(await count(), before + 1, "reading the preview does not add rows");
+    assert.equal(await count(), beforeReads, "reading the preview does not add rows");
   });
 });
 
