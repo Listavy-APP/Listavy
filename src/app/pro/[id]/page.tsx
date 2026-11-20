@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import type { Metadata } from "next";
+import { jsonLdScript, pageMetadata } from "@/lib/seo/metadata";
+import { proJsonLd } from "@/lib/seo/jsonld";
+import { absoluteUrl } from "@/lib/seo/site";
 import { BackArrow } from "@/components/BackBar";
 import { getProCard, getProSchedule, getProStats, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
 import { es } from "@/lib/i18n/es";
@@ -16,7 +20,26 @@ import { listSavedProIds } from "@/lib/data/saved";
 import { getProReviewSummary, listDemoReviews, listMyAuthoredReviewIds, listMyFlaggedReviewIds, listProReviews } from "@/lib/data/reviews";
 import { ReviewReport } from "@/components/ReviewReport";
 
-export const metadata = { title: es.proDetail.title };
+/**
+ * Metadata from public facts only: name, trade, zone, and the approved photo. Bio and everything
+ * else stay off the tags. Demo profiles are not indexed.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  await connection();
+  const { id } = await params;
+  const supabase = await createSupabaseServerClient();
+  const pro = await getProCard(supabase, id);
+  if (!pro) return { title: es.proDetail.title, robots: { index: false, follow: false } };
+  const tradeLabel = es.trades[pro.trade];
+  const name = pro.full_name ?? tradeLabel;
+  const meta = pageMetadata({
+    title: es.seo.proTitle(name, tradeLabel, pro.zone),
+    description: es.seo.proDescriptionFallback(tradeLabel, pro.zone),
+    path: `/pro/${id}`,
+    image: avatarUrl(supabase, pro.avatar_path) ?? undefined,
+  });
+  return pro.is_demo ? { ...meta, robots: { index: false, follow: false } } : meta;
+}
 export const instant = false;
 
 export default async function ProDetailPage({
@@ -82,6 +105,22 @@ export default async function ProDetailPage({
 
   return (
     <section className="stack pro-profile">
+      {pro.is_demo ? null : (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: jsonLdScript(
+              proJsonLd({
+                url: absoluteUrl(`/pro/${pro.id}`),
+                name: pro.full_name ?? es.trades[pro.trade],
+                tradeLabel: es.trades[pro.trade],
+                zone: pro.zone,
+                image: avatarUrl(supabase, pro.avatar_path),
+              }),
+            ),
+          }}
+        />
+      )}
       <div className="backbar">
         <Link className="back" href={backHref} aria-label={es.common.back}><BackArrow /></Link>
         <span className="bt">{es.proDetail.title}</span>

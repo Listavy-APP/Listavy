@@ -3,6 +3,7 @@ import { BackArrow } from "@/components/BackBar";
 import { getProCardsByIds, listBoostedProIds, listProCards } from "@/lib/data/pros";
 import { getProReviewSummary, type ReviewSummary } from "@/lib/data/reviews";
 import { es } from "@/lib/i18n/es";
+import { pageMetadata } from "@/lib/seo/metadata";
 import { DEFAULT_CITY, TRADES, cityOfZone, isCity, isTrade, isZone, type City } from "@/lib/domain/catalog";
 import { filterPros, parseDate, parseSort, sortPros, type SortKey } from "@/lib/domain/discovery";
 import { CityZoneSelect } from "@/components/CityZoneSelect";
@@ -13,7 +14,7 @@ import { ProPicker } from "./ProPicker";
 import { FiltersSheet } from "./FiltersSheet";
 import { SortSelect } from "./SortSelect";
 
-export const metadata = { title: es.search.title };
+export const metadata = pageMetadata({ title: es.seo.searchTitle, description: es.seo.searchDescription, path: "/buscar" });
 type Params = {
   trade?: string;
   city?: string;

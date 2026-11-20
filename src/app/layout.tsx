@@ -9,6 +9,7 @@ import { LegalFooter } from "@/components/LegalFooter";
 import { Loader } from "@/components/Loader";
 import { RegisterServiceWorker } from "@/components/RegisterServiceWorker";
 import { es } from "@/lib/i18n/es";
+import { SITE_URL } from "@/lib/seo/site";
 import "./globals.css";
 
 // Self-hosted Manrope (SIL OFL, see src/fonts/OFL-Manrope.txt). Latin subset covers Spanish.
@@ -19,12 +20,19 @@ const manrope = localFont({
   display: "swap",
 });
 
+const nonProduction = Boolean(process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: es.brand, template: `%s · ${es.brand}` },
   description: es.home.subtitle,
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon-192.png", apple: "/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: es.brand, statusBarStyle: "default" },
+  openGraph: { siteName: "Listavy", locale: "es_DO", type: "website" },
+  twitter: { card: "summary_large_image" },
+  // Preview and other non-production deployments are never indexed.
+  robots: nonProduction ? { index: false, follow: false } : undefined,
 };
 
 export const viewport: Viewport = {

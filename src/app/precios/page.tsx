@@ -1,16 +1,18 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { es } from "@/lib/i18n/es";
+import { pageMetadata } from "@/lib/seo/metadata";
 import { TRADES } from "@/lib/domain/catalog";
 import { DIAGNOSTIC_BAND_DOP, formatRange, guideFor, type PriceGuideRow } from "@/lib/domain/price-guides";
 import { listPriceGuides } from "@/lib/data/price-guides";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BackBar } from "@/components/BackBar";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: es.priceGuide.metaTitle,
   description: es.priceGuide.metaDescription,
-};
+  path: "/precios",
+});
 
 /** Public page. Shows aggregates only, one section per trade. Per-request render, as on the home page. */
 export default function PriceGuidePage() {
