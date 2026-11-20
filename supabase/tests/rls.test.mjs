@@ -3446,6 +3446,58 @@ await check("0098 inbox: links must be internal paths", async () => {
   });
 });
 
+// ---- 0098 event groups ---------------------------------------------------------
+// One entry per event: push and email of one event share an entry; a single-channel event that was
+// not delivered still gets an entry. Read state is per group. The bell counts groups.
+
+const GRP_JOB_A = "00000000-0000-4000-8000-0000000002a1";
+const GRP_JOB_B = "00000000-0000-4000-8000-0000000002b1";
+
+await check("0098 groups: a paired push and email form one entry; a failed single channel still gets one", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_log (user_id, channel, kind, status, link, created_at) values
+      ('${HOMEOWNER}', 'push',  'job_paid', 'sent', '/trabajos/${GRP_JOB_A}', '2026-11-19 10:00:00+00'),
+      ('${HOMEOWNER}', 'email', 'job_paid', 'sent', '/trabajos/${GRP_JOB_A}', '2026-11-19 10:00:40+00'),
+      ('${HOMEOWNER}', 'push',  'job_paid', 'no_subscription', '/trabajos/${GRP_JOB_B}', '2026-11-19 12:00:00+00'),
+      ('${HOMEOWNER}', 'email', 'job_paid', 'skipped_unverified', '/trabajos/${GRP_JOB_B}', '2026-11-19 12:00:20+00')`);
+    const groups = (await asUser(HOMEOWNER, `select group_id, row_ids, channels, delivered, unread from public.my_notification_groups(50) where kind = 'job_paid' order by first_at`)).rows;
+    assert.equal(groups.length, 2, "two events, two entries");
+    const paired = groups.find((g) => g.row_ids.length === 2 && g.delivered);
+    assert.ok(paired, "the paired event is one entry with both rows");
+    assert.deepEqual([...paired.channels].sort(), ["email", "push"]);
+    const failed = groups.find((g) => g.row_ids.length === 2 && !g.delivered);
+    assert.ok(failed, "an event with no delivery still has an entry");
+    assert.equal(failed.unread, true);
+    const other = (await asUser(INB_OTHER, `select count(*)::int as n from public.my_notification_groups(50) where kind = 'job_paid'`)).rows[0].n;
+    assert.equal(other, 0, "another user sees none of these events");
+  });
+});
+
+await check("0098 groups: marking an entry read clears every row of that event and lowers the unread count", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_log (user_id, channel, kind, status, link, created_at) values
+      ('${HOMEOWNER}', 'push',  'job_paid', 'sent', '/trabajos/${GRP_JOB_A}', '2026-11-19 10:00:00+00'),
+      ('${HOMEOWNER}', 'email', 'job_paid', 'sent', '/trabajos/${GRP_JOB_A}', '2026-11-19 10:00:40+00')`);
+    const before = (await asUser(HOMEOWNER, `select row_ids from public.my_notification_groups(50) where kind = 'job_paid' and link = '/trabajos/${GRP_JOB_A}'`)).rows[0];
+    const unreadBefore = (await asUser(HOMEOWNER, `select count(*)::int as n from public.my_notification_groups(200) where unread`)).rows[0].n;
+    const ids = `'{${before.row_ids.join(",")}}'`;
+    await asUser(HOMEOWNER, `update public.notification_log set read_at = now() where id = any(${ids}::uuid[]) and read_at is null`);
+    const after = (await asUser(HOMEOWNER, `select unread from public.my_notification_groups(50) where kind = 'job_paid' and link = '/trabajos/${GRP_JOB_A}'`)).rows[0];
+    assert.equal(after.unread, false, "both rows read, so the entry is read");
+    const unreadAfter = (await asUser(HOMEOWNER, `select count(*)::int as n from public.my_notification_groups(200) where unread`)).rows[0].n;
+    assert.equal(unreadAfter, unreadBefore - 1, "the bell count drops by one event");
+  });
+});
+
+await check("0098 links: the SQL mapping matches the edge mapping for job, ticket and recurring kinds", async () => {
+  const q = (kind, data) => db.query(`select public.notification_link('${kind}', '${data}'::jsonb) as l`).then((r) => r.rows[0].l);
+  assert.equal(await q("job_paid", `{"job_id":"${GRP_JOB_A}"}`), `/trabajos/${GRP_JOB_A}`);
+  assert.equal(await q("support_reply", `{"ticket_id":"${GRP_JOB_A}"}`), `/ayuda/tickets/${GRP_JOB_A}`);
+  assert.equal(await q("support_reply", `{"ticket_id":"../x"}`), "/ayuda/tickets");
+  assert.equal(await q("recurring_created", `{}`), "/cuenta/recurrentes");
+  assert.equal(await q("welcome", `{}`), null);
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

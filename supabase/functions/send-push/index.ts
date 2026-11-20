@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
   if (error) return json({ error: error.message }, 500);
 
   if (userId && (subs ?? []).length === 0) {
-    await admin.from("notification_log").insert({ user_id: userId, channel: "push", kind, status: "no_subscription" });
+    await admin.from("notification_log").insert({ user_id: userId, channel: "push", kind, status: "no_subscription", link: safeLink(body.url) });
     return json({ sent: 0, removed: 0, failed: 0 });
   }
 
@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
         console.error("send-push failed", { subscriptionId: s.id, status: status ?? null, message });
         if (userId) {
           await admin.from("notification_log").insert({
-            user_id: userId, channel: "push", kind, status: "failed",
+            user_id: userId, channel: "push", kind, status: "failed", link: safeLink(body.url),
             detail: `subscription=${s.id} status=${status ?? "none"} message=${message}`.slice(0, 500),
           });
         }

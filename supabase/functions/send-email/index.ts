@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
 
   // Hard rule: no transactional mail to an unverified address.
   if (!profile?.email || !profile.email_verified_at) {
-    await admin.from("notification_log").insert({ user_id: userId, channel: "email", kind, status: "skipped_unverified" });
+    await admin.from("notification_log").insert({ user_id: userId, channel: "email", kind, status: "skipped_unverified", link: linkFor(kind, data) });
     return json({ sent: false, reason: "unverified" });
   }
 
@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
   if (!email) return json({ error: "Tipo de correo no válido." }, 400);
 
   if (!RESEND_KEY) {
-    await admin.from("notification_log").insert({ user_id: userId, channel: "email", kind, status: "failed", detail: "RESEND_API_KEY no configurada" });
+    await admin.from("notification_log").insert({ user_id: userId, channel: "email", kind, status: "failed", detail: "RESEND_API_KEY no configurada", link: linkFor(kind, data) });
     return json({ error: "El envío de correos no está configurado." }, 503);
   }
 
@@ -105,7 +105,7 @@ Deno.serve(async (req: Request) => {
   if (!res.ok) {
     // Log the status only. The recipient address is personal data and stays out of the log.
     await admin.from("notification_log").insert({
-      user_id: userId, channel: "email", kind, status: "failed", detail: `resend status=${res.status}`,
+      user_id: userId, channel: "email", kind, status: "failed", detail: `resend status=${res.status}`, link: linkFor(kind, data),
     });
     return json({ sent: false, reason: "provider" }, 502);
   }

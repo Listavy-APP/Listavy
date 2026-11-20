@@ -881,6 +881,7 @@ export const es = {
     markAll: "Marcar todo como leído",
     unread: "Nuevo",
     unreadCount: "Sin leer",
+    notDelivered: "no se pudo entregar",
     channel: { push: "En la app", email: "Correo" },
     fallbackKind: "Aviso de Listavy",
     kinds: {
