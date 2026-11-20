@@ -93,7 +93,7 @@ create table public.recurring_bookings (
   client_id         uuid not null references public.profiles (id) on delete cascade,
   pro_id            uuid not null references public.pros (id),
   source_job_id     uuid not null references public.jobs (id),
-  trade             text not null check (trade in ('plumber', 'electrician', 'ac_technician')),
+  trade             text not null check (trade in ('plumber', 'electrician', 'ac_technician', 'painter', 'locksmith', 'carpenter', 'blacksmith')),
   zone              text not null,
   job_type          text not null default 'repair' check (job_type in ('repair', 'diagnostic')),
   description       text not null check (char_length(btrim(description)) >= 20),
