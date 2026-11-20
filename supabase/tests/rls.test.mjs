@@ -2467,8 +2467,9 @@ await check("0091 log: no user or anonymous role reads the send log; only the ad
       await db.exec("set role authenticated");
       await db.exec(`set request.jwt.claim.sub = '${N_USER}'`);
       const r = await db.query(`select count(*)::int as n from public.notification_log`).catch((e) => ({ err: e }));
+      // 0098 adds an owner-only select policy: the owner sees exactly their own row, nothing else.
       if (r.err) assert.match(r.err.message, /permission denied/);
-      else assert.equal(r.rows[0].n, 0, "the owner must see no log rows");
+      else assert.equal(r.rows[0].n, 1, "the owner sees only their own log row");
     } finally {
       await db.exec("rollback to savepoint log_read");
     }
@@ -3401,6 +3402,103 @@ await check("0097 support: close is the author's; closed tickets take no replies
     const logged = (await asService(`select count(*)::int as n from public.admin_audit_log where action = 'support_status' and details->>'ticket_id' = '${id}'`)).rows[0].n;
     assert.equal(logged, 1, "reopen is logged");
   });
+});
+
+// ---- 0098 notification inbox ---------------------------------------------------
+// Owner-only reads of safe columns, mark-read only on own rows, links limited to internal paths.
+
+const INB_OTHER = "00000000-0000-4000-8000-0000000000e3";
+await seedFixture(`insert into auth.users (id, phone) values ('${INB_OTHER}', '+18095550097') on conflict do nothing;
+  insert into public.notification_log (id, user_id, channel, kind, status, detail, link)
+  values ('00000000-0000-4000-8000-0000000001a1', '${HOMEOWNER}', 'push', 'welcome', 'sent', 'secreto', '/trabajos'),
+         ('00000000-0000-4000-8000-0000000001a2', '${INB_OTHER}', 'push', 'welcome', 'sent', null, '/trabajos');`);
+const INB_OWN = "00000000-0000-4000-8000-0000000001a1";
+const INB_FOREIGN = "00000000-0000-4000-8000-0000000001a2";
+
+// Column privileges (detail and user_id unreadable, kind and status unwritable) are not testable
+// here: the harness re-grants table privileges after migrations. They are checked with
+// has_column_privilege against production after 0098 is applied (see the PR).
+await check("0098 inbox: owners read only their own log rows; anon reads nothing", async () => {
+  await withRollback(async () => {
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.notification_log where id = '${INB_OWN}'`)).rows[0].n, 1);
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.notification_log where id = '${INB_FOREIGN}'`)).rows[0].n, 0);
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.notification_log where user_id = '${INB_OTHER}'`)).rows[0].n, 0);
+  });
+});
+
+await check("0098 inbox: owners mark only their own rows read", async () => {
+  await withRollback(async () => {
+    const own = await asUser(HOMEOWNER, `update public.notification_log set read_at = now() where id = '${INB_OWN}' and read_at is null`);
+    assert.equal(own.affectedRows ?? own.rowCount, 1);
+    const foreign = await asUser(HOMEOWNER, `update public.notification_log set read_at = now() where id = '${INB_FOREIGN}'`);
+    assert.equal(foreign.affectedRows ?? foreign.rowCount, 0, "another user's row is invisible to update");
+    const read = await asUser(HOMEOWNER, `select read_at is not null as r from public.notification_log where id = '${INB_OWN}'`);
+    assert.equal(read.rows[0].r, true);
+  });
+});
+
+await check("0098 inbox: links must be internal paths", async () => {
+  await withRollback(async () => {
+    const ins = (link) => db.query(`insert into public.notification_log (user_id, channel, kind, status, link) values ('${HOMEOWNER}', 'email', 'welcome', 'sent', '${link}')`);
+    await refused(() => ins("//evil.example"), /notification_log_link_check/);
+    await refused(() => ins("https://evil.example"), /notification_log_link_check/);
+    await db.query(`insert into public.notification_log (user_id, channel, kind, status, link) values ('${HOMEOWNER}', 'email', 'welcome', 'sent', '/trabajos/x')`);
+  });
+});
+
+// ---- 0098 event groups ---------------------------------------------------------
+// One entry per event: push and email of one event share an entry; a single-channel event that was
+// not delivered still gets an entry. Read state is per group. The bell counts groups.
+
+const GRP_JOB_A = "00000000-0000-4000-8000-0000000002a1";
+const GRP_JOB_B = "00000000-0000-4000-8000-0000000002b1";
+
+await check("0098 groups: a paired push and email form one entry; a failed single channel still gets one", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_log (user_id, channel, kind, status, link, created_at) values
+      ('${HOMEOWNER}', 'push',  'job_paid', 'sent', '/trabajos/${GRP_JOB_A}', '2026-11-19 10:00:00+00'),
+      ('${HOMEOWNER}', 'email', 'job_paid', 'sent', '/trabajos/${GRP_JOB_A}', '2026-11-19 10:00:40+00'),
+      ('${HOMEOWNER}', 'push',  'job_paid', 'no_subscription', '/trabajos/${GRP_JOB_B}', '2026-11-19 12:00:00+00'),
+      ('${HOMEOWNER}', 'email', 'job_paid', 'skipped_unverified', '/trabajos/${GRP_JOB_B}', '2026-11-19 12:00:20+00'),
+      ('${HOMEOWNER}', 'email', 'job_paid', 'skipped_preference', '/trabajos/00000000-0000-4000-8000-0000000002c1', '2026-11-19 13:00:00+00')`);
+    const groups = (await asUser(HOMEOWNER, `select group_id, row_ids, channels, statuses, delivered, unread from public.my_notification_groups(50) where kind = 'job_paid' order by first_at`)).rows;
+    assert.equal(groups.length, 2, "two events, two entries");
+    assert.equal(groups.every((g) => !g.statuses.includes("skipped_preference")), true, "preference skips never appear");
+    assert.equal(groups.find((g) => !g.delivered).statuses.sort().join(","), "no_subscription,skipped_unverified", "delivery gaps keep their reasons");
+    const paired = groups.find((g) => g.row_ids.length === 2 && g.delivered);
+    assert.ok(paired, "the paired event is one entry with both rows");
+    assert.deepEqual([...paired.channels].sort(), ["email", "push"]);
+    const failed = groups.find((g) => g.row_ids.length === 2 && !g.delivered);
+    assert.ok(failed, "an event with no delivery still has an entry");
+    assert.equal(failed.unread, true);
+    const other = (await asUser(INB_OTHER, `select count(*)::int as n from public.my_notification_groups(50) where kind = 'job_paid'`)).rows[0].n;
+    assert.equal(other, 0, "another user sees none of these events");
+  });
+});
+
+await check("0098 groups: marking an entry read clears every row of that event and lowers the unread count", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_log (user_id, channel, kind, status, link, created_at) values
+      ('${HOMEOWNER}', 'push',  'job_paid', 'sent', '/trabajos/${GRP_JOB_A}', '2026-11-19 10:00:00+00'),
+      ('${HOMEOWNER}', 'email', 'job_paid', 'sent', '/trabajos/${GRP_JOB_A}', '2026-11-19 10:00:40+00')`);
+    const before = (await asUser(HOMEOWNER, `select row_ids from public.my_notification_groups(50) where kind = 'job_paid' and link = '/trabajos/${GRP_JOB_A}'`)).rows[0];
+    const unreadBefore = (await asUser(HOMEOWNER, `select count(*)::int as n from public.my_notification_groups(200) where unread`)).rows[0].n;
+    const ids = `'{${before.row_ids.join(",")}}'`;
+    await asUser(HOMEOWNER, `update public.notification_log set read_at = now() where id = any(${ids}::uuid[]) and read_at is null`);
+    const after = (await asUser(HOMEOWNER, `select unread from public.my_notification_groups(50) where kind = 'job_paid' and link = '/trabajos/${GRP_JOB_A}'`)).rows[0];
+    assert.equal(after.unread, false, "both rows read, so the entry is read");
+    const unreadAfter = (await asUser(HOMEOWNER, `select count(*)::int as n from public.my_notification_groups(200) where unread`)).rows[0].n;
+    assert.equal(unreadAfter, unreadBefore - 1, "the bell count drops by one event");
+  });
+});
+
+await check("0098 links: the SQL mapping matches the edge mapping for job, ticket and recurring kinds", async () => {
+  const q = (kind, data) => db.query(`select public.notification_link('${kind}', '${data}'::jsonb) as l`).then((r) => r.rows[0].l);
+  assert.equal(await q("job_paid", `{"job_id":"${GRP_JOB_A}"}`), `/trabajos/${GRP_JOB_A}`);
+  assert.equal(await q("support_reply", `{"ticket_id":"${GRP_JOB_A}"}`), `/ayuda/tickets/${GRP_JOB_A}`);
+  assert.equal(await q("support_reply", `{"ticket_id":"../x"}`), "/ayuda/tickets");
+  assert.equal(await q("recurring_created", `{}`), "/cuenta/recurrentes");
+  assert.equal(await q("welcome", `{}`), null);
 });
 
 await db.close();

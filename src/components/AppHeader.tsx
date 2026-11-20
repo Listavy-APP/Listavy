@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { es } from "@/lib/i18n/es";
 import { HeaderProCta } from "./HeaderProCta";
+import { NotificationBell } from "./NotificationBell";
 
 /** Brand row on every page. Sub-pages keep their own back row beneath it. */
 export function AppHeader() {
@@ -14,6 +15,9 @@ export function AppHeader() {
       <nav className="header-links">
         <Suspense fallback={<Link className="link-quiet" href="/pro/registro">{es.discover.proCtaButton}</Link>}>
           <HeaderProCta />
+        </Suspense>
+        <Suspense fallback={null}>
+          <NotificationBell />
         </Suspense>
         <Link className="link-quiet" href="/cuenta">
           {es.home.accountCta}

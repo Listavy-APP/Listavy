@@ -1345,3 +1345,11 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
   .earnings-bar { background: #444 !important; }
   .statement-line { break-inside: avoid; }
 }
+
+/* Header bell with unread badge (8b). */
+.notification-bell { position: relative; display: inline-flex; align-items: center; text-decoration: none; }
+.notification-badge {
+  position: absolute; top: -6px; right: -10px; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700;
+  line-height: 18px; text-align: center;
+}
