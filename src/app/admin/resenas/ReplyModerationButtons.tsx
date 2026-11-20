@@ -25,7 +25,7 @@ export function ReplyModerationButtons({ reviewId, status }: { reviewId: string;
 
   return (
     <div className="stack">
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
       <div className="row">
         {status !== "published" ? (
           <button className="button secondary" type="button" disabled={busy} onClick={() => act("publish")}>

@@ -68,7 +68,7 @@ export function VerificationReviewActions({
             {t.admin.cancel}
           </button>
         </div>
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p className="error" role="alert">{error}</p> : null}
       </div>
     );
   }
@@ -109,7 +109,7 @@ export function VerificationReviewActions({
           </button>
         </div>
       )}
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
     </div>
   );
 }

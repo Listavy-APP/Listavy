@@ -83,7 +83,7 @@ export function ReviewReport({ reviewId, alreadyReported }: { reviewId: string; 
       >
         {es.reviews.flagCancel}
       </button>
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
     </fieldset>
   );
 }

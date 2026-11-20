@@ -31,7 +31,7 @@ export function ClientSuspensionActions({ clientId, suspended }: { clientId: str
 
   return (
     <div className="stack">
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
       <label className="field">
         {esTrust.adminClients.reasonLabel}
         <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />

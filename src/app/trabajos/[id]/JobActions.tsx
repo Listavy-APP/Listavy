@@ -95,7 +95,7 @@ export function JobActions(props: {
   return (
     <div className="stack">
       {props.contactPhone ? (
-        <p className="ok">
+        <p className="ok" role="status">
           {es.jobs.contactLabel}: <a href={`tel:${props.contactPhone}`}>{formatPhoneDisplay(props.contactPhone)}</a>
         </p>
       ) : (
@@ -183,7 +183,7 @@ export function JobActions(props: {
       {role === "pro" && job.status === "in_progress" ? (
         <>
           {props.completionCode ? (
-            <p className="ok">{es.jobs.completionCodeForClient(props.completionCode)}</p>
+            <p className="ok" role="status">{es.jobs.completionCodeForClient(props.completionCode)}</p>
           ) : null}
           {isDiagnostic ? (
             <TextArea label={es.jobs.diagnosisLabel} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} />
@@ -314,7 +314,7 @@ export function JobActions(props: {
         legacyCancel={role === "homeowner"}
       />
 
-      {job.status === "completed" ? <p className="ok">{es.jobs.completed}</p> : null}
+      {job.status === "completed" ? <p className="ok" role="status">{es.jobs.completed}</p> : null}
       {job.status === "cancelled" ? <p className="muted">{es.jobs.cancelled}</p> : null}
 
       {error ? <p className="error" role="alert">{error}</p> : null}

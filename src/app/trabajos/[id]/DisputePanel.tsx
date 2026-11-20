@@ -113,7 +113,7 @@ export function DisputePanel({
       <section className="panel dispute-card stack">
         <h2>{es.disputes.openTitle}</h2>
         <p className="muted">{es.disputes.openHelp}</p>
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p className="error" role="alert">{error}</p> : null}
         <label className="field">
           {es.disputes.reasonLabel}
           <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -174,7 +174,7 @@ export function DisputePanel({
             <PhotoStrip photos={myPhotos} label={esTrust.disputePhotos.ownLabel} />
             <h3>{esTrust.disputePhotos.title}</h3>
             <p className="muted">{esTrust.disputePhotos.help}</p>
-            {error ? <p className="error">{error}</p> : null}
+            {error ? <p className="error" role="alert">{error}</p> : null}
             {canAttach ? (
               <label className="button secondary">
                 {busy ? esTrust.disputePhotos.uploading : esTrust.disputePhotos.addPhotos}
@@ -198,8 +198,8 @@ export function DisputePanel({
           <div className="stack">
             <h3>{es.disputes.evidenceTitle}</h3>
             <p className="muted">{es.disputes.evidenceHelp}</p>
-            {error ? <p className="error">{error}</p> : null}
-            <textarea rows={4} value={statement} onChange={(e) => setStatement(e.target.value)} />
+            {error ? <p className="error" role="alert">{error}</p> : null}
+            <textarea rows={4} aria-label={es.a11y.disputeStatement} value={statement} onChange={(e) => setStatement(e.target.value)} />
             <button
               className="button"
               type="button"

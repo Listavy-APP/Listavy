@@ -132,7 +132,7 @@ function ReviewForm({ jobId }: { jobId: string }) {
         />
         <span className="muted">{es.reviews.commentLimit(comment.length)}</span>
       </label>
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
       <button className="button" type="submit" disabled={busy}>
         {es.reviews.submit}
       </button>
@@ -195,9 +195,9 @@ function OwnReview({ review, disputeOpen, alreadyReported }: { review: ReviewRow
         <StarRow label={es.reviews.quality} value={quality} onChange={setQuality} />
         <StarRow label={es.reviews.punctuality} value={punctuality} onChange={setPunctuality} />
         <StarRow label={es.reviews.cleanliness} value={cleanliness} onChange={setCleanliness} />
-        <textarea value={comment} maxLength={500} onChange={(e) => setComment(e.target.value)} />
+        <textarea aria-label={es.a11y.reviewComment} value={comment} maxLength={500} onChange={(e) => setComment(e.target.value)} />
         <p className="muted">{es.reviews.editWindow}</p>
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p className="error" role="alert">{error}</p> : null}
         <button className="button" type="submit">{es.reviews.save}</button>
       </form>
     );
@@ -215,7 +215,7 @@ function OwnReview({ review, disputeOpen, alreadyReported }: { review: ReviewRow
         <p className="muted">{es.reviews.editClosed}</p>
       )}
       <ReviewReport reviewId={review.id} alreadyReported={alreadyReported} />
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
     </div>
   );
 }
@@ -262,12 +262,13 @@ function ProResponse({ review, disputeOpen, alreadyReported }: { review: ReviewR
     <form className="panel stack" onSubmit={onRespond}>
       <b>{es.reviews.respondTitle}</b>
       <textarea
+        aria-label={es.a11y.reviewResponse}
         value={body}
         maxLength={500}
         onChange={(e) => setBody(e.target.value)}
         placeholder={es.reviews.respondPlaceholder}
       />
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
       <button className="button" type="submit">{es.reviews.respond}</button>
       <ReviewReport reviewId={review.id} alreadyReported={alreadyReported} />
     </form>
@@ -303,7 +304,7 @@ function ClientRatingForm({ jobId }: { jobId: string }) {
       <StarRow label={es.reviews.punctualityClient} value={punctuality} onChange={setPunctuality} />
       <StarRow label={es.reviews.clarity} value={clarity} onChange={setClarity} />
       <StarRow label={es.reviews.payment} value={payment} onChange={setPayment} />
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
       <button className="button" type="submit">{es.reviews.privateSubmit}</button>
     </form>
   );

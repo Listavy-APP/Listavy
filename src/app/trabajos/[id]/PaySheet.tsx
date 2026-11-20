@@ -148,8 +148,8 @@ export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: nu
       </ul>
       {usd ? <p className="muted">{es.jobs.payUsd(usd, fx)}</p> : null}
 
-      <div className="stack">
-        <span className="field-label">{es.promo.title}</span>
+      <div className="stack" role="group" aria-labelledby="pay-promo-title">
+        <span id="pay-promo-title" className="field-label">{es.promo.title}</span>
         {applied ? (
           <div className="row">
             <span>{applied.code}</span>
@@ -162,7 +162,10 @@ export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: nu
             <label className="field">
               <span>{es.promo.codeLabel}</span>
               <input
+                id="pay-promo-code"
                 value={codeInput}
+                aria-invalid={promoError ? true : undefined}
+                aria-describedby="pay-promo-msg"
                 disabled={promoBusy || busy}
                 autoCapitalize="characters"
                 autoComplete="off"
@@ -174,11 +177,11 @@ export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: nu
             </button>
           </div>
         )}
-        {promoError ? <p className="error" role="alert">{promoError}</p> : <p className="muted">{es.promo.hint}</p>}
+        {promoError ? <p id="pay-promo-msg" className="error" role="alert">{promoError}</p> : <p id="pay-promo-msg" className="muted">{es.promo.hint}</p>}
       </div>
 
-      <div className="stack">
-        <span className="field-label">{es.jobs.payTipTitle}</span>
+      <div className="stack" role="group" aria-labelledby="pay-tip-title">
+        <span id="pay-tip-title" className="field-label">{es.jobs.payTipTitle}</span>
         <div className="chip-wrap">
           <button type="button" className={`chip${pick === "none" ? " on" : ""}`} aria-pressed={pick === "none"} disabled={busy} onClick={() => setPick("none")}>
             {es.jobs.payTipNone}
@@ -195,10 +198,17 @@ export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: nu
         {pick === "custom" ? (
           <label className="field">
             <span>{es.jobs.payTipCustomLabel}</span>
-            <input inputMode="numeric" value={custom} disabled={busy} onChange={(e) => setCustom(e.target.value.replace(/\D/g, ""))} />
+            <input
+              inputMode="numeric"
+              value={custom}
+              disabled={busy}
+              aria-invalid={tipError ? true : undefined}
+              aria-describedby="pay-tip-msg"
+              onChange={(e) => setCustom(e.target.value.replace(/\D/g, ""))}
+            />
           </label>
         ) : null}
-        {tipError ? <p className="error" role="alert">{tipError}</p> : <p className="muted">{es.jobs.payTipHint}</p>}
+        {tipError ? <p id="pay-tip-msg" className="error" role="alert">{tipError}</p> : <p id="pay-tip-msg" className="muted">{es.jobs.payTipHint}</p>}
       </div>
 
       <div className="stack">

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { moderateReview } from "@/lib/data/reviews";
+import { es } from "@/lib/i18n/es";
 
 export function ModerationButtons({ reviewId, status }: { reviewId: string; status: string }) {
   const router = useRouter();
@@ -27,11 +28,12 @@ export function ModerationButtons({ reviewId, status }: { reviewId: string; stat
   return (
     <div className="stack">
       <textarea
+        aria-label={es.a11y.moderationReason}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="Motivo (mínimo 10 caracteres para ocultar o retirar)"
       />
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
       <div className="row">
         {status !== "published" ? (
           <button className="button secondary" type="button" disabled={busy} onClick={() => act("publish")}>

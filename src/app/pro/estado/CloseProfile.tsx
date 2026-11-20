@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { es } from "@/lib/i18n/es";
+import { useDialog } from "@/components/useDialog";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 /**
@@ -16,6 +17,8 @@ export function CloseProfile() {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog(confirming, () => { if (!busy) setConfirming(false); }, dialogRef);
 
   const matches = typed.trim() === es.proClose.confirmWord;
 
@@ -63,6 +66,8 @@ export function CloseProfile() {
       {confirming ? (
         <div className="sheet-backdrop" onClick={() => !busy && setConfirming(false)}>
           <div
+            ref={dialogRef}
+            tabIndex={-1}
             className="sheet stack"
             role="alertdialog"
             aria-modal="true"

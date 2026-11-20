@@ -113,7 +113,7 @@ export function PhoneChangeForm({ initialPhone }: { initialPhone: string | null 
     return (
       <div className="stack">
         {currentLine}
-        <p className="ok">{es.phoneChange.done}</p>
+        <p className="ok" role="status">{es.phoneChange.done}</p>
         <button className="button secondary" type="button" onClick={() => router.push("/cuenta")}>
           {es.phoneChange.back}
         </button>

@@ -87,7 +87,7 @@ export function EmailForm(props: { current: string | null; verified: boolean }) 
             <circle cx="12" cy="12" r="10" />
             <path d="M7.5 12.5l3 3 6-6.5" />
           </svg>
-          <p className="ok">{es.profile.emailVerifiedTitle}</p>
+          <p className="ok" role="status">{es.profile.emailVerifiedTitle}</p>
           <p>
             <a href={`mailto:${props.current}`}>{props.current}</a>
           </p>
@@ -95,8 +95,8 @@ export function EmailForm(props: { current: string | null; verified: boolean }) 
         <button className="button secondary" type="button" onClick={() => setChanging(true)}>
           {es.profile.emailChange}
         </button>
-        {message ? <p className="ok">{message}</p> : null}
-        {error ? <p className="error">{error}</p> : null}
+        {message ? <p className="ok" role="status">{message}</p> : null}
+        {error ? <p className="error" role="alert">{error}</p> : null}
       </div>
     );
   }
@@ -156,8 +156,8 @@ export function EmailForm(props: { current: string | null; verified: boolean }) 
         </form>
       )}
       <p className="muted">{es.profile.emailHint}</p>
-      {message ? <p className="ok">{message}</p> : null}
-      {error ? <p className="error">{error}</p> : null}
+      {message ? <p className="ok" role="status">{message}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
     </div>
   );
 }

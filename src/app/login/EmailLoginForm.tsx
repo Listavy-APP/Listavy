@@ -106,7 +106,7 @@ export function EmailLoginForm({ next }: { next: string }) {
         </p>
         <label className="field">
           <span>{es.login.emailCodeLabel}</span>
-          <input
+          <input aria-invalid={error ? true : undefined} aria-describedby={error ? "emailloginform-error-1" : undefined}
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9]{6,10}"
@@ -117,7 +117,7 @@ export function EmailLoginForm({ next }: { next: string }) {
           />
         </label>
         <p className="muted">{es.login.emailCodeHint}</p>
-        {error && <p className="error" role="alert">{error}</p>}
+        {error && <p id="emailloginform-error-1" className="error" role="alert">{error}</p>}
         <button className="button" type="submit" disabled={busy || !CODE_RE.test(code)}>
           {busy ? es.login.verifying : es.login.verify}
         </button>
@@ -141,7 +141,7 @@ export function EmailLoginForm({ next }: { next: string }) {
       <h1>{es.login.emailTitle}</h1>
       <label className="field">
         <span>{es.login.emailLabel}</span>
-        <input
+        <input aria-invalid={error ? true : undefined} aria-describedby={error ? "emailloginform-error-2" : undefined}
           type="email"
           inputMode="email"
           autoComplete="email"
@@ -152,7 +152,7 @@ export function EmailLoginForm({ next }: { next: string }) {
       </label>
       <p className="muted">{es.login.emailLoginHint}</p>
       <AcceptLegal kind="client" checked={accepted} onChange={setAccepted} />
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && <p id="emailloginform-error-2" className="error" role="alert">{error}</p>}
       <button className="button" type="submit" disabled={busy || !email.trim()}>
         {busy ? es.login.sending : es.login.emailSendCode}
       </button>
