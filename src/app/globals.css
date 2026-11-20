@@ -1385,3 +1385,30 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
 }
 .view-as-banner .view-as-text { margin: 0; }
 .view-as-exit { min-height: 44px; min-width: 44px; padding: 0 var(--s3); }
+
+/* Client first-run tour (8g). Sheet on the landing content; stays above the bottom nav. */
+.tour-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(11, 19, 43, 0.5);
+}
+.tour-sheet {
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  padding: var(--s4, 24px) var(--s4, 24px) calc(var(--s4, 24px) + env(safe-area-inset-bottom));
+  background: var(--paper);
+  border-radius: 16px 16px 0 0;
+  display: grid;
+  gap: var(--s2);
+}
+.tour-sheet:focus { outline: none; }
+.tour-sheet h2 { margin: 0; }
+.tour-dots { display: flex; gap: 6px; }
+.tour-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.tour-dot.on { background: var(--primary); }
+.tour-actions { display: flex; gap: var(--s2); justify-content: space-between; margin-top: var(--s2); }
+.tour-actions .button { min-height: 44px; flex: 1; }

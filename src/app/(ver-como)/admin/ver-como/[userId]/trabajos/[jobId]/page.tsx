@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- signed storage URLs; next/image needs a loader for them */
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
