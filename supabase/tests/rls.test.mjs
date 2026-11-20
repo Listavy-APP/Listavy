@@ -2878,6 +2878,242 @@ await check("0094 price guides: anon and authenticated can call; output is aggre
   });
 });
 
+// ---- 0095 promo codes -------------------------------------------------------
+// Each check that seeds a job runs inside withRollback, so codes and jobs do not leak between checks.
+
+const PROMO_NEW_CLIENT = "00000000-0000-4000-9000-000000000501";
+const PROMO_REFERRER_JOB_CLIENT = "00000000-0000-4000-9000-000000000502";
+let promoJobCounter = 0;
+
+/** Accepted, unpaid job for a client with an approved quote. Fixed ids are not needed; each job is new. */
+async function seedPayJob({ quote = 6000, type = "repair", client = HOMEOWNER } = {}) {
+  promoJobCounter += 1;
+  const job = `20000000-0000-4000-9000-${String(promoJobCounter).padStart(12, "0")}`;
+  const q = `30000000-0000-4000-9000-${String(promoJobCounter).padStart(12, "0")}`;
+  // Job inserts pass the suspension trigger, which needs the owner's identity (same as seedHeldJob).
+  await asOwner(client, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status)
+    values ('${job}', '${client}', '${PRO}', 'plumber', 'Naco', 'TEST: pago con código', 'accepted', '${type}', 'unpaid')`));
+  await db.exec(`insert into public.quotes (id, job_id, pro_id, amount_dop, status)
+    values ('${q}', '${job}', '${PRO}', ${quote}, 'accepted')`);
+  await db.exec(`update public.jobs set approved_quote_id = '${q}' where id = '${job}'`);
+  return job;
+}
+
+async function seedPromoClient(id, phone) {
+  await seedFixture(`insert into auth.users (id, phone) values ('${id}', '${phone}') on conflict do nothing;`);
+}
+
+async function makeCode(sql) {
+  return (await asUser(ADMIN, `select public.${sql} as id`)).rows[0].id;
+}
+
+const reserve = (job, client, code) =>
+  db.query(`select public.reserve_promo_code('${job}', '${client}', '${code}') as r`);
+
+const pct = (base, p) => db.query(`select public.promo_discount_for('percent', ${p}, ${base}) as d`).then((r) => r.rows[0].d);
+const fixed = (base, v) => db.query(`select public.promo_discount_for('fixed', ${v}, ${base}) as d`).then((r) => r.rows[0].d);
+
+await check("0095 promo: client, anonymous and non-admin callers cannot read the code tables or the admin functions", async () => {
+  await withRollback(async () => {
+    // RLS is on with no policies: a client reads zero rows and cannot write. This holds even though the
+    // harness re-grants table access after the migrations, as Supabase defaults do.
+    const seen = await asUser(HOMEOWNER, `select count(*)::int as n from public.promo_codes`);
+    assert.equal(seen.rows[0].n, 0);
+    const seenR = await asUser(HOMEOWNER, `select count(*)::int as n from public.promo_redemptions`);
+    assert.equal(seenR.rows[0].n, 0);
+    await refused(() => asUser(HOMEOWNER, `insert into public.promo_codes (code, kind, value) values ('HACK1', 'percent', 100)`), /row-level security|permission denied/);
+    await refused(() => asUser(HOMEOWNER, `select public.admin_list_promo_codes()`), /No autorizado/);
+    await refused(() => asUser(HOMEOWNER, `select public.admin_create_promo_code('TEST1','percent',10,null,null,null,null)`), /No autorizado/);
+    await refused(() => asAnon(`select public.admin_list_promo_codes()`), /permission denied/);
+    await refused(() => asAnon(`select public.reserve_promo_code('${randomUUID()}', '${HOMEOWNER}', 'X')`), /permission denied/);
+  });
+});
+
+await check("0095 promo: discount math rounds half up, and the client always pays at least RD$100", async () => {
+  await withRollback(async () => {
+    assert.equal(await pct(1005, 10), 101, "100.5 rounds up to 101");
+    assert.equal(await pct(1004, 10), 100, "100.4 rounds down to 100");
+    assert.equal(await pct(600, 100), 500, "100% capped so the client pays RD$100");
+    assert.equal(await fixed(600, 500), 500, "fixed amount inside the cap");
+    assert.equal(await fixed(550, 500), 450, "fixed amount capped at base minus RD$100");
+    assert.equal(await fixed(100, 500), 0, "a base of RD$100 cannot take a code");
+    assert.equal(await pct(101, 50), 1, "51 capped to 1 so the client pays RD$100");
+  });
+});
+
+await check("0095 promo: an admin creates, lists and deactivates codes; codes are stored upper case; bad input is refused", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('desc10','percent',10,null,null,null,'Prueba')`);
+    const code = await db.query(`select code, kind, value, active from public.promo_codes where code = 'DESC10'`);
+    assert.equal(code.rows[0].code, "DESC10");
+    assert.equal(code.rows[0].active, true);
+    await refused(() => asUser(ADMIN, `select public.admin_create_promo_code('DESC10','percent',5,null,null,null,null)`), /ya existe/);
+    await refused(() => asUser(ADMIN, `select public.admin_create_promo_code('A B','percent',5,null,null,null,null)`), /sin espacios/);
+    await refused(() => asUser(ADMIN, `select public.admin_create_promo_code('PCT150','percent',150,null,null,null,null)`), /entre 1 y 100/);
+    await refused(() => asUser(ADMIN, `select public.admin_create_promo_code('BADWIN','percent',5,now(),now() - interval '1 day',null,null)`), /posterior al inicio/);
+    await asUser(ADMIN, `select public.admin_set_promo_active('${(await db.query(`select id from public.promo_codes where code = 'DESC10'`)).rows[0].id}', false)`);
+    const list = await asUser(ADMIN, `select code, active, redeemed_count, reserved_count from public.admin_list_promo_codes() where code = 'DESC10'`);
+    assert.equal(list.rows[0].active, false);
+    assert.equal(list.rows[0].redeemed_count, 0);
+  });
+});
+
+await check("0095 promo: a percent code reserves, the charge is discounted, commission stays on the full amount, and the split adds up", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('DESC10','percent',10,null,null,null,null)`);
+    const job = await seedPayJob({ quote: 6000 });
+    const preview = await asUser(HOMEOWNER, `select public.preview_promo_code('${job}', 'desc10') as p`);
+    assert.equal(preview.rows[0].p.discount_dop, 600);
+    // Preview reserves nothing.
+    assert.equal((await db.query(`select count(*)::int as n from public.promo_redemptions where job_id = '${job}'`)).rows[0].n, 0);
+
+    const r = await reserve(job, HOMEOWNER, "DESC10");
+    assert.equal(r.rows[0].r.discount_dop, 600);
+    // Charge 5,400. Commission on 6,000 at 12% = 720. Pro payout 5,280.
+    await db.query(`select public.apply_stripe_checkout('evt_promo_1', 'checkout.session.completed', false, '${job}', 'cs_promo_1', 'pi_promo_1',
+      'job', 9000, 60, 5400, 720, 5280, 0)`);
+    const pay = (await db.query(`select amount_dop, commission_dop, pro_payout_dop, discount_dop, referral_discount_dop, promo_code_id
+      from public.payments where job_id = '${job}'`)).rows[0];
+    assert.equal(pay.amount_dop, 5400);
+    assert.equal(pay.discount_dop, 600);
+    assert.equal(pay.commission_dop, 720, "commission on the pre-discount amount");
+    assert.equal(pay.pro_payout_dop + pay.commission_dop, pay.amount_dop + pay.referral_discount_dop + pay.discount_dop, "split identity");
+    assert.ok(pay.promo_code_id);
+    const red = (await db.query(`select status, payment_id is not null as linked from public.promo_redemptions where job_id = '${job}'`)).rows[0];
+    assert.equal(red.status, "redeemed");
+    assert.equal(red.linked, true);
+  });
+});
+
+await check("0095 promo: the same client cannot reuse a code on a second job", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('DESC10','percent',10,null,null,null,null)`);
+    const first = await seedPayJob({ quote: 6000 });
+    await reserve(first, HOMEOWNER, "DESC10");
+    await db.query(`select public.apply_stripe_checkout('evt_reuse_1', 'checkout.session.completed', false, '${first}', 'cs_reuse_1', 'pi_reuse_1',
+      'job', 9000, 60, 5400, 720, 5280, 0)`);
+    const second = await seedPayJob({ quote: 6000 });
+    await refused(() => reserve(second, HOMEOWNER, "DESC10"), /Ya usaste este código/);
+  });
+});
+
+await check("0095 promo: an expired code is refused with its own message; an inactive code is refused", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('VENCIDO','fixed',500,null,now() - interval '1 day',null,null)`);
+    await makeCode(`admin_create_promo_code('INACTIVO','fixed',500,null,null,null,null)`);
+    await asUser(ADMIN, `select public.admin_set_promo_active('${(await db.query(`select id from public.promo_codes where code = 'INACTIVO'`)).rows[0].id}', false)`);
+    const job = await seedPayJob({ quote: 6000 });
+    await refused(() => reserve(job, HOMEOWNER, "VENCIDO"), /ya venció/);
+    await refused(() => reserve(job, HOMEOWNER, "INACTIVO"), /no está activo/);
+    await refused(() => reserve(job, HOMEOWNER, "NOEXISTE"), /no existe/);
+  });
+});
+
+await check("0095 promo: a code that has not started yet is refused", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('FUTURO','fixed',500,now() + interval '2 days',null,null,null)`);
+    const job = await seedPayJob({ quote: 6000 });
+    await refused(() => reserve(job, HOMEOWNER, "FUTURO"), /todavía no está vigente/);
+  });
+});
+
+await check("0095 promo: the usage limit counts live reservations and redemptions, and a stale reservation does not count", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('UNICO1','fixed',500,null,null,1,null)`);
+    const jobA = await seedPayJob({ quote: 6000 });
+    await seedPromoClient(PROMO_NEW_CLIENT, "+18095550501");
+    const jobB = await seedPayJob({ quote: 6000, client: PROMO_NEW_CLIENT });
+    await reserve(jobA, HOMEOWNER, "UNICO1");
+    await refused(() => reserve(jobB, PROMO_NEW_CLIENT, "UNICO1"), /límite de usos/);
+    // Make the first reservation stale: older than 2 hours, no payment. The limit then has room again.
+    await db.query(`update public.promo_redemptions set created_at = now() - interval '3 hours' where job_id = '${jobA}'`);
+    await reserve(jobB, PROMO_NEW_CLIENT, "UNICO1");
+    const stale = (await db.query(`select status from public.promo_redemptions where job_id = '${jobA}'`)).rows[0].status;
+    assert.equal(stale, "released", "the stale reservation is released before counting");
+  });
+});
+
+await check("0095 promo: a fixed code on a RD$550 job leaves the client RD$100", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('FIJO500','fixed',500,null,null,null,null)`);
+    const job = await seedPayJob({ quote: 550 });
+    const r = await reserve(job, HOMEOWNER, "FIJO500");
+    assert.equal(r.rows[0].r.discount_dop, 450);
+  });
+});
+
+await check("0095 promo: a job of RD$100 or less cannot take a code", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('CHICO','percent',50,null,null,null,null)`);
+    const job = await seedPayJob({ quote: 100 });
+    await refused(() => reserve(job, HOMEOWNER, "CHICO"), /muy bajo/);
+  });
+});
+
+await check("0095 promo: a code is refused when a referral discount is already recorded on the job", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('DESC10','percent',10,null,null,null,null)`);
+    const job = await seedPayJob({ quote: 6000 });
+    // Referral discount already recorded: charge 5,500 + 500 referral = 6,000 base. Pro 5,340, commission 660.
+    await asService(`insert into public.payments (job_id, provider, currency, amount_minor, fx_rate_dop_per_usd, amount_dop,
+      commission_dop, pro_payout_dop, purpose, status, referral_discount_dop)
+      values ('${job}', 'stripe', 'USD', 9000, 60, 5500, 660, 5340, 'job', 'held', 500)`);
+    await refused(() => reserve(job, HOMEOWNER, "DESC10"), /no se puede combinar/);
+  });
+});
+
+await check("0095 promo: a live promo reservation stops the referral discount, and a live referral reservation stops a promo", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('DESC10','percent',10,null,null,null,null)`);
+    await makeCode(`admin_create_promo_code('OTRO10','percent',10,null,null,null,null)`);
+    await seedPromoClient(PROMO_NEW_CLIENT, "+18095550502");
+    await seedPromoClient(PROMO_REFERRER_JOB_CLIENT, "+18095550503");
+    await db.exec("update public.referral_settings set enabled = true");
+    await db.exec(`insert into public.referrals (referrer_id, referee_id, track, status)
+      values ('${PROMO_REFERRER_JOB_CLIENT}', '${PROMO_NEW_CLIENT}', 'client', 'pending')`);
+
+    // Promo first: the referral discount is refused for that job.
+    const jobA = await seedPayJob({ quote: 6000, client: PROMO_NEW_CLIENT });
+    await reserve(jobA, PROMO_NEW_CLIENT, "DESC10");
+    const refA = await db.query(`select public.reserve_referral_discount('${jobA}', 6000, 6000) as d`);
+    assert.equal(refA.rows[0].d, 0, "promo reservation blocks the referral reserve");
+
+    // Referral first: the promo is refused for that job (the referral row is reserved to jobB).
+    const jobB = await seedPayJob({ quote: 6000, client: PROMO_NEW_CLIENT });
+    const refB = await db.query(`select public.reserve_referral_discount('${jobB}', 6000, 6000) as d`);
+    assert.equal(refB.rows[0].d, 500, "the friend discount applies to a job with no promo");
+    await refused(() => reserve(jobB, PROMO_NEW_CLIENT, "OTRO10"), /no se puede combinar/);
+  });
+});
+
+await check("0095 promo: checkout apply refuses a discounted amount when no promo reservation exists", async () => {
+  await withRollback(async () => {
+    const job = await seedPayJob({ quote: 6000 });
+    await assert.rejects(
+      db.query(`select public.apply_stripe_checkout('evt_nores', 'checkout.session.completed', false, '${job}', 'cs_nores', 'pi_nores',
+        'job', 9000, 60, 5400, 720, 5280, 0)`),
+      /no coincide/,
+    );
+  });
+});
+
+await check("0095 promo: the payment constraint rejects a split that leaves out the promo discount", async () => {
+  await withRollback(async () => {
+    const job = await seedPayJob({ quote: 6000 });
+    await refused(() => asService(`insert into public.payments (job_id, provider, currency, amount_minor, fx_rate_dop_per_usd, amount_dop,
+      commission_dop, pro_payout_dop, purpose, status, discount_dop)
+      values ('${job}', 'stripe', 'USD', 9000, 60, 5400, 720, 5280, 'job', 'held', 0)`).then(() => {
+        throw new Error("split accepted");
+      }).catch((e) => {
+        if (e.message === "split accepted") throw e;
+        throw e;
+      }), /payments_split_consistent|check constraint/);
+    await asService(`insert into public.payments (job_id, provider, currency, amount_minor, fx_rate_dop_per_usd, amount_dop,
+      commission_dop, pro_payout_dop, purpose, status, discount_dop)
+      values ('${job}', 'stripe', 'USD', 9000, 60, 5400, 720, 5280, 'job', 'held', 600)`);
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

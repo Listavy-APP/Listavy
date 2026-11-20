@@ -108,6 +108,7 @@ export function createStripeProvider(config: StripeConfig): PaymentProvider {
         "payment_intent_data[metadata][job_id]": input.jobId,
         ...tipMetadata,
         ...customerFields,
+        ...(input.expiresAtUnix ? { expires_at: String(input.expiresAtUnix) } : {}),
       });
       const session = await api("POST", "/v1/checkout/sessions", params);
       return { url: session.url, sessionId: session.id };

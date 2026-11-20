@@ -52,14 +52,14 @@ Deno.serve(async (req: Request) => {
 
       // The payment records its provider. The flow calls only the interface.
       const { data: payRow, error: payErr } = await admin
-        .from("payments").select("provider, referral_discount_dop, release_key_version").eq("id", p.payment_id).single();
+        .from("payments").select("provider, referral_discount_dop, discount_dop, release_key_version").eq("id", p.payment_id).single();
       if (payErr) throw new Error(payErr.message);
       const provider = providerFor(payRow.provider, { stripeSecretKey: stripeKey, stripeWebhookSecret: "" });
 
       // A normal transfer is tied to the original charge, so it does not wait on the platform balance.
-      // A referral-discounted payout is larger than the charge, so Listavy funds the difference from
-      // its platform balance: no charge link for that transfer.
-      const discounted = Number(payRow.referral_discount_dop ?? 0) > 0;
+      // A discounted payout (referral or promo code, 0095) is larger than the charge, so Listavy funds the
+      // difference from its platform balance: no charge link for that transfer.
+      const discounted = Number(payRow.referral_discount_dop ?? 0) + Number(payRow.discount_dop ?? 0) > 0;
       const chargeId = discounted ? undefined : await provider.chargeIdFor(p.payment_intent_id);
 
       // Look for a transfer already made for this payment before creating one. This works after the
