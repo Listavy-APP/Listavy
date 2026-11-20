@@ -67,7 +67,13 @@ export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: nu
     try {
       const supabase = createSupabaseBrowserClient();
       const { data, error: rpcError } = await supabase.rpc("preview_promo_code", { p_job: props.jobId, p_code: code });
-      if (rpcError) throw rpcError;
+      if (rpcError) {
+        // PostgREST is not an Error instance. The server's raised text (code P0001) is in message.
+        const serverMessage = typeof rpcError.message === "string" ? rpcError.message.trim() : "";
+        setApplied(null);
+        setPromoError(serverMessage || es.promo.applyFailed);
+        return;
+      }
       const discountDop = Number((data as { discount_dop?: number })?.discount_dop ?? 0);
       if (discountDop <= 0) throw new Error(es.promo.applyFailed);
       setApplied({ code: code.toUpperCase(), discountDop });
