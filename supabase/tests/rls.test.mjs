@@ -1510,10 +1510,15 @@ await check("0018 cancel: the wrong party cannot cancel", async () => {
   await assert.rejects(asUser(PRO, `select public.cancel_job_with_refund('${job}', 'homeowner')`), /Solo el cliente/);
 });
 
-await check("0018 cancel: a cancelled job cannot be cancelled again", async () => {
-  const { job } = await seedHeldJob();
-  await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
-  await assert.rejects(asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`), /no se puede cancelar/);
+await check("0018 cancel: a repeat cancel on a cancelled job is a no-op (no second refund)", async () => {
+  await withRollback(async () => {
+    const { job } = await seedHeldJob();
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    const again = await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner') as r`);
+    assert.equal(again.rows[0].r, "cancelled");
+    const rf = await db.query(`select id from public.refunds where job_id = '${job}'`);
+    assert.equal(rf.rows.length, 1, "one refund only");
+  });
 });
 
 await check("0018 cancel: a job in progress cannot be cancelled here", async () => {
@@ -3938,6 +3943,291 @@ await check("0103 pricing: direct table updates to price and zone are refused an
     }
     const after = (await db.query(`select price_min_dop, price_max_dop, zone from public.pros where id = '${PRO}'`)).rows[0];
     assert.deepEqual(after, before, "row unchanged");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 0107 · Cancellation fee: RD$300 to the pro after a 2-hour grace, arrival, no-show, fee dispute, release.
+// ---------------------------------------------------------------------------
+const FEE_PAYMENT_HOURS_AGO = (job, hours) =>
+  db.exec(`update public.payments set created_at = now() - interval '${hours} hours' where job_id = '${job}'`);
+const paymentOf = async (id) => (await db.query(`select * from public.payments where id = '${id}'`)).rows[0];
+const refundsOf = async (job) => (await db.query(`select reason, amount_dop, amount_minor, status from public.refunds where job_id = '${job}' order by created_at, id`)).rows;
+
+await check("0107 fee: a client cancel more than 2 hours after payment keeps RD$300 for the pro and refunds the rest", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    const r = await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner') as r`);
+    assert.equal(r.rows[0].r, "refund_pending");
+    const [rf] = await refundsOf(job);
+    assert.equal(rf.reason, "client_cancel_fee");
+    assert.equal(rf.amount_dop, 5700, "paid 6000 minus fee 300");
+    assert.equal(Number(rf.amount_minor), 9500, "minor: 10000 minus 500");
+    const p = await paymentOf(payment);
+    assert.equal(p.status, "held", "payment stays held: the fee is the pro's");
+    assert.equal(p.keep_dop, 300);
+    assert.equal(Number(p.keep_minor), 500);
+    assert.equal(p.keep_pro_payout_dop, 300);
+    assert.equal(p.keep_commission_dop, 0, "no commission on the fee");
+    assert.ok(p.cancel_fee_release_after, "release time set");
+  });
+});
+
+await check("0107 fee: inside 2 hours of payment the client cancel is free and fully refunded", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 1);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    const [rf] = await refundsOf(job);
+    assert.equal(rf.reason, "client_cancel_pre_work");
+    assert.equal(rf.amount_dop, 6000);
+    assert.equal((await paymentOf(payment)).keep_dop, null);
+  });
+});
+
+await check("0107 fee: a promo can leave a charge of RD$100; the fee is capped at the charged part and the tip returns whole", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    // amount_dop = chargedDop + tipDop = 100 + 0 is the cap case, so use 100 total with a 40 tip: charged 60.
+    await db.exec(`update public.payments set amount_dop = 100, amount_minor = 1667, pro_payout_dop = 88, commission_dop = 12, tip_dop = 40 where id = '${payment}'`);
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    const p = await paymentOf(payment);
+    assert.equal(p.keep_dop, 60, "fee = min(300, 100 - tip 40) = 60");
+    const [rf] = await refundsOf(job);
+    assert.equal(rf.reason, "client_cancel_fee");
+    assert.equal(rf.amount_dop, 40, "refund = amount - fee = the whole tip");
+  });
+});
+
+await check("0107 fee: the fee excludes the tip, and the refund returns the whole tip", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    // amount_dop 6000 = charged 5850 + tip 150.
+    await db.exec(`update public.payments set tip_dop = 150 where id = '${payment}'`);
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    assert.equal((await paymentOf(payment)).keep_dop, 300, "fee = min(300, 6000 - 150 tip) = 300");
+    const [rf] = await refundsOf(job);
+    assert.equal(rf.amount_dop, 5700, "refund = 6000 - 300, which includes the full 150 tip");
+  });
+});
+
+await check("0107 fee: the earliest held job payment is the primary; a later one refunds in full", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    const second = randomUUID();
+    await db.exec(`insert into public.payments (id, job_id, provider, currency, amount_minor, fx_rate_dop_per_usd,
+                     amount_dop, commission_dop, pro_payout_dop, purpose, status, created_at)
+                   values ('${second}', '${job}', 'stripe', 'USD', 2000, 60, 1200, 0, 1200, 'job', 'held', now() - interval '1 hour')`);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    assert.equal((await paymentOf(payment)).keep_dop, 300);
+    const rows = await refundsOf(job);
+    const later = rows.find((x) => Number(x.amount_minor) === 2000);
+    assert.ok(later, "later payment refunds in full");
+    assert.equal(later.amount_dop, 1200);
+  });
+});
+
+await check("0107 fee: a pro cancel stays a full refund with a strike, even after 2 hours", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(PRO, `select public.cancel_job_with_refund('${job}', 'pro')`);
+    const [rf] = await refundsOf(job);
+    assert.equal(rf.reason, "pro_cancel");
+    assert.equal(rf.amount_dop, 6000);
+    assert.equal((await paymentOf(payment)).keep_dop, null);
+    assert.equal((await db.query(`select count(*)::int as n from public.pro_strikes where job_id = '${job}'`)).rows[0].n, 1);
+  });
+});
+
+await check("0107 arrival: the pro marks arrival with a server timestamp; the client cannot", async () => {
+  await withRollback(async () => {
+    const { job } = await seedHeldJob();
+    await expectCode(() => asUser(HOMEOWNER, `select public.pro_mark_arrived('${job}')`), "42501");
+    await asUser(PRO, `select public.pro_mark_arrived('${job}')`);
+    const first = (await db.query(`select arrived_at::text as t from public.jobs where id = '${job}'`)).rows[0].t;
+    assert.ok(first, "arrived_at set");
+    await asUser(PRO, `select public.pro_mark_arrived('${job}')`);
+    const again = (await db.query(`select arrived_at::text as t from public.jobs where id = '${job}'`)).rows[0].t;
+    assert.equal(again, first, "a repeat tap keeps the first arrival time");
+  });
+});
+
+await check("0107 no-show: refused before arrival; after arrival it runs the late-cancel rule", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await expectCode(() => asUser(PRO, `select public.pro_report_client_no_show('${job}')`), "22023");
+    await asUser(PRO, `select public.pro_mark_arrived('${job}')`);
+    await asUser(PRO, `select public.pro_report_client_no_show('${job}')`);
+    assert.equal((await db.query(`select status from public.jobs where id = '${job}'`)).rows[0].status, "cancelled");
+    assert.equal((await paymentOf(payment)).keep_dop, 300, "fee applies after grace");
+  });
+});
+
+await check("0107 no-show: inside 2 hours of payment it is free", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 1);
+    await asUser(PRO, `select public.pro_mark_arrived('${job}')`);
+    await asUser(PRO, `select public.pro_report_client_no_show('${job}')`);
+    const [rf] = await refundsOf(job);
+    assert.equal(rf.reason, "client_no_show");
+    assert.equal(rf.amount_dop, 6000);
+    assert.equal((await paymentOf(payment)).keep_dop, null);
+  });
+});
+
+await check("0107 release: the fee waits 48 hours, then releases to the pro through the cancelled-job branch", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    const early = await db.query(`select payment_id from public.claim_due_payments(50) where payment_id = '${payment}'`);
+    assert.equal(early.rows.length, 0, "not due inside the 48 hours");
+    await db.exec(`update public.payments set cancel_fee_release_after = now() - interval '1 minute' where id = '${payment}'`);
+    const due = (await db.query(`select amount_dop, amount_minor, pro_payout_dop, net_payout_dop, recovery_dop from public.claim_due_payments(50) where payment_id = '${payment}'`)).rows;
+    assert.equal(due.length, 1);
+    assert.equal(due[0].amount_dop, 300);
+    assert.equal(Number(due[0].amount_minor), 500);
+    assert.equal(due[0].pro_payout_dop, 300, "the whole fee is the pro's payout");
+    assert.equal(due[0].net_payout_dop + due[0].recovery_dop, 300, "net plus recovery netting equals the fee");
+  });
+});
+
+await check("0107 dispute: the client can contest the fee inside the window; it freezes release until resolved", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'El profesional nunca llegó al lugar.')`);
+    assert.equal((await paymentOf(payment)).status, "disputed");
+    await db.exec(`update public.payments set cancel_fee_release_after = now() - interval '1 minute' where id = '${payment}'`);
+    const due = await db.query(`select payment_id from public.claim_due_payments(50) where payment_id = '${payment}'`);
+    assert.equal(due.rows.length, 0, "frozen while the dispute is open");
+  });
+});
+
+await check("0107 dispute: only the client, only inside the window, and only for a fee", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    await expectCode(() => asUser(PRO, `select public.open_dispute('${job}', false, 'Quiero disputar la tarifa del cliente.')`), "22023");
+    await db.exec(`update public.payments set cancel_fee_release_after = now() - interval '1 minute' where id = '${payment}'`);
+    await expectCode(() => asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'Ya pasó la ventana de la tarifa.')`), "22023");
+  });
+});
+
+await check("0107 dispute: a free cancel has no fee to contest", async () => {
+  await withRollback(async () => {
+    const { job } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 1);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    await expectCode(() => asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'No hay tarifa que disputar aquí.')`), "22023");
+  });
+});
+
+await check("0107 dispute: fee uphold releases the fee to the pro", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'El profesional nunca llegó al lugar.')`);
+    const d = (await db.query(`select id from public.disputes where job_id = '${job}'`)).rows[0].id;
+    await db.exec(`update public.disputes set evidence_due_at = now() - interval '1 minute' where id = '${d}'`);
+    await db.exec(`update public.payments set cancel_fee_release_after = now() - interval '1 minute' where id = '${payment}'`);
+    await asSession(ADMIN, "aal2", `select public.resolve_fee_dispute('${d}', 'fee_uphold', 'La evidencia confirma la llegada del profesional.')`);
+    assert.equal((await paymentOf(payment)).status, "held");
+    const due = await db.query(`select payment_id from public.claim_due_payments(50) where payment_id = '${payment}'`);
+    assert.equal(due.rows.length, 1, "released after uphold");
+  });
+});
+
+await check("0107 dispute: fee reversal refunds RD$300 to the client; the payment ends refunded", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'El profesional nunca llegó al lugar.')`);
+    const d = (await db.query(`select id from public.disputes where job_id = '${job}'`)).rows[0].id;
+    await db.exec(`update public.disputes set evidence_due_at = now() - interval '1 minute' where id = '${d}'`);
+    await asSession(ADMIN, "aal2", `select public.resolve_fee_dispute('${d}', 'fee_reverse', 'No hay evidencia de que el profesional llegara.')`);
+    const rfId = (await db.query(`select id from public.refunds where job_id = '${job}' and reason = 'fee_reversed'`)).rows[0].id;
+    const first = (await db.query(`select id from public.refunds where job_id = '${job}' and reason = 'client_cancel_fee'`)).rows[0].id;
+    await db.query(`select public.mark_refund_succeeded('${first}', 'st_1')`);
+    await db.query(`select public.mark_refund_succeeded('${rfId}', 'st_2')`);
+    const p = await paymentOf(payment);
+    assert.equal(p.status, "refunded", "full amount refunded");
+    assert.equal(Number(p.refunded_minor), 10000);
+    assert.equal(p.keep_dop, null, "the fee is no longer the pro's");
+  });
+});
+
+await check("0107 dispute: only an admin with AAL2 decides, with a reason", async () => {
+  await withRollback(async () => {
+    const { job } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'El profesional nunca llegó al lugar.')`);
+    const d = (await db.query(`select id from public.disputes where job_id = '${job}'`)).rows[0].id;
+    await db.exec(`update public.disputes set evidence_due_at = now() - interval '1 minute' where id = '${d}'`);
+    await expectCode(() => asUser(HOMEOWNER, `select public.resolve_fee_dispute('${d}', 'fee_uphold', 'Intento de decidir por el cliente.')`), "42501");
+    await expectCode(() => asSession(ADMIN, "aal2", `select public.resolve_fee_dispute('${d}', 'fee_uphold', 'corto')`), "22023");
+  });
+});
+
+await check("0107 preview: homeowner sees RD$300 fee after grace, refund is the rest; before grace no fee", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    const early = (await asUser(HOMEOWNER, `select public.cancellation_preview('${job}') as r`)).rows[0].r;
+    assert.equal(early.cancelable, true);
+    assert.equal(early.fee_dop, 0, "inside grace");
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    const late = (await asUser(HOMEOWNER, `select public.cancellation_preview('${job}') as r`)).rows[0].r;
+    assert.equal(late.fee_dop, 300);
+    assert.equal(late.refund_dop, 5700);
+    assert.equal(late.fee_applies, true);
+    // The preview must agree with what cancel would do.
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    const [rf] = await refundsOf(job);
+    assert.equal(rf.amount_dop, late.refund_dop);
+    assert.equal((await paymentOf(payment)).keep_dop, late.fee_dop);
+  });
+});
+
+await check("0107 preview: pro side never shows a fee; a stranger is refused", async () => {
+  await withRollback(async () => {
+    const { job } = await seedHeldJob();
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    const pro = (await asUser(PRO, `select public.cancellation_preview('${job}') as r`)).rows[0].r;
+    assert.equal(pro.side, "pro");
+    assert.equal(pro.fee_dop, 0);
+    assert.equal(pro.refund_dop, 6000);
+    await expectCode(() => asUser(OUTSIDER_PRO, `select public.cancellation_preview('${job}')`), "42501");
+  });
+});
+
+await check("0107 statement: a released cancellation fee is its own line, carries no tip, and sums to fees", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await db.exec(`update public.payments set tip_dop = 150 where id = '${payment}'`);
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    await db.exec(`update public.payments set status = 'released', released_at = now() where id = '${payment}'`);
+    const year = new Date().getUTCFullYear();
+    const st = (await asUser(PRO, `select public.pro_annual_statement(${year}) as r`)).rows[0].r;
+    const fee = st.lines.find((l) => l.kind === "fee");
+    assert.ok(fee, "fee line present");
+    assert.equal(fee.gross, 300, "gross is the fee, not fee minus tip");
+    assert.equal(fee.tip, 0, "tip is not part of the fee line");
+    assert.equal(fee.net, 300);
+    assert.equal(st.totals.fees, 300);
+    assert.equal(st.totals.tips, 0, "the refunded tip is not reported as income");
   });
 });
 

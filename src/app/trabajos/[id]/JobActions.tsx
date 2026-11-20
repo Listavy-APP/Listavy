@@ -8,6 +8,8 @@ import { useRef, useState } from "react";
 import {
   addJobPhoto,
   approveCloseout,
+  markArrived,
+  reportClientNoShow,
   approveQuote,
   approveRevision,
   cancelJobRequest,
@@ -46,6 +48,7 @@ export function JobActions(props: {
   const router = useRouter();
   const { job, role, quotes, photos } = props;
   const [busy, setBusy] = useState(false);
+  const [confirmNoShow, setConfirmNoShow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
@@ -158,6 +161,32 @@ export function JobActions(props: {
 
       {role === "pro" && job.status === "accepted" ? (
         <>
+          {job.arrived_at === null ? (
+            <button className="button secondary" type="button" disabled={busy}
+              onClick={() => run(() => markArrived(supabase(), job.id))}>
+              {es.jobs.arriveButton}
+            </button>
+          ) : (
+            <>
+              <p className="ok" role="status">{es.jobs.arriveDone}</p>
+              {!confirmNoShow ? (
+                <button className="button secondary" type="button" disabled={busy} onClick={() => setConfirmNoShow(true)}>
+                  {es.jobs.noShowButton}
+                </button>
+              ) : (
+                <div className="stack" role="group" aria-label={es.jobs.noShowButton}>
+                  <p className="muted">{es.jobs.noShowConfirm}</p>
+                  <button className="button" type="button" disabled={busy}
+                    onClick={() => run(async () => { await reportClientNoShow(supabase(), job.id); })}>
+                    {es.jobs.noShowButton}
+                  </button>
+                  <button className="button secondary" type="button" disabled={busy} onClick={() => setConfirmNoShow(false)}>
+                    {es.jobs.cancelJobBack}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
           {!paid ? <p className="muted">{es.jobs.awaitingPayment}</p> : null}
           <FilePick
             label={es.jobs.beforePhotos}
