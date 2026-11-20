@@ -1005,6 +1005,9 @@ export const es = {
     admin: {
       title: "Bandeja de soporte",
       empty: "No hay tickets.",
+      pageLabel: "Página",
+      prevPage: "Página anterior",
+      nextPage: "Página siguiente",
       author: "Usuario",
       reply: "Responder al usuario",
       replySend: "Enviar respuesta",

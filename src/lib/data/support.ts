@@ -91,8 +91,11 @@ export async function closeSupportTicket(supabase: SupabaseClient, ticketId: str
 
 // ---- admin ----------------------------------------------------------------
 
-export async function adminListTickets(supabase: SupabaseClient): Promise<AdminTicketRow[]> {
-  const { data, error } = await supabase.rpc("admin_list_support_tickets", { p_status: null });
+/** One page of the admin queue. 200 rows per page; offset is 0, 200, 400, … */
+export const SUPPORT_QUEUE_PAGE_SIZE = 200;
+
+export async function adminListTickets(supabase: SupabaseClient, offset = 0): Promise<AdminTicketRow[]> {
+  const { data, error } = await supabase.rpc("admin_list_support_tickets", { p_status: null, p_offset: offset });
   if (error) throw rpcError(error.message);
   return (data ?? []) as AdminTicketRow[];
 }

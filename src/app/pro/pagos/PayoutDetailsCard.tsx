@@ -114,7 +114,7 @@ export function PayoutDetailsCard({ proId, initial }: { proId: string; initial: 
               aria-invalid={errors.bankCode ? true : undefined}
               aria-describedby={errors.bankCode ? "payout-bank-error" : undefined}
             />
-            {errors.bankCode ? <span id="payout-bank-error" className="error">{errors.bankCode}</span> : null}
+            {errors.bankCode ? <span id="payout-bank-error" className="error" role="alert">{errors.bankCode}</span> : null}
           </label>
           <label className="field">
             <span>{t.branchCode}</span>
@@ -127,7 +127,7 @@ export function PayoutDetailsCard({ proId, initial }: { proId: string; initial: 
               aria-invalid={errors.branchCode ? true : undefined}
               aria-describedby={errors.branchCode ? "payout-branch-error" : undefined}
             />
-            {errors.branchCode ? <span id="payout-branch-error" className="error">{errors.branchCode}</span> : null}
+            {errors.branchCode ? <span id="payout-branch-error" className="error" role="alert">{errors.branchCode}</span> : null}
           </label>
           <label className="field">
             <span>{t.accountNumber}</span>
@@ -140,7 +140,7 @@ export function PayoutDetailsCard({ proId, initial }: { proId: string; initial: 
               aria-invalid={errors.accountNumber ? true : undefined}
               aria-describedby={errors.accountNumber ? "payout-account-error" : undefined}
             />
-            {errors.accountNumber ? <span id="payout-account-error" className="error">{errors.accountNumber}</span> : null}
+            {errors.accountNumber ? <span id="payout-account-error" className="error" role="alert">{errors.accountNumber}</span> : null}
             {summary ? <span className="muted">{t.accountHint}</span> : null}
           </label>
 

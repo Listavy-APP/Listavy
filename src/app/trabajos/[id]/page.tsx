@@ -21,6 +21,7 @@ import { ScheduleEditor } from "./ScheduleEditor";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { connection } from "next/server";
+import { isUuid } from "@/lib/domain/uuid";
 
 const jobDate = (iso: string) =>
   new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
@@ -36,6 +37,7 @@ export default async function JobPage({
   searchParams: Promise<{ pago?: string }>;
 }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   const { pago } = await searchParams;
     // Per-request render: the session is read at request time.
   await connection();

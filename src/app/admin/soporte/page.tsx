@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
 import { getCurrentProfile } from "@/lib/data/profiles";
-import { adminListTickets } from "@/lib/data/support";
+import { adminListTickets, SUPPORT_QUEUE_PAGE_SIZE } from "@/lib/data/support";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -16,8 +16,10 @@ function when(iso: string): string {
   return new Date(iso).toLocaleString("es-DO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Santo_Domingo" });
 }
 
-export default async function SupportQueuePage() {
+export default async function SupportQueuePage({ searchParams }: { searchParams: Promise<{ pagina?: string }> }) {
   await connection();
+  const { pagina = "1" } = await searchParams;
+  const page = /^\d+$/.test(pagina) && Number(pagina) >= 1 ? Number(pagina) : 1;
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) redirect("/login");
@@ -25,7 +27,9 @@ export default async function SupportQueuePage() {
   const profile = await getCurrentProfile(supabase);
   if (!profile || profile.role !== "admin") notFound();
 
-  const tickets = await adminListTickets(supabase);
+  const tickets = await adminListTickets(supabase, (page - 1) * SUPPORT_QUEUE_PAGE_SIZE);
+  // The definer returns at most one full page. A full page means there may be more.
+  const hasNext = tickets.length === SUPPORT_QUEUE_PAGE_SIZE;
 
   return (
     <section className="stack">
@@ -41,6 +45,20 @@ export default async function SupportQueuePage() {
           <span className="status-pill">{es.support.statusLabel[t.status]}</span>
         </Link>
       ))}
+      {page > 1 || hasNext ? (
+        <nav className="row" aria-label={es.support.admin.pageLabel}>
+          {page > 1 ? (
+            <Link className="button secondary" href={page - 1 === 1 ? "/admin/soporte" : `/admin/soporte?pagina=${page - 1}`} style={{ minHeight: 44 }}>
+              {es.support.admin.prevPage}
+            </Link>
+          ) : null}
+          {hasNext ? (
+            <Link className="button secondary" href={`/admin/soporte?pagina=${page + 1}`} style={{ minHeight: 44 }}>
+              {es.support.admin.nextPage}
+            </Link>
+          ) : null}
+        </nav>
+      ) : null}
     </section>
   );
 }

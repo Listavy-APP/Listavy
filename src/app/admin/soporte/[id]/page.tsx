@@ -6,6 +6,7 @@ import { getCurrentProfile } from "@/lib/data/profiles";
 import { adminListMessages, adminListTickets } from "@/lib/data/support";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isUuid } from "@/lib/domain/uuid";
 
 export const metadata = { title: es.support.admin.title };
 
@@ -18,6 +19,7 @@ function when(iso: string): string {
 
 export default async function SupportTicketAdminPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();

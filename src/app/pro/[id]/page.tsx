@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import type { Metadata } from "next";
 import { jsonLdScript, pageMetadata } from "@/lib/seo/metadata";
@@ -21,6 +22,7 @@ import { ReportProButton } from "@/components/ReportProButton";
 import { listSavedProIds } from "@/lib/data/saved";
 import { getProReviewSummary, listDemoReviews, listMyAuthoredReviewIds, listMyFlaggedReviewIds, listProReviews } from "@/lib/data/reviews";
 import { ReviewReport } from "@/components/ReviewReport";
+import { isUuid } from "@/lib/domain/uuid";
 
 /**
  * Metadata from public facts only: name, trade, zone, and the approved photo. Bio and everything
@@ -29,6 +31,7 @@ import { ReviewReport } from "@/components/ReviewReport";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   await connection();
   const { id } = await params;
+  if (!isUuid(id)) return { title: es.proDetail.title, robots: { index: false, follow: false } };
   const supabase = await createSupabaseServerClient();
   const pro = await getProCard(supabase, id);
   if (!pro) return { title: es.proDetail.title, robots: { index: false, follow: false } };
@@ -54,6 +57,7 @@ export default async function ProDetailPage({
   // Per-request render: the session is read at request time (avoids prerender of Date.now in auth).
   await connection();
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   const { tab } = await searchParams;
   const tabReviews = tab === "resenas";
   // Public page. Only approved pros resolve. Photos need sign-in.
