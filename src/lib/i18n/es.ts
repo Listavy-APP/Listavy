@@ -1304,6 +1304,7 @@ export const es = {
   },
   notifications: {
     openDisputes: "Disputas abiertas",
+    disputeMessages: "Mensajes de disputas",
     disputeOpen: "Disputa abierta",
     disputeBody: "Este trabajo tiene una disputa abierta. Revísala para continuar.",
     disputeAction: "Ver trabajo",

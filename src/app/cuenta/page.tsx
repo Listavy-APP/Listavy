@@ -47,7 +47,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     return (
       <section className="stack">
         <h1>{es.profile.title}</h1>
-        <p><a href="/avisos">{es.notifications.title}</a></p>
+        <p><a href="/notificaciones">{es.notifications.title}</a></p>
         <p className="error" role="alert">{es.account.noProfile}</p>
       </section>
     );
