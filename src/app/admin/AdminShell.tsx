@@ -111,6 +111,7 @@ const GROUPS: NavGroup[] = [
       { href: "/admin/resenas", label: es.admin.navReviews, icon: "star", badge: "resenas" },
       { href: "/admin/fotos", label: esTrust.adminPhotos.navLabel, icon: "image", badge: "fotos" },
       { href: "/admin/clientes", label: esTrust.adminClients.navLabel, icon: "users" },
+      { href: "/admin/profesionales", label: es.adminPros.title, icon: "badge" },
     ],
   },
   {

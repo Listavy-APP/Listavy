@@ -3927,6 +3927,56 @@ await check("0103 pricing: direct table updates to price and zone are refused an
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0105 · Admin list of approved pros (view-as doorway). Admin-gated, read-only, approved and open only.
+// ---------------------------------------------------------------------------
+await check("0105 approved pros: an admin with aal2 sees approved, open pros; pending pros are excluded", async () => {
+  await withRollback(async () => {
+    const r = await asSession(ADMIN, "aal2", "select id, full_name, trade, zone, city, plan, available, is_demo from public.admin_list_approved_pros()");
+    const ids = r.rows.map((x) => x.id);
+    assert.ok(ids.includes(OUTSIDER_PRO), "approved pro listed");
+    assert.equal(ids.includes(PENDING_PRO), false, "pending pro excluded");
+    assert.deepEqual(Object.keys(r.rows[0]).sort(), ["available", "city", "full_name", "id", "is_demo", "plan", "trade", "zone"], "list columns only");
+  });
+});
+
+await check("0105 approved pros: closed pros are excluded", async () => {
+  await withRollback(async () => {
+    await db.exec(`update public.pros set closed_at = now() where id = '${OUTSIDER_PRO}'`);
+    const r = await asSession(ADMIN, "aal2", "select id from public.admin_list_approved_pros()");
+    assert.equal(r.rows.some((x) => x.id === OUTSIDER_PRO), false);
+  });
+});
+
+await check("0105 approved pros: only an admin with aal2 may call it; everyone else is refused", async () => {
+  await withRollback(async () => {
+    await expectCode(() => asSession(ADMIN, "aal1", "select * from public.admin_list_approved_pros()"), "42501");
+    await expectCode(() => asSession(HOMEOWNER, "aal1", "select * from public.admin_list_approved_pros()"), "42501");
+    await expectCode(() => asSession(OUTSIDER_PRO, "aal1", "select * from public.admin_list_approved_pros()"), "42501");
+    await expectCode(() => asAnon("select * from public.admin_list_approved_pros()"), "42501");
+  });
+});
+
+await check("0105 approved pros: city and trade filters apply; search matches names literally", async () => {
+  await withRollback(async () => {
+    await db.exec(`update public.profiles set full_name = 'Zorba Búsqueda' where id = '${OUTSIDER_PRO}'`);
+    const name = "Zorba Búsqueda";
+    const trade = (await db.query(`select trade from public.pros where id = '${OUTSIDER_PRO}'`)).rows[0].trade;
+    const byTradeYes = await asSession(ADMIN, "aal2", `select id from public.admin_list_approved_pros(null, null, '${trade}')`);
+    assert.ok(byTradeYes.rows.some((x) => x.id === OUTSIDER_PRO));
+    const byTradeNo = await asSession(ADMIN, "aal2", "select id from public.admin_list_approved_pros(null, null, 'painter')");
+    assert.equal(byTradeNo.rows.some((x) => x.id === OUTSIDER_PRO), false);
+    const sd = await asSession(ADMIN, "aal2", "select id from public.admin_list_approved_pros(null, 'santo_domingo', null)");
+    assert.ok(sd.rows.some((x) => x.id === OUTSIDER_PRO));
+    const santiago = await asSession(ADMIN, "aal2", "select id from public.admin_list_approved_pros(null, 'santiago', null)");
+    assert.equal(santiago.rows.some((x) => x.id === OUTSIDER_PRO), false);
+    const bySearch = await asSession(ADMIN, "aal2", `select id from public.admin_list_approved_pros('${name.slice(0, 4).replace(/'/g, "''")}', null, null)`);
+    assert.ok(bySearch.rows.some((x) => x.id === OUTSIDER_PRO), "name search matches");
+    const wildcard = await asSession(ADMIN, "aal2", "select id from public.admin_list_approved_pros('%', null, null)");
+    assert.equal(wildcard.rows.length, 0, "a bare % matches no name literally");
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.
