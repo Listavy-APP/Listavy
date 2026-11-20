@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RecurringFrequency, RecurringStatus } from "@/lib/domain/recurring";
+import { getProCardsByIds } from "@/lib/data/pros";
 
 /** Recurring bookings (0096). Clients read their own series; every write goes through a definer. */
 
@@ -18,15 +19,18 @@ export type RecurringRow = {
   pro_name: string | null;
 };
 
-type Raw = Omit<RecurringRow, "pro_name"> & {
-  pros: { profiles: { full_name: string | null } | null } | null;
-};
+type Raw = Omit<RecurringRow, "pro_name"> & { pro_id: string };
 
+// Pro names come from the public card (list_pro_cards), not an embedded profiles read: clients cannot read
+// a pro's profile row, so the embed returned null. The card exposes only public fields.
 const COLUMNS =
-  "id, source_job_id, trade, zone, frequency, anchor, scheduled_window, status, paused_reason, next_due_date, occurrences, pros:pros!recurring_bookings_pro_id_fkey(profiles:profiles!pros_id_fkey(full_name))";
+  "id, pro_id, source_job_id, trade, zone, frequency, anchor, scheduled_window, status, paused_reason, next_due_date, occurrences";
 
-function toRow(r: Raw): RecurringRow {
-  return { ...r, pro_name: r.pros?.profiles?.full_name ?? null };
+async function withProNames(supabase: SupabaseClient, raws: Raw[]): Promise<RecurringRow[]> {
+  const ids = [...new Set(raws.map((r) => r.pro_id))];
+  const cards = await getProCardsByIds(supabase, ids);
+  const names = new Map(cards.map((c) => [c.id, c.full_name ?? null]));
+  return raws.map(({ pro_id, ...r }) => ({ ...r, pro_name: names.get(pro_id) ?? null }));
 }
 
 export async function listMyRecurringBookings(supabase: SupabaseClient): Promise<RecurringRow[]> {
@@ -35,7 +39,7 @@ export async function listMyRecurringBookings(supabase: SupabaseClient): Promise
     .select(COLUMNS)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return ((data ?? []) as unknown as Raw[]).map(toRow);
+  return withProNames(supabase, (data ?? []) as unknown as Raw[]);
 }
 
 /** The live series (active or paused) for one completed job, if any. */
@@ -47,7 +51,9 @@ export async function liveRecurringForJob(supabase: SupabaseClient, jobId: strin
     .in("status", ["active", "paused"])
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data ? toRow(data as unknown as Raw) : null;
+  if (!data) return null;
+  const [row] = await withProNames(supabase, [data as unknown as Raw]);
+  return row ?? null;
 }
 
 export async function createRecurringBooking(
