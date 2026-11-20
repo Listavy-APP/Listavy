@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { es } from "@/lib/i18n/es";
 import { BackBar } from "@/components/BackBar";
 
@@ -27,6 +28,18 @@ export default function AyudaPage() {
       <div className="about-section">
         <h1>{es.help.title}</h1>
         <p className="lead">{es.help.intro}</p>
+      </div>
+      <div className="about-section">
+        <h2>{es.support.help}</h2>
+        <p className="muted">{es.support.helpHelp}</p>
+        <div className="hub-group">
+          <Link className="contact-row" href="/ayuda/tickets/nuevo">
+            <span className="contact-label">{es.support.newTicket}</span>
+          </Link>
+          <Link className="contact-row" href="/ayuda/tickets">
+            <span className="contact-label">{es.support.myTickets}</span>
+          </Link>
+        </div>
       </div>
       <div className="about-section">
         <h2>{es.help.clientTitle}</h2>
