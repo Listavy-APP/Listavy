@@ -10,6 +10,8 @@ import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { customerPhotoUrl } from "@/lib/storage/customerFiles";
 import { VerificationBadges } from "@/components/VerificationBadges";
+import { VerifiedIcon } from "@/components/VerifiedIcon";
+import { verifiedKindsByPro } from "@/lib/data/verifiedFlags";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { Avatar } from "@/components/Avatar";
 import { EmptyState } from "@/components/EmptyState";
@@ -81,6 +83,7 @@ export default async function ProDetailPage({
   const userId = userData.user?.id ?? null;
   // The owner reached this page from the account hub: back returns there. Everyone else came from search.
   const isOwner = userId !== null && userId === pro.id;
+  const verifiedKind = (await verifiedKindsByPro(supabase, [{ id: pro.id, isCompany: pro.pro_type === "company" }])).get(pro.id) ?? null;
   const backHref = isOwner ? "/cuenta" : "/buscar";
   // Owner-only fallback: the account photo is private (customer-avatars, owner or admin only).
   const ownerAccountPhoto = isOwner && !pro.avatar_path ? await customerPhotoUrl(supabase, (await getCurrentProfile(supabase))?.avatar_path ?? null) : null;
@@ -137,7 +140,10 @@ export default async function ProDetailPage({
         <div className="account-avatar">
           <Avatar name={pro.full_name} src={avatarUrl(supabase, pro.avatar_path) ?? ownerAccountPhoto} />
         </div>
-        <h1 className="pro-name">{pro.full_name ?? es.proDetail.title}</h1>
+        <h1 className="pro-name">
+          {pro.full_name ?? es.proDetail.title}
+          {verifiedKind ? <> <VerifiedIcon kind={verifiedKind} /></> : null}
+        </h1>
         <div className="pro-stats" role="list">
           <div className="pro-stat" role="listitem">
             <b>{stats.completedJobs}</b>
@@ -158,9 +164,6 @@ export default async function ProDetailPage({
         </p>
         <div className="pro-badges">
           {pro.is_demo ? <span className="badge demo-badge">{es.proDetail.demoBadge}</span> : null}
-          <span className="badge">
-            {pro.pro_type === "company" ? es.typeRouting.companyVerified : es.search.verified}
-          </span>
           {boosted ? <span className="badge">{es.search.boostedLabel}</span> : null}
         </div>
         {boosted ? <p className="muted pro-note">{es.search.boostedProfile}</p> : null}

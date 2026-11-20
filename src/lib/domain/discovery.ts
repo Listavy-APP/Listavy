@@ -16,13 +16,17 @@ export function parseDate(value: string | undefined): string | null {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
 }
 
-/** Keeps verified and available pros only when the filter is on. */
-export function filterPros<T extends Pick<ProCard, "identity_verified" | "available">>(
+/**
+ * Keeps verified and available pros only when the filter is on.
+ * "Verified" is the icon rule: the caller passes the ids whose icon kind is set (pro_verified_flags, 0102).
+ * It is not the approval flag identity_verified.
+ */
+export function filterPros<T extends Pick<ProCard, "id" | "available">>(
   pros: readonly T[],
-  opts: { verifiedOnly: boolean; availableOnly: boolean },
+  opts: { verifiedOnly: boolean; availableOnly: boolean; verifiedIds: ReadonlySet<string> },
 ): T[] {
   return pros.filter(
-    (p) => (!opts.verifiedOnly || p.identity_verified) && (!opts.availableOnly || p.available),
+    (p) => (!opts.verifiedOnly || opts.verifiedIds.has(p.id)) && (!opts.availableOnly || p.available),
   );
 }
 

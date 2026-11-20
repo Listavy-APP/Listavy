@@ -1,3 +1,4 @@
+import { verifiedKindsByPro } from "@/lib/data/verifiedFlags";
 import Link from "next/link";
 import { BackArrow } from "@/components/BackBar";
 import { getProCardsByIds, listBoostedProIds, listProCards } from "@/lib/data/pros";
@@ -58,18 +59,23 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
   // A pro does not see their own card. The self-hire guard (0065) refuses it at request time too.
   const notMe = (id: string) => id !== userId;
-  const flags = { verifiedOnly, availableOnly };
+  // Candidates first, so one call decides the icon and the "Solo verificados" filter for the same set.
+  const organicRaw = await listProCards(supabase, { trade, zone, city, proType });
+  // Paid boosts: up to 3 ids, newest boost first (migration 0036). Fetched by id so the row limit cannot hide them.
+  const boostedIds = await listBoostedProIds(supabase, { trade, zone, city });
+  const boostedRaw = await getProCardsByIds(supabase, boostedIds);
+  const candidates = [...organicRaw, ...boostedRaw];
+  const kinds = await verifiedKindsByPro(
+    supabase,
+    [...new Map(candidates.map((p) => [p.id, { id: p.id, isCompany: p.pro_type === "company" }])).values()],
+  );
+  const flags = { verifiedOnly, availableOnly, verifiedIds: new Set(kinds.keys()) };
   const organicAll = sortPros(
-    filterPros(await listProCards(supabase, { trade, zone, city, proType }), flags).filter(
-      (p) => matchesName(p.full_name) && notMe(p.id),
-    ),
+    filterPros(organicRaw, flags).filter((p) => matchesName(p.full_name) && notMe(p.id)),
     sort,
     zone,
   );
-  // Paid boosts: up to 3 ids, newest boost first, filtered the same way (migration 0036).
-  // Cards are fetched by id so the listProCards row limit cannot hide a boosted pro.
-  const boostedIds = await listBoostedProIds(supabase, { trade, zone, city });
-  const boostedPros = filterPros(await getProCardsByIds(supabase, boostedIds), flags).filter(
+  const boostedPros = filterPros(boostedRaw, flags).filter(
     (p) => matchesName(p.full_name) && (!proType || p.pro_type === proType) && notMe(p.id),
   );
   const boostedSet = new Set(boostedPros.map((p) => p.id));
@@ -102,6 +108,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       avatarSrc: avatarUrl(supabase, p.avatar_path),
       boosted,
       isCompany: p.pro_type === "company",
+      verified: kinds.get(p.id) ?? null,
       companyName: p.pro_type === "company" ? p.razon_social : null,
     };
   };

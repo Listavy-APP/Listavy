@@ -13,6 +13,8 @@ import { getJobReview, hasClientRating, hasReviewFlag } from "@/lib/data/reviews
 import { disputePhotoUrl, listDisputePhotos, listEvidence, listJobDisputes } from "@/lib/data/disputes";
 import { getCompletionCode, getContactPhone, jobFileUrl, type JobPhotoRow, type JobRow, type QuoteRow } from "@/lib/data/jobs";
 import { getProCard } from "@/lib/data/pros";
+import { verifiedKindsByPro } from "@/lib/data/verifiedFlags";
+import type { VerifiedKind } from "@/lib/domain/verifiedIcon";
 import { es } from "@/lib/i18n/es";
 import { scheduleText } from "@/components/ScheduleText";
 import { ScheduleEditor } from "./ScheduleEditor";
@@ -69,10 +71,19 @@ export default async function JobPage({
   // Who sent each quote. Public pro cards only (approved pros), so no private data is read.
   const proIds = [...new Set(quotes.map((q) => q.pro_id))];
   const proCards = await Promise.all(proIds.map((pid) => getProCard(supabase, pid)));
-  const pros: Record<string, { name: string | null; avatarUrl: string | null }> = {};
+  // Verified icon kinds for the quoting pros, one call. Icon only when the stages are complete.
+  const verifiedKinds = await verifiedKindsByPro(
+    supabase,
+    proIds.map((pid) => ({ id: pid, isCompany: proCards[proIds.indexOf(pid)]?.pro_type === "company" })),
+  );
+  const pros: Record<string, { name: string | null; avatarUrl: string | null; verified: VerifiedKind | null }> = {};
   proIds.forEach((pid, i) => {
     const card = proCards[i];
-    pros[pid] = { name: card?.full_name ?? null, avatarUrl: card ? avatarUrl(supabase, card.avatar_path) : null };
+    pros[pid] = {
+      name: card?.full_name ?? null,
+      avatarUrl: card ? avatarUrl(supabase, card.avatar_path) : null,
+      verified: verifiedKinds.get(pid) ?? null,
+    };
   });
 
   // What the homeowner will pay: the approved quote minus any paid diagnostic (D13).

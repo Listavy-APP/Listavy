@@ -1,5 +1,6 @@
 "use client";
 
+import type { VerifiedKind } from "@/lib/domain/verifiedIcon";
 import { formatPhoneDisplay } from "@/lib/domain/phone";
 import { EmptyState } from "@/components/EmptyState";
 import { useRouter } from "next/navigation";
@@ -35,7 +36,7 @@ export function JobActions(props: {
   role: "homeowner" | "pro";
   job: JobRow;
   quotes: QuoteRow[];
-  pros: Record<string, { name: string | null; avatarUrl: string | null }>;
+  pros: Record<string, { name: string | null; avatarUrl: string | null; verified: VerifiedKind | null }>;
   pay: { quoteDop: number; creditDop: number; fx: number } | null;
   photos: Photo[];
   reportedPaths: string[];

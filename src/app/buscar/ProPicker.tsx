@@ -1,5 +1,7 @@
 "use client";
 
+import { VerifiedIcon } from "@/components/VerifiedIcon";
+import type { VerifiedKind } from "@/lib/domain/verifiedIcon";
 import Link from "next/link";
 import { SaveProButton } from "@/components/SaveProButton";
 import { useState } from "react";
@@ -17,8 +19,10 @@ export type PickerPro = {
   reviewLabel: string;
   avatarSrc: string | null;
   boosted?: boolean;
-  /** Company pros show the verified badge and their public razón social. */
+  /** Company pros show their public razón social. */
   isCompany?: boolean;
+  /** Verified icon kind (person or company), or null. */
+  verified?: VerifiedKind | null;
   companyName?: string | null;
 };
 
@@ -67,13 +71,15 @@ export function ProPicker({
         <div className="card-head">
           <Avatar name={p.name} src={p.avatarSrc} />
           <div className="card-body">
-            <p className="card-name">{p.name ?? "—"}</p>
+            <p className="card-name">
+              {p.name ?? "—"}
+              {p.verified ? <> <VerifiedIcon kind={p.verified} /></> : null}
+            </p>
             <p className="muted">
               {p.tradeLabel} · {p.zone}
             </p>
           </div>
         </div>
-        <div className="badge">{p.isCompany ? es.typeRouting.companyVerified : es.search.verified}</div>
         {p.isCompany && p.companyName ? <p className="muted">{p.companyName}</p> : null}
         {p.boosted ? <div className="badge">{es.search.boostedLabel}</div> : null}
         <p className="card-price">{p.priceLabel}</p>
