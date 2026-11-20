@@ -8,9 +8,9 @@ import { es } from "@/lib/i18n/es";
 import { esTrust } from "@/lib/i18n/trust";
 import { esVerification } from "@/lib/i18n/verification";
 
-export type AdminBadges = { pendientes: number; disputas: number; resenas: number; fotos: number; verificaciones: number };
+export type AdminBadges = { pendientes: number; disputas: number; resenas: number; fotos: number; verificaciones: number; soporte: number };
 
-type IconName = "grid" | "clock" | "alert" | "wallet" | "star" | "image" | "users" | "gift" | "zap" | "badge" | "key";
+type IconName = "grid" | "clock" | "alert" | "wallet" | "star" | "image" | "users" | "gift" | "zap" | "badge" | "key" | "chat";
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   grid: (
@@ -65,6 +65,7 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />,
+  chat: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
   badge: (
     <>
       <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5z" />
@@ -101,6 +102,7 @@ const GROUPS: NavGroup[] = [
       { href: "/admin/disputas", label: es.admin.navDisputes, icon: "alert", badge: "disputas" },
       { href: "/admin/pagos", label: es.admin.navPayments, icon: "wallet" },
       { href: "/admin/ingresos", label: es.admin.navRevenue, icon: "wallet" },
+      { href: "/admin/soporte", label: es.support.adminNav, icon: "chat", badge: "soporte" },
     ],
   },
   {

@@ -100,6 +100,13 @@ export function renderEmail(kind: string, data: Record<string, unknown>, ctx: Co
         text: `${hi}\n\n${outcome}${reason}\n\nDetalles: ${jobUrl}${footer()}`,
       };
     }
+    case "support_reply": {
+      const subject = typeof data.subject === "string" && data.subject ? `\nAsunto: ${data.subject}` : "";
+      return {
+        subject: "Respondimos tu ticket de soporte",
+        text: `${hi}\n\nHay una respuesta en tu ticket de soporte.${subject}\n\nRevísala aquí: ${ctx.appUrl}/ayuda/tickets/${data.ticket_id ?? ""}${footer()}`,
+      };
+    }
     case "recurring_auto_paused": {
       const trade = tradeName(typeof data.trade === "string" ? data.trade : undefined);
       return {

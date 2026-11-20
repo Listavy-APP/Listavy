@@ -3314,6 +3314,95 @@ await check("0096 recurring: suspended client → paused with reason, no request
   });
 });
 
+// ---- 0097 support tickets ---------------------------------------------------
+// A dedicated client keeps the five-ticket cap isolated. Each check runs inside withRollback.
+
+const SUP_CLIENT = "00000000-0000-4000-8000-0000000000e2";
+await seedFixture(`insert into auth.users (id, phone) values ('${SUP_CLIENT}', '+18095550088') on conflict do nothing;`);
+
+const supCreate = (uid, category, subject, body, job = null) =>
+  asUser(uid, `select public.create_support_ticket('${category}', '${subject}', '${body}', ${job ? `'${job}'` : "null"}) as id`);
+const supBody = "Necesito ayuda para cambiar el correo de mi cuenta, por favor.";
+
+await check("0097 support: authors read only their own tickets and messages; direct writes are refused", async () => {
+  await withRollback(async () => {
+    const id = (await supCreate(SUP_CLIENT, "cuenta", "Cambiar correo", supBody)).rows[0].id;
+    assert.equal((await asUser(SUP_CLIENT, `select count(*)::int as n from public.support_tickets where id = '${id}'`)).rows[0].n, 1);
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.support_tickets where id = '${id}'`)).rows[0].n, 0, "another user");
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.support_ticket_messages where ticket_id = '${id}'`)).rows[0].n, 0);
+    await refused(() => asUser(SUP_CLIENT, `insert into public.support_tickets (author_id, category, subject) values ('${SUP_CLIENT}', 'otro', 'Directo')`), /permission denied|row-level security/);
+    await asUser(SUP_CLIENT, `update public.support_tickets set status = 'closed' where id = '${id}'`).catch(() => {});
+    assert.equal((await asUser(SUP_CLIENT, `select status from public.support_tickets where id = '${id}'`)).rows[0].status, "open", "status cannot change directly");
+    await refused(() => asAnon(`select public.create_support_ticket('otro', 'Anónimo', '${supBody}', null)`), /permission denied/);
+  });
+});
+
+await check("0097 support: create gates (category, subject, body length, job ownership)", async () => {
+  await withRollback(async () => {
+    await refused(() => supCreate(SUP_CLIENT, "spam", "Asunto válido", supBody), /Elige una categoría/);
+    await refused(() => supCreate(SUP_CLIENT, "otro", "ab", supBody), /entre 3 y 120/);
+    await refused(() => supCreate(SUP_CLIENT, "otro", "Asunto válido", "x".repeat(2001)), /entre 1 y 2000/);
+    await refused(() => supCreate(SUP_CLIENT, "otro", "Asunto válido", "   "), /entre 1 y 2000/);
+    await refused(() => supCreate(SUP_CLIENT, "trabajo", "Trabajo ajeno", supBody, JOB), /no es tuyo/);
+  });
+});
+
+await check("0097 support: five open tickets at most; closing one frees a slot", async () => {
+  await withRollback(async () => {
+    const ids = [];
+    for (let i = 0; i < 5; i++) ids.push((await supCreate(SUP_CLIENT, "otro", `Ticket ${i + 1}`, supBody)).rows[0].id);
+    await refused(() => supCreate(SUP_CLIENT, "otro", "Sexto", supBody), /5 tickets abiertos/);
+    await asUser(SUP_CLIENT, `select public.close_support_ticket('${ids[0]}')`);
+    const again = await supCreate(SUP_CLIENT, "otro", "Sexto ahora sí", supBody);
+    assert.ok(again.rows[0].id);
+  });
+});
+
+await check("0097 support: admin definers are gated; non-admins and anonymous callers are refused", async () => {
+  await withRollback(async () => {
+    const id = (await supCreate(SUP_CLIENT, "pagos", "Cobro extra", supBody)).rows[0].id;
+    await refused(() => asUser(HOMEOWNER, `select * from public.admin_list_support_tickets(null)`), /No autorizado/);
+    await refused(() => asUser(HOMEOWNER, `select public.admin_support_open_count()`), /No autorizado/);
+    await refused(() => asUser(SUP_CLIENT, `select public.admin_reply_support_ticket('${id}', 'Hola')`), /No autorizado/);
+    await refused(() => asUser(SUP_CLIENT, `select public.admin_set_support_ticket_status('${id}', 'closed')`), /No autorizado/);
+    await refused(() => asAnon(`select public.admin_list_support_tickets(null)`), /permission denied/);
+  });
+});
+
+await check("0097 support: admin reply answers the ticket, the author sees it, the action is logged; user reply reopens", async () => {
+  await withRollback(async () => {
+    const id = (await supCreate(SUP_CLIENT, "pagos", "Cobro extra", supBody)).rows[0].id;
+    const before = (await asService(`select count(*)::int as n from public.admin_audit_log where action = 'support_reply'`)).rows[0].n;
+    await asUser(ADMIN, `select public.admin_reply_support_ticket('${id}', 'Revisamos el cobro y te confirmamos hoy.')`);
+    assert.equal((await asUser(SUP_CLIENT, `select status from public.support_tickets where id = '${id}'`)).rows[0].status, "answered");
+    // Both messages share now() inside this rollback transaction, so compare as a set, not by order.
+    const thread = await asUser(SUP_CLIENT, `select from_admin, body from public.support_ticket_messages where ticket_id = '${id}'`);
+    assert.deepEqual(thread.rows.map((m) => m.from_admin).sort(), [false, true], "the admin reply appears in the author's thread");
+    const after = (await asService(`select count(*)::int as n from public.admin_audit_log where action = 'support_reply'`)).rows[0].n;
+    assert.equal(after, before + 1, "admin reply is logged");
+    await asUser(SUP_CLIENT, `select public.reply_support_ticket('${id}', 'Gracias. ¿Cuándo me confirman?')`);
+    assert.equal((await asUser(SUP_CLIENT, `select status from public.support_tickets where id = '${id}'`)).rows[0].status, "open", "user reply reopens an answered ticket");
+    const count = (await asUser(ADMIN, `select public.admin_support_open_count() as n`)).rows[0].n;
+    assert.ok(count >= 1, "the open count sees the ticket");
+  });
+});
+
+await check("0097 support: close is the author's; closed tickets take no replies until an admin reopens", async () => {
+  await withRollback(async () => {
+    const id = (await supCreate(SUP_CLIENT, "verificacion", "Verificación", supBody)).rows[0].id;
+    await refused(() => asUser(HOMEOWNER, `select public.close_support_ticket('${id}')`), /No encontramos/);
+    await asUser(SUP_CLIENT, `select public.close_support_ticket('${id}')`);
+    assert.equal((await asUser(SUP_CLIENT, `select status from public.support_tickets where id = '${id}'`)).rows[0].status, "closed");
+    await refused(() => asUser(SUP_CLIENT, `select public.reply_support_ticket('${id}', 'Otro mensaje')`), /está cerrado/);
+    await refused(() => asUser(ADMIN, `select public.admin_reply_support_ticket('${id}', 'Respuesta')`), /está cerrado/);
+    await asUser(ADMIN, `select public.admin_set_support_ticket_status('${id}', 'open')`);
+    assert.equal((await asUser(SUP_CLIENT, `select status from public.support_tickets where id = '${id}'`)).rows[0].status, "open");
+    await refused(() => asUser(ADMIN, `select public.admin_set_support_ticket_status('${id}', 'open')`), /ya está así/);
+    const logged = (await asService(`select count(*)::int as n from public.admin_audit_log where action = 'support_status' and details->>'ticket_id' = '${id}'`)).rows[0].n;
+    assert.equal(logged, 1, "reopen is logged");
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

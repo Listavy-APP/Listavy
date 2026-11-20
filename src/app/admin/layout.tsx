@@ -28,10 +28,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   // Badge counts for the sidebar. The bell summary is the same RPC the bell uses; photo reports are
   // counted directly (admin RLS). A failed read shows no badge rather than breaking the shell.
-  const [summaryRes, photoRes, verificationRes] = await Promise.all([
+  const [summaryRes, photoRes, verificationRes, supportRes] = await Promise.all([
     supabase.rpc("admin_notification_summary"),
     supabase.from("job_photo_reports").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("pro_verifications").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.rpc("admin_support_open_count"),
   ]);
   const summary = ((summaryRes.data ?? []) as {
     open_disputes: number;
@@ -44,6 +45,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     resenas: summary?.reviews_awaiting_moderation ?? 0,
     fotos: photoRes.count ?? 0,
     verificaciones: verificationRes.count ?? 0,
+    soporte: typeof supportRes.data === "number" ? supportRes.data : 0,
   };
 
   return (
