@@ -3501,6 +3501,82 @@ await check("0098 links: the SQL mapping matches the edge mapping for job, ticke
   assert.equal(await q("welcome", `{}`), null);
 });
 
+// ---- 0099 pro checklist and nudge --------------------------------------------------
+// Guidance only: the checklist reads, never gates. Each pro is a dedicated fixture.
+
+const CK_BARE = "00000000-0000-4000-8000-0000000000c1";
+const CK_PARTIAL = "00000000-0000-4000-8000-0000000000c2";
+const CK_FULL = "00000000-0000-4000-8000-0000000000c3";
+await seedFixture(`
+  insert into auth.users (id, phone) values
+    ('${CK_BARE}', '+18095550101'), ('${CK_PARTIAL}', '+18095550102'), ('${CK_FULL}', '+18095550103') on conflict do nothing;
+  update public.profiles set role = 'pro' where id in ('${CK_BARE}', '${CK_PARTIAL}', '${CK_FULL}');
+  insert into public.pros (id, trade, zone, price_min_dop, price_max_dop, verification_status) values
+    ('${CK_BARE}', 'plumber', 'Naco', 2000, 4000, 'pending'),
+    ('${CK_PARTIAL}', 'plumber', 'Naco', 2000, 4000, 'pending'),
+    ('${CK_FULL}', 'plumber', 'Naco', 2000, 4000, 'approved');`);
+
+const checklist = async (uid) => (await asUser(uid, "select item, state, visibility, priority, dismissed from public.get_my_pro_checklist() order by priority nulls last, item")).rows;
+const stateOf = (rows, item) => rows.find((r) => r.item === item)?.state;
+
+await check("0099 checklist: a bare pro is missing everything except price and zone; verification leads the nudge", async () => {
+  await withRollback(async () => {
+    const rows = await checklist(CK_BARE);
+    assert.equal(rows.length, 7);
+    for (const item of ["verificacion", "foto", "pago", "descripcion", "horario"]) assert.equal(stateOf(rows, item), "missing", item);
+    assert.equal(stateOf(rows, "precios"), "done");
+    assert.equal(stateOf(rows, "zona"), "done");
+    assert.equal(rows.find((r) => r.item === "verificacion").priority, 1);
+    assert.equal(rows.find((r) => r.item === "pago").visibility, "private", "payout details are private");
+    assert.equal(rows.find((r) => r.item === "foto").visibility, "public");
+  });
+});
+
+await check("0099 checklist: verification needs both cédula and selfie; a partial pro is incomplete", async () => {
+  await withRollback(async () => {
+    await seedFixture(`insert into public.pro_verifications (pro_id, stage, status, verified_at) values ('${CK_PARTIAL}', 'identity', 'approved', now())`);
+    assert.equal(stateOf(await checklist(CK_PARTIAL), "verificacion"), "missing", "cédula approved, selfie missing");
+    await seedFixture(`insert into public.pro_verifications (pro_id, stage, status, consent_version) values ('${CK_PARTIAL}', 'selfie', 'pending', 'test-v1')`);
+    assert.equal(stateOf(await checklist(CK_PARTIAL), "verificacion"), "pending", "selfie in review");
+    await seedFixture(`insert into public.pro_verifications (pro_id, stage, status, verified_at) values ('${CK_PARTIAL}', 'selfie', 'approved', now())`);
+    assert.equal(stateOf(await checklist(CK_PARTIAL), "verificacion"), "done", "both approved");
+  });
+});
+
+await check("0099 checklist: a complete pro sees every item done and no nudge", async () => {
+  await withRollback(async () => {
+    await seedFixture(`
+      insert into public.pro_verifications (pro_id, stage, status, verified_at) values ('${CK_FULL}', 'identity', 'approved', now()), ('${CK_FULL}', 'selfie', 'approved', now());
+      insert into public.pro_files (pro_id, kind, storage_path, review_status) values ('${CK_FULL}', 'avatar', '${CK_FULL}/avatar-test.jpg', 'approved');
+      insert into public.pro_payout_details (pro_id, bank_code, account_number) values ('${CK_FULL}', '001', '1234567');
+      insert into public.pro_weekly_hours (pro_id, weekday, enabled, start_time, end_time) values ('${CK_FULL}', 1, true, '08:00', '17:00');
+      update public.pros set bio = 'Plomero con 10 años de experiencia.' where id = '${CK_FULL}';`);
+    const rows = await checklist(CK_FULL);
+    assert.equal(rows.filter((r) => r.state !== "done").length, 0, JSON.stringify(rows));
+  });
+});
+
+await check("0099 checklist: non-pros get nothing; pending photo is in review, not missing", async () => {
+  await withRollback(async () => {
+    assert.equal((await checklist(HOMEOWNER)).length, 0);
+    await seedFixture(`insert into public.pro_files (pro_id, kind, storage_path, review_status) values ('${CK_BARE}', 'avatar', '${CK_BARE}/pending.jpg', 'pending')`);
+    assert.equal(stateOf(await checklist(CK_BARE), "foto"), "pending");
+  });
+});
+
+await check("0099 nudge: dismissal persists, is the pro's own, and only accepts known items from pros", async () => {
+  await withRollback(async () => {
+    await asUser(CK_BARE, "select public.dismiss_my_pro_nudge('verificacion')");
+    const after = await checklist(CK_BARE);
+    assert.equal(after.find((r) => r.item === "verificacion").dismissed, true, "dismissal is visible to the pro");
+    assert.equal((await asUser(CK_PARTIAL, "select count(*)::int as n from public.pro_nudge_dismissals")).rows[0].n, 0, "another pro sees none of it");
+    assert.equal((await checklist(CK_PARTIAL)).find((r) => r.item === "verificacion").dismissed, false);
+    await refused(() => asUser(HOMEOWNER, "select public.dismiss_my_pro_nudge('verificacion')"), /No autorizado/);
+    await refused(() => asUser(CK_BARE, "select public.dismiss_my_pro_nudge('precios')"), /Elemento no válido/);
+    await refused(() => asUser(CK_BARE, `insert into public.pro_nudge_dismissals (pro_id, item) values ('${CK_BARE}', 'foto')`), /permission denied|row-level security/);
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

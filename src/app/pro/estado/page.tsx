@@ -14,6 +14,10 @@ import { BackBar } from "@/components/BackBar";
 import { CloseProfile } from "./CloseProfile";
 import { getPayoutDetails } from "@/lib/data/payouts";
 import { esPayouts } from "@/lib/i18n/payouts";
+import { getMyProChecklist } from "@/lib/data/proChecklist";
+import { nudgeFor } from "@/lib/domain/proChecklist";
+import { ProChecklist } from "./ProChecklist";
+import { NudgeCard } from "./NudgeCard";
 
 export const metadata = { title: es.proStatus.title };
 export const instant = false;
@@ -68,11 +72,15 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
   }
 
   const hasPayoutDetails = (await getPayoutDetails(supabase, pro.id)) !== null;
+  const checklist = await getMyProChecklist(supabase);
+  const nudge = nudgeFor(checklist);
 
   return (
     <section className="stack">
       <BackBar href="/cuenta" />
       <h1>{es.proStatus.title}</h1>
+      {nudge ? <NudgeCard item={nudge.item} /> : null}
+      <ProChecklist rows={checklist} />
       {!hasPayoutDetails ? (
         <section className="panel stack">
           <b>{esPayouts.bannerTitle}</b>
