@@ -386,6 +386,8 @@ export const es = {
     gross: "Monto bruto de trabajos",
     commission: "Comisión retenida",
     tips: "Propinas",
+    fees: "Tarifas de cancelación incluidas",
+    feeLine: "Tarifa de cancelación",
     net: "Neto para ti",
     pending: "Pendiente de liberar (no incluido en los totales)",
     detail: "Detalle por pago",

@@ -73,6 +73,7 @@ export default async function AnnualStatementPage({ searchParams }: { searchPara
                   <div><dt>{es.proStatement.gross}</dt><dd>{money(statement.totals.gross)}</dd></div>
                   <div><dt>{es.proStatement.commission}</dt><dd>−{money(statement.totals.commission)}</dd></div>
                   <div><dt>{es.proStatement.tips}</dt><dd>{money(statement.totals.tips)}</dd></div>
+                  <div><dt>{es.proStatement.fees}</dt><dd>{money(statement.totals.fees)}</dd></div>
                   <div className="statement-net"><dt>{es.proStatement.net}</dt><dd>{money(statement.totals.net)}</dd></div>
                 </dl>
                 <p className="muted">
@@ -89,7 +90,7 @@ export default async function AnnualStatementPage({ searchParams }: { searchPara
                     {statement.lines.map((l) => (
                       <li key={l.id} className="statement-line">
                         <div className="job-card-top">
-                          <strong>{es.trades[l.trade as keyof typeof es.trades] ?? l.trade}</strong>
+                          <strong>{l.kind === "fee" ? es.proStatement.feeLine : (es.trades[l.trade as keyof typeof es.trades] ?? l.trade)}</strong>
                           <span className="muted">{l.released_on}</span>
                         </div>
                         <div className="muted">{l.zone}</div>

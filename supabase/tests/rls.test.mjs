@@ -4212,6 +4212,25 @@ await check("0107 preview: pro side never shows a fee; a stranger is refused", a
   });
 });
 
+await check("0107 statement: a released cancellation fee is its own line, carries no tip, and sums to fees", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedHeldJob();
+    await db.exec(`update public.payments set tip_dop = 150 where id = '${payment}'`);
+    await FEE_PAYMENT_HOURS_AGO(job, 3);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${job}', 'homeowner')`);
+    await db.exec(`update public.payments set status = 'released', released_at = now() where id = '${payment}'`);
+    const year = new Date().getUTCFullYear();
+    const st = (await asUser(PRO, `select public.pro_annual_statement(${year}) as r`)).rows[0].r;
+    const fee = st.lines.find((l) => l.kind === "fee");
+    assert.ok(fee, "fee line present");
+    assert.equal(fee.gross, 300, "gross is the fee, not fee minus tip");
+    assert.equal(fee.tip, 0, "tip is not part of the fee line");
+    assert.equal(fee.net, 300);
+    assert.equal(st.totals.fees, 300);
+    assert.equal(st.totals.tips, 0, "the refunded tip is not reported as income");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 0105 · Admin list of approved pros (view-as doorway). Admin-gated, read-only, approved and open only.
 // ---------------------------------------------------------------------------

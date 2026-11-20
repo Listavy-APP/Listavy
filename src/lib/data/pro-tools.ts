@@ -28,6 +28,8 @@ export type PerformanceSummary = {
 
 export type StatementLine = {
   id: string;
+  /** 'fee' is a cancellation fee kept for the pro (migration 0107). */
+  kind: "job" | "fee";
   released_on: string;
   trade: string;
   zone: string;
@@ -39,7 +41,7 @@ export type StatementLine = {
 
 export type AnnualStatement = {
   year: number;
-  totals: { gross: number; commission: number; tips: number; net: number };
+  totals: { gross: number; commission: number; tips: number; net: number; fees: number };
   pending: number;
   lines: StatementLine[];
 };

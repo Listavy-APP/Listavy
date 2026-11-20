@@ -51,9 +51,10 @@ begin
 end;
 $$;
 
--- 4. Shared settlement: refunds and the fee for a cancelled job. Called only by the two cancel paths.
+-- 4. Shared settlement: refunds and the fee for a cancelled job. Called only by the cancel paths.
+-- Returns the amounts so the caller can tell the client.
 create or replace function public._settle_cancellation(p_job uuid, p_reason text, p_fee_applies boolean)
-returns void
+returns jsonb
 language plpgsql
 security definer
 set search_path = ''
@@ -62,8 +63,9 @@ declare
   v_primary record;
   v_has_primary boolean := false;
   v_other record;
-  v_fee integer;
-  v_fee_minor bigint;
+  v_fee integer := 0;
+  v_fee_minor bigint := 0;
+  v_refund integer := 0;
 begin
   select * into v_primary from public.payments
    where job_id = p_job and purpose = 'job' and status = 'held'
@@ -75,8 +77,9 @@ begin
   -- amount_dop includes the tip (amountDop = chargedDop + tipDop). The fee comes from the charged part only.
   -- The tip is never kept: the refund is amount_dop - fee, so the tip returns whole.
   v_fee := case when v_has_primary and p_fee_applies
-                then least(300, coalesce(v_primary.amount_dop, 0) - coalesce(v_primary.tip_dop, 0))
+                then greatest(0, least(300, coalesce(v_primary.amount_dop, 0) - coalesce(v_primary.tip_dop, 0)))
                 else 0 end;
+
   if v_fee > 0 then
     v_fee_minor := round(v_primary.amount_minor::numeric * v_fee / v_primary.amount_dop)::bigint;
     update public.payments
@@ -89,10 +92,12 @@ begin
     if v_primary.amount_dop - v_fee > 0 then
       insert into public.refunds (payment_id, job_id, amount_dop, amount_minor, reason)
       values (v_primary.id, p_job, v_primary.amount_dop - v_fee, v_primary.amount_minor - v_fee_minor, 'client_cancel_fee');
+      v_refund := v_refund + (v_primary.amount_dop - v_fee);
     end if;
   elsif v_has_primary then
     insert into public.refunds (payment_id, job_id, amount_dop, amount_minor, reason)
     values (v_primary.id, p_job, v_primary.amount_dop, v_primary.amount_minor, p_reason);
+    v_refund := v_refund + v_primary.amount_dop;
   end if;
 
   -- Every other held job or diagnostic payment refunds in full.
@@ -103,7 +108,10 @@ begin
   loop
     insert into public.refunds (payment_id, job_id, amount_dop, amount_minor, reason)
     values (v_other.id, p_job, v_other.amount_dop, v_other.amount_minor, p_reason);
+    v_refund := v_refund + v_other.amount_dop;
   end loop;
+
+  return jsonb_build_object('fee_dop', v_fee, 'refund_dop', v_refund);
 end;
 $$;
 
@@ -120,6 +128,7 @@ declare
   v_reason text;
   v_fee_applies boolean := false;
   v_refunds integer := 0;
+  v_settle jsonb;
 begin
   select * into j from public.jobs where id = p_job for update;
   if not found then raise exception 'Trabajo no encontrado.'; end if;
@@ -160,7 +169,10 @@ begin
   update public.jobs set status = 'cancelled' where id = j.id;
   update public.quotes set status = 'withdrawn' where job_id = j.id and status in ('invited', 'sent');
 
-  perform public._settle_cancellation(j.id, v_reason, v_fee_applies);
+  v_settle := public._settle_cancellation(j.id, v_reason, v_fee_applies);
+  perform public.notify_user_email(j.homeowner_id, 'job_cancelled_refund',
+    jsonb_build_object('job_id', j.id, 'trade', j.trade, 'zone', j.zone,
+      'fee_dop', (v_settle->>'fee_dop')::int, 'refund_dop', (v_settle->>'refund_dop')::int), false, true);
 
   select count(*) into v_refunds from public.refunds where job_id = j.id and status = 'pending';
   if v_refunds = 0 then return 'cancelled'; end if;
@@ -179,6 +191,7 @@ declare
   j record;
   uid uuid := (select auth.uid());
   v_fee_applies boolean := false;
+  v_settle jsonb;
 begin
   select * into j from public.jobs where id = p_job for update;
   if not found then raise exception 'Trabajo no encontrado.' using errcode = 'P0002'; end if;
@@ -204,7 +217,10 @@ begin
 
   update public.jobs set status = 'cancelled' where id = j.id;
   update public.quotes set status = 'withdrawn' where job_id = j.id and status in ('invited', 'sent');
-  perform public._settle_cancellation(j.id, 'client_no_show', v_fee_applies);
+  v_settle := public._settle_cancellation(j.id, 'client_no_show', v_fee_applies);
+  perform public.notify_user_email(j.homeowner_id, 'job_cancelled_refund',
+    jsonb_build_object('job_id', j.id, 'trade', j.trade, 'zone', j.zone,
+      'fee_dop', (v_settle->>'fee_dop')::int, 'refund_dop', (v_settle->>'refund_dop')::int), false, true);
 
   if exists (select 1 from public.refunds where job_id = j.id and status = 'pending') then
     return 'refund_pending';
@@ -567,3 +583,94 @@ revoke all on function public.mark_refund_succeeded(uuid, text) from public, ano
 grant execute on function public.mark_refund_succeeded(uuid, text) to service_role;
 revoke all on function public.cancellation_preview(uuid) from public, anon;
 grant execute on function public.cancellation_preview(uuid) to authenticated;
+
+-- 12. Annual statement (from 0093). Changes: fee lines are labeled kind 'fee'; a fee line has no tip
+-- (the tip is refunded, not paid); totals.fees sums the fee lines. Job lines are unchanged.
+create or replace function public.pro_annual_statement(p_year integer)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_pro uuid := (select auth.uid());
+  v_tz constant text := 'America/Santo_Domingo';
+  v_lines jsonb;
+  v_totals jsonb;
+  v_pending numeric;
+begin
+  if not exists (select 1 from public.pros where id = v_pro) then
+    raise exception 'No autorizado.' using errcode = '42501';
+  end if;
+  if p_year is null or p_year < 2000 or p_year > 2100 then
+    raise exception 'Año no válido.' using errcode = '22023';
+  end if;
+
+  with released as (
+    select p.id,
+           to_char(coalesce(p.released_at, p.created_at) at time zone v_tz, 'YYYY-MM-DD') as released_on,
+           j.trade,
+           j.zone,
+           (j.status = 'cancelled') as is_fee,
+           coalesce(p.keep_pro_payout_dop, p.pro_payout_dop, 0) as net,
+           coalesce(p.keep_commission_dop, p.commission_dop, 0) as commission,
+           coalesce(p.tip_dop, 0) as tip
+      from public.payments p
+      join public.jobs j on j.id = p.job_id
+     where j.pro_id = v_pro
+       and p.purpose in ('job', 'diagnostic', 'revision')
+       and p.status = 'released'
+       and extract(year from coalesce(p.released_at, p.created_at) at time zone v_tz) = p_year
+  ),
+  lines as (
+    select r.id, r.released_on, r.trade, r.zone, r.is_fee,
+           case when r.is_fee then r.net else r.net + r.commission - r.tip end as gross,
+           case when r.is_fee then 0 else r.commission end as commission,
+           case when r.is_fee then 0 else r.tip end as tip,
+           r.net
+      from released r
+  )
+  select
+    coalesce(jsonb_agg(jsonb_build_object(
+      'id', l.id,
+      'kind', case when l.is_fee then 'fee' else 'job' end,
+      'released_on', l.released_on,
+      'trade', l.trade,
+      'zone', l.zone,
+      'gross', l.gross,
+      'commission', l.commission,
+      'tip', l.tip,
+      'net', l.net
+    ) order by l.released_on, l.id), '[]'::jsonb),
+    jsonb_build_object(
+      'gross', coalesce(sum(l.gross), 0),
+      'commission', coalesce(sum(l.commission), 0),
+      'tips', coalesce(sum(l.tip), 0),
+      'net', coalesce(sum(l.net), 0),
+      'fees', coalesce(sum(l.net) filter (where l.is_fee), 0)
+    )
+  into v_lines, v_totals
+  from lines l;
+
+  select coalesce(sum(coalesce(p.keep_pro_payout_dop, p.pro_payout_dop, 0)), 0)
+    into v_pending
+    from public.payments p
+    join public.jobs j on j.id = p.job_id
+   where j.pro_id = v_pro
+     and p.purpose in ('job', 'diagnostic', 'revision')
+     and p.status in ('held', 'disputed')
+     and extract(year from p.created_at at time zone v_tz) = p_year;
+
+  return jsonb_build_object(
+    'year', p_year,
+    'totals', v_totals,
+    'pending', v_pending,
+    'lines', v_lines
+  );
+end;
+$$;
+
+revoke all on function public.pro_annual_statement(integer) from public, anon;
+grant execute on function public.pro_annual_statement(integer) to authenticated;
+
