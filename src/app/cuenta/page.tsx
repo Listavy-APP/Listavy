@@ -194,6 +194,13 @@ export default async function ProfilePage() {
         </Link>
       ) : null}
 
+      {clientView ? (
+        <Link className="contact-row" href="/cuenta/recurrentes">
+          <span className="icon-box"><Icon name="home" /></span>
+          <span className="contact-label">{es.recurring.listLink}</span>
+        </Link>
+      ) : null}
+
       <Link className="contact-row" href="/ayuda">
         <span className="icon-box"><Icon name="help" /></span>
         <span className="contact-label">{es.help.title}</span>

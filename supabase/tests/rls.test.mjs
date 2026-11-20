@@ -3129,6 +3129,191 @@ await check("0095 promo: the payment constraint rejects a split that leaves out 
   });
 });
 
+// ---- 0096 recurring bookings ------------------------------------------------
+// Each check runs inside withRollback. A dedicated client keeps the standing cap (3 open requests)
+// isolated from the shared homeowner fixture, which carries open requests from earlier checks.
+
+const RB_CLIENT = "00000000-0000-4000-8000-0000000000e1";
+await seedFixture(`insert into auth.users (id, phone) values ('${RB_CLIENT}', '+18095550077') on conflict do nothing;`);
+
+async function rbCompletedJob(client = RB_CLIENT) {
+  const id = randomUUID();
+  const { trade } = (await db.query(`select trade from public.pros where id = '${PRO}'`)).rows[0];
+  await asOwner(client, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status)
+    values ('${id}', '${client}', '${PRO}', '${trade}', 'Naco', 'Cambio de llave del baño, serie mensual de prueba.', 'completed', 'repair', 'paid')`));
+  return id;
+}
+
+async function rbSeries({ due = "today+1", freq = "weekly", anchor = 1, status = "active", client = RB_CLIENT, source } = {}) {
+  const src = source ?? (await rbCompletedJob(client));
+  const dueSql = due === "past" ? "santo_domingo_today() - 10" : "santo_domingo_today() + 1";
+  const { trade } = (await db.query(`select trade from public.pros where id = '${PRO}'`)).rows[0];
+  const r = await db.query(`insert into public.recurring_bookings (client_id, pro_id, source_job_id, trade, zone, job_type, description,
+      frequency, anchor, scheduled_window, status, next_due_date)
+    values ('${client}', '${PRO}', '${src}', '${trade}', 'Naco', 'repair', 'Cambio de llave del baño, serie mensual de prueba.',
+      '${freq}', ${anchor}, 'morning', '${status}', ${dueSql}) returning id, next_due_date::text as due`);
+  return { id: r.rows[0].id, src, due: r.rows[0].due };
+}
+
+const rbRun = async () => (await db.query(`select public.run_recurring_bookings() as r`)).rows[0].r;
+const rbSeriesRow = async (id) => (await db.query(`select status, paused_reason, next_due_date::text as due, occurrences, last_job_id from public.recurring_bookings where id = '${id}'`)).rows[0];
+// Requests only: the completed source job shares the description prefix, so exclude it.
+const rbRequestsFor = async (client) => (await db.query(`select id, scheduled_window, scheduled_date::text as sd, status from public.jobs
+  where homeowner_id = '${client}' and description like 'Cambio de llave%' and status <> 'completed' order by created_at desc`)).rows;
+
+await check("0096 recurring: date math (weekday, biweekly, monthly clamp, month end)", async () => {
+  // 2026-11-19 is a Thursday (dow 4). Monday is 1.
+  assert.equal((await db.query(`select public.recurring_first_due('weekly', 1, date '2026-11-19')::text as d`)).rows[0].d, "2026-11-23");
+  assert.equal((await db.query(`select public.recurring_first_due('weekly', 4, date '2026-11-19')::text as d`)).rows[0].d, "2026-11-26", "same weekday goes a week out");
+  assert.equal((await db.query(`select public.recurring_advance('biweekly', 1, date '2026-11-23')::text as d`)).rows[0].d, "2026-12-07");
+  assert.equal((await db.query(`select public.recurring_first_due('monthly', 31, date '2026-02-10')::text as d`)).rows[0].d, "2026-02-28", "31 clamps to Feb 28");
+  assert.equal((await db.query(`select public.recurring_advance('monthly', 31, date '2026-02-28')::text as d`)).rows[0].d, "2026-03-31", "anchor, not the clamped day, drives the next month");
+  assert.equal((await db.query(`select public.recurring_advance('monthly', 15, date '2026-12-15')::text as d`)).rows[0].d, "2027-01-15", "year rollover");
+});
+
+await check("0096 recurring: RLS owner-only; other clients, pros and anonymous see no series; no direct writes", async () => {
+  await withRollback(async () => {
+    const s = await rbSeries();
+    assert.equal((await asUser(RB_CLIENT, `select count(*)::int as n from public.recurring_bookings where id = '${s.id}'`)).rows[0].n, 1);
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.recurring_bookings where id = '${s.id}'`)).rows[0].n, 0, "another client");
+    assert.equal((await asUser(PRO, `select count(*)::int as n from public.recurring_bookings where id = '${s.id}'`)).rows[0].n, 0, "the pro gets invitations, not series");
+    // No update policy: an update matches no rows for the owner, so the status cannot change.
+    await asUser(RB_CLIENT, `update public.recurring_bookings set status = 'cancelled' where id = '${s.id}'`).catch(() => {});
+    assert.equal((await rbSeriesRow(s.id)).status, "active", "owner cannot change status directly");
+    await refused(() => asUser(RB_CLIENT, `insert into public.recurring_bookings (client_id) values ('${RB_CLIENT}')`), /permission denied|row-level security|violates|null value/);
+    await refused(() => asUser(RB_CLIENT, `select public.run_recurring_bookings()`), /permission denied/);
+    await refused(() => asAnon(`select public.run_recurring_bookings()`), /permission denied/);
+    await refused(() => asAnon(`select public.create_recurring_booking('${s.src}', 'weekly', 1, 'morning')`), /permission denied/);
+  });
+});
+
+await check("0096 recurring: create gates (own completed job, pro approved, valid frequency/anchor/window, one live series)", async () => {
+  await withRollback(async () => {
+    const done = await rbCompletedJob();
+    const open = randomUUID();
+    await asOwner(RB_CLIENT, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status)
+      values ('${open}', '${RB_CLIENT}', '${PRO}', 'plumber', 'Naco', 'Cambio de llave del baño, serie mensual de prueba.', 'accepted', 'repair', 'unpaid')`));
+    await refused(() => asUser(RB_CLIENT, `select public.create_recurring_booking('${open}', 'weekly', 1, 'morning')`), /solo puedes repetir un trabajo terminado/i);
+    await refused(() => asUser(HOMEOWNER, `select public.create_recurring_booking('${done}', 'weekly', 1, 'morning')`), /No encontramos ese trabajo/);
+    await refused(() => asUser(RB_CLIENT, `select public.create_recurring_booking('${done}', 'daily', 1, 'morning')`), /Frecuencia no válida/);
+    await refused(() => asUser(RB_CLIENT, `select public.create_recurring_booking('${done}', 'weekly', 7, 'morning')`), /día de la semana/);
+    await refused(() => asUser(RB_CLIENT, `select public.create_recurring_booking('${done}', 'monthly', 32, 'morning')`), /entre 1 y 31/);
+    await refused(() => asUser(RB_CLIENT, `select public.create_recurring_booking('${done}', 'weekly', 1, 'night')`), /Horario no válido/);
+    const id = (await asUser(RB_CLIENT, `select public.create_recurring_booking('${done}', 'monthly', 31, 'afternoon') as id`)).rows[0].id;
+    assert.ok(id);
+    await refused(() => asUser(RB_CLIENT, `select public.create_recurring_booking('${done}', 'weekly', 2, 'morning')`), /Ya tienes una serie/);
+    // A cancelled series does not block a new one for the same job.
+    await asUser(RB_CLIENT, `select public.set_recurring_booking_status('${id}', 'cancel')`);
+    const again = await asUser(RB_CLIENT, `select public.create_recurring_booking('${done}', 'weekly', 2, 'morning') as id`);
+    assert.ok(again.rows[0].id);
+  });
+});
+
+await check("0096 recurring: generator, due in window → one request, invited pro only, date and window set, idempotent", async () => {
+  await withRollback(async () => {
+    const s = await rbSeries({ due: "today+1", freq: "weekly", anchor: 1 });
+    const before = await rbSeriesRow(s.id);
+    const out = await rbRun();
+    assert.equal(out.created, 1);
+    const reqs = await rbRequestsFor(RB_CLIENT);
+    assert.equal(reqs.length, 1, "one request");
+    assert.equal(reqs[0].status, "requested");
+    assert.equal(reqs[0].sd, before.due, "scheduled date is the due date");
+    assert.equal(reqs[0].scheduled_window, "morning");
+    const quotes = await db.query(`select pro_id, status from public.quotes where job_id = '${reqs[0].id}'`);
+    assert.deepEqual(quotes.rows.map((q) => [q.pro_id, q.status]), [[PRO, "invited"]], "only the preferred pro is invited");
+    const after = await rbSeriesRow(s.id);
+    assert.equal(after.occurrences, 1);
+    assert.equal(after.last_job_id, reqs[0].id);
+    assert.ok(after.due > before.due, "next due date advanced");
+    // Second run on the same day creates nothing.
+    const again = await rbRun();
+    assert.equal(again.created, 0);
+    assert.equal((await rbRequestsFor(RB_CLIENT)).length, 1, "still one request");
+    // The structural key rejects a second occurrence for the same series and due date.
+    await refused(() => db.exec(`insert into public.recurring_occurrences (series_id, due_date, outcome, job_id)
+      values ('${s.id}', '${before.due}', 'created', '${reqs[0].id}')`), /unique|duplicate/);
+  });
+});
+
+await check("0096 recurring: paused series creates nothing; resume recomputes a past due date; cancelled is terminal", async () => {
+  await withRollback(async () => {
+    const s = await rbSeries({ due: "today+1", status: "paused" });
+    const out = await rbRun();
+    assert.equal(out.created, 0);
+    assert.equal((await rbRequestsFor(RB_CLIENT)).length, 0);
+    await asUser(RB_CLIENT, `select public.set_recurring_booking_status('${s.id}', 'resume')`);
+    assert.equal((await rbSeriesRow(s.id)).status, "active");
+    await asUser(RB_CLIENT, `select public.set_recurring_booking_status('${s.id}', 'cancel')`);
+    assert.equal((await rbSeriesRow(s.id)).status, "cancelled");
+    await refused(() => asUser(RB_CLIENT, `select public.set_recurring_booking_status('${s.id}', 'resume')`), /no está pausada/);
+    await refused(() => asUser(HOMEOWNER, `select public.set_recurring_booking_status('${s.id}', 'pause')`), /No encontramos esa serie/);
+  });
+});
+
+await check("0096 recurring: pro no longer open → skip, auto-pause with reason, no request; resume refused while closed", async () => {
+  await withRollback(async () => {
+    const s = await rbSeries({ due: "today+1" });
+    await asService(`update public.pros set available = false where id = '${PRO}'`);
+    const out = await rbRun();
+    assert.equal(out.paused, 1);
+    assert.equal(out.created, 0);
+    const row = await rbSeriesRow(s.id);
+    assert.equal(row.status, "paused");
+    assert.equal(row.paused_reason, "pro_unavailable");
+    assert.equal((await rbRequestsFor(RB_CLIENT)).length, 0);
+    await refused(() => asUser(RB_CLIENT, `select public.set_recurring_booking_status('${s.id}', 'resume')`), /no está disponible/);
+  });
+});
+
+await check("0096 recurring: standing cap (3 open requests) → skip, advance, no request; skipped occurrence is not a created one", async () => {
+  await withRollback(async () => {
+    const s = await rbSeries({ due: "today+1" });
+    for (let i = 0; i < 3; i++) {
+      await asOwner(RB_CLIENT, () => db.exec(`insert into public.jobs (id, homeowner_id, trade, zone, description, status, job_type)
+        values ('${randomUUID()}', '${RB_CLIENT}', 'plumber', 'Naco', 'Solicitud abierta de prueba para el tope.', 'requested', 'repair')`));
+    }
+    const before = await rbSeriesRow(s.id);
+    const out = await rbRun();
+    assert.equal(out.skipped_cap, 1);
+    assert.equal(out.created, 0);
+    const after = await rbSeriesRow(s.id);
+    assert.ok(after.due > before.due, "advanced past the skipped date");
+    assert.equal(after.occurrences, 0);
+    const occ = await db.query(`select outcome, job_id from public.recurring_occurrences where series_id = '${s.id}'`);
+    assert.deepEqual(occ.rows.map((o) => [o.outcome, o.job_id]), [["skipped_cap", null]]);
+  });
+});
+
+await check("0096 recurring: a missed due date is advanced, never turned into a late request", async () => {
+  await withRollback(async () => {
+    const s = await rbSeries({ due: "past" });
+    const out = await rbRun();
+    assert.equal(out.created, 0, "nothing is backfilled");
+    const row = await rbSeriesRow(s.id);
+    const today = (await db.query(`select public.santo_domingo_today()::text as t`)).rows[0].t;
+    assert.ok(row.due >= today, "next due date is today or later");
+    assert.equal((await rbRequestsFor(RB_CLIENT)).length, 0);
+  });
+});
+
+await check("0096 recurring: suspended client → paused with reason, no request; a direct request with no user is still refused", async () => {
+  await withRollback(async () => {
+    const s = await rbSeries({ due: "today+1" });
+    await asService(`insert into public.client_suspensions (client_id, reason, suspended_by) values ('${RB_CLIENT}', 'Prueba 0096: cliente suspendido', '${ADMIN}')`);
+    const out = await rbRun();
+    assert.equal(out.created, 0);
+    assert.equal(out.paused, 1);
+    const row = await rbSeriesRow(s.id);
+    assert.equal(row.status, "paused");
+    assert.equal(row.paused_reason, "client_suspended");
+    assert.equal((await rbRequestsFor(RB_CLIENT)).length, 0);
+    await refused(() => asService(`insert into public.jobs (homeowner_id, trade, zone, description, status, job_type)
+      values ('${RB_CLIENT}', 'plumber', 'Naco', 'Solicitud sin usuario para cliente suspendido.', 'requested', 'repair')`), /suspendida/);
+    await refused(() => asUser(RB_CLIENT, `select public.set_recurring_booking_status('${s.id}', 'resume')`), /suspendida/);
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

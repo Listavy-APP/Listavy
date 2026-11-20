@@ -3,6 +3,8 @@ import { BackArrow } from "@/components/BackBar";
 import { notFound, redirect } from "next/navigation";
 import { JobActions } from "./JobActions";
 import { ReferralPrompt } from "@/components/ReferralPrompt";
+import { RecurringPanel } from "./RecurringPanel";
+import { liveRecurringForJob } from "@/lib/data/recurring";
 import { JobTimeline } from "./JobTimeline";
 import { VoiceNote } from "./VoiceNote";
 import { DisputePanel } from "./DisputePanel";
@@ -100,6 +102,7 @@ export default async function JobPage({
   const payCancelled = pago === "cancelado" && pay !== null;
 
   const voiceUrl = j.voice_path ? await jobFileUrl(supabase, j.voice_path) : null;
+  const recurring = role === "homeowner" && j.status === "completed" ? await liveRecurringForJob(supabase, id) : null;
   const disputes = await listJobDisputes(supabase, id);
   const jobReview = await getJobReview(supabase, id);
   const clientRated = role === "pro" ? await hasClientRating(supabase, id) : false;
@@ -247,6 +250,14 @@ export default async function JobPage({
         completionCode={completionCode}
       />
       {j.status === "completed" && role === "homeowner" ? <ReferralPrompt supabase={supabase} /> : null}
+      {j.status === "completed" && role === "homeowner" ? (
+        <RecurringPanel
+          jobId={j.id}
+          proName={j.pro_id ? (pros[j.pro_id]?.name ?? null) : null}
+          jobWindow={j.scheduled_window}
+          existing={recurring}
+        />
+      ) : null}
       <DisputePanel
         jobId={id}
         uid={uid}

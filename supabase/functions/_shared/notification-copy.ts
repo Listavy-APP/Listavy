@@ -100,6 +100,13 @@ export function renderEmail(kind: string, data: Record<string, unknown>, ctx: Co
         text: `${hi}\n\n${outcome}${reason}\n\nDetalles: ${jobUrl}${footer()}`,
       };
     }
+    case "recurring_auto_paused": {
+      const trade = tradeName(typeof data.trade === "string" ? data.trade : undefined);
+      return {
+        subject: "Pausamos tu trabajo recurrente",
+        text: `${hi}\n\nPausamos tu serie de trabajos recurrentes (${trade}) porque tu profesional ya no está disponible para este servicio. No se creará ninguna solicitud mientras la serie esté pausada.\n\nRevisa la serie y decide qué hacer: ${ctx.appUrl}/cuenta/recurrentes${footer()}`,
+      };
+    }
     default:
       return null;
   }
