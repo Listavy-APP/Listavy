@@ -38,7 +38,7 @@ export function BioForm({ proId, initial }: { proId: string; initial: string | n
   }
 
   return (
-    <form className="stack" onSubmit={onSubmit}>
+    <form id="descripcion" className="stack" onSubmit={onSubmit}>
       <h2>{es.proBioForm.title}</h2>
       <label className="field">
         {es.proBioForm.label}
