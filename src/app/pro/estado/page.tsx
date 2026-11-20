@@ -8,6 +8,7 @@ import { BoostPanel } from "./BoostPanel";
 import { ProPlanPanel } from "./ProPlanPanel";
 import { ManagePlanButton } from "./ManagePlanButton";
 import { BioForm } from "./BioForm";
+import { PricingZoneForm } from "./PricingZoneForm";
 import { AvailabilityToggle } from "@/components/AvailabilityToggle";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
@@ -148,6 +149,7 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
       {pro.verification_status === "approved" && (
         <AvailabilityToggle proId={pro.id} initial={(pro as { available?: boolean }).available ?? true} />
       )}
+      <PricingZoneForm initialMin={pro.price_min_dop} initialMax={pro.price_max_dop} initialZone={pro.zone} />
       {pro.verification_status === "approved" && <BioForm proId={pro.id} initial={(pro as { bio?: string | null }).bio ?? null} />}
       {pro.verification_status === "approved" && (() => {
         const planEnd = pro.plan_current_period_end ?? null;

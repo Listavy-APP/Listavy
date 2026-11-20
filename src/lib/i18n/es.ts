@@ -300,6 +300,18 @@ export const es = {
     verifyFailed: "El código no es válido o ya venció. Pide uno nuevo.",
     back: "Volver",
   },
+  proPricingForm: {
+    title: "Precios y zona",
+    intro: "Tu rango de precios y tu zona aparecen en las búsquedas y en tu perfil.",
+    priceMin: "Precio mínimo (RD$)",
+    priceMax: "Precio máximo (RD$)",
+    zone: "Zona",
+    save: "Guardar precios y zona",
+    saved: "Precios y zona guardados.",
+    invalidPrice: "Revisa los precios: deben ser números enteros, el mínimo no puede ser negativo y el máximo no puede ser menor que el mínimo.",
+    invalidZone: "Elige una zona de la lista.",
+    failed: "No se pudo guardar. Inténtalo de nuevo.",
+  },
   proBioForm: {
     title: "Tu descripción",
     label: "Sobre ti (visible en tu perfil, máximo 500 caracteres)",

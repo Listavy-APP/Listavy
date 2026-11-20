@@ -10,8 +10,8 @@ const FIX_PATH: Record<ChecklistItem, string | null> = {
   pago: "/pro/pagos",
   descripcion: "/pro/estado#descripcion",
   horario: "/pro/horario",
-  precios: null,
-  zona: null,
+  precios: "/pro/estado#precios-zona",
+  zona: "/pro/estado#precios-zona",
 };
 
 /** Guidance only. Lists what the profile is missing. Never gates the pro. */
