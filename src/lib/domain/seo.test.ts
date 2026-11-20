@@ -5,6 +5,7 @@ import { es } from "../i18n/es.ts";
 import { pageMetadata, jsonLdScript } from "../seo/metadata.ts";
 import { proJsonLd, tradeJsonLd } from "../seo/jsonld.ts";
 import { buildSitemapEntries, isPrivateUrl, type SitemapProRow } from "../seo/sitemap.ts";
+import { TRADES } from "./catalog.ts";
 import { PRIVATE_PATHS, PUBLIC_STATIC_PATHS, SITE_URL, TRADE_VIEWS, tradeViewPath } from "../seo/site.ts";
 
 const NOW = new Date("2026-11-20T10:00:00Z");
@@ -41,6 +42,12 @@ test("sitemap: demo, pending, and suspended pros are out", () => {
 test("sitemap: public static routes and trade views are in", () => {
   for (const p of PUBLIC_STATIC_PATHS) assert.ok(has(p), p);
   for (const v of TRADE_VIEWS) assert.ok(has(tradeViewPath(v.slug)), v.slug);
+});
+
+test("trade views: every catalog trade has exactly one view, slugs unique", () => {
+  const covered = TRADE_VIEWS.map((v) => v.trade).sort();
+  assert.deepEqual(covered, [...TRADES].sort(), "one view per catalog trade");
+  assert.equal(new Set(TRADE_VIEWS.map((v) => v.slug)).size, TRADE_VIEWS.length, "slugs unique");
 });
 
 test("sitemap: no private path appears, anywhere", () => {

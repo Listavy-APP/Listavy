@@ -47,6 +47,10 @@ export const TRADE_VIEWS = [
   { slug: "plomeria", trade: "plumber" },
   { slug: "electricidad", trade: "electrician" },
   { slug: "aire-acondicionado", trade: "ac_technician" },
+  { slug: "pintura", trade: "painter" },
+  { slug: "cerrajeria", trade: "locksmith" },
+  { slug: "carpinteria", trade: "carpenter" },
+  { slug: "herreria", trade: "blacksmith" },
 ] as const;
 
 export function tradeViewPath(slug: string): string {
