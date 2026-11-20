@@ -2985,6 +2985,21 @@ await check("0095 promo: a percent code reserves, the charge is discounted, comm
   });
 });
 
+await check("0095 promo: a live reservation on another job gives the in-progress message; a redeemed use gives the used message", async () => {
+  await withRollback(async () => {
+    await makeCode(`admin_create_promo_code('ENCURSO','percent',10,null,null,null,null)`);
+    const first = await seedPayJob({ quote: 6000 });
+    const second = await seedPayJob({ quote: 6000 });
+    await reserve(first, HOMEOWNER, "ENCURSO");
+    // Reservation live on job one, not paid: the second job gets the in-progress message.
+    await refused(() => reserve(second, HOMEOWNER, "ENCURSO"), /Tienes un pago en curso con este código/);
+    // Same code, redeemed on job one: the second job gets the used message.
+    await db.query(`select public.apply_stripe_checkout('evt_curso_1', 'checkout.session.completed', false, '${first}', 'cs_curso_1', 'pi_curso_1',
+      'job', 9000, 60, 5400, 720, 5280, 0)`);
+    await refused(() => reserve(second, HOMEOWNER, "ENCURSO"), /Ya usaste este código/);
+  });
+});
+
 await check("0095 promo: the same client cannot reuse a code on a second job", async () => {
   await withRollback(async () => {
     await makeCode(`admin_create_promo_code('DESC10','percent',10,null,null,null,null)`);

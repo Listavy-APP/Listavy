@@ -148,12 +148,19 @@ begin
     raise exception 'Este código ya alcanzó su límite de usos.';
   end if;
 
+  -- One use per client. A redeemed use is final. A live reservation on another job is a payment in progress.
+  if exists (
+       select 1 from public.promo_redemptions r
+        where r.promo_id = p.id and r.client_id = p_client and r.job_id <> p_job and r.status = 'redeemed'
+     ) then
+    raise exception 'Ya usaste este código.';
+  end if;
   if exists (
        select 1 from public.promo_redemptions r
         where r.promo_id = p.id and r.client_id = p_client and r.job_id <> p_job
-          and (r.status = 'redeemed' or (r.status = 'reserved' and r.created_at > v_now - interval '2 hours'))
+          and r.status = 'reserved' and r.created_at > v_now - interval '2 hours'
      ) then
-    raise exception 'Ya usaste este código.';
+    raise exception 'Tienes un pago en curso con este código. Complétalo o espera a que venza para usarlo en otro trabajo.';
   end if;
 
   -- No stacking: a referral discount reserved for this job, or recorded on any of its payments.
