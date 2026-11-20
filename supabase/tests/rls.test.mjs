@@ -2788,6 +2788,96 @@ await check("0093 performance: counts, acceptance, response hours match an indep
   });
 });
 
+// ---- 0094 price guides -----------------------------------------------------
+// Trades painter, locksmith, carpenter and blacksmith have no fixture pros, so these tests own them.
+
+let guidePhone = 7000;
+async function seedGuidePro(id, trade, min, max, { status = "approved", demo = false, closed = false } = {}) {
+  guidePhone += 1;
+  await seedFixture(`insert into auth.users (id, phone) values ('${id}', '+1809555${String(guidePhone).padStart(4, "0")}');
+    update public.profiles set role = 'pro' where id = '${id}';`);
+  await asService(`insert into public.pros (id, trade, zone, price_min_dop, price_max_dop, verification_status, is_demo, closed_at)
+    values ('${id}', '${trade}', 'Piantini', ${min}, ${max}, '${status}', ${demo}, ${closed ? "now()" : "null"})`);
+}
+
+async function guideRow(trade) {
+  const r = await db.query(`select * from public.get_price_guides() where trade = '${trade}'`);
+  return r.rows[0];
+}
+
+async function asAnon(sql) {
+  await db.exec("set role anon;");
+  try {
+    return await db.query(sql);
+  } finally {
+    await db.exec("reset role;").catch(() => {});
+  }
+}
+
+await check("0094 price guides: 2 pros give no range, 3 pros give a range (threshold)", async () => {
+  await withRollback(async () => {
+    await seedGuidePro("00000000-0000-4000-9000-000000000101", "painter", 1000, 2000);
+    await seedGuidePro("00000000-0000-4000-9000-000000000102", "painter", 1500, 3000);
+    const two = await guideRow("painter");
+    assert.equal(two.sample, 2);
+    assert.equal(two.low_dop, null);
+    assert.equal(two.high_dop, null);
+    await seedGuidePro("00000000-0000-4000-9000-000000000103", "painter", 2000, 4000);
+    const three = await guideRow("painter");
+    assert.equal(three.sample, 3);
+    assert.notEqual(three.low_dop, null);
+    assert.notEqual(three.high_dop, null);
+  });
+});
+
+await check("0094 price guides: median of minimums and maximums, rounded to whole pesos", async () => {
+  await withRollback(async () => {
+    await seedGuidePro("00000000-0000-4000-9000-000000000201", "locksmith", 1000, 2000);
+    await seedGuidePro("00000000-0000-4000-9000-000000000202", "locksmith", 2000, 4000);
+    await seedGuidePro("00000000-0000-4000-9000-000000000203", "locksmith", 9000, 9000);
+    const g = await guideRow("locksmith");
+    // Minimums 1000, 2000, 9000 -> median 2000. Maximums 2000, 4000, 9000 -> median 4000.
+    assert.equal(g.sample, 3);
+    assert.equal(g.low_dop, 2000);
+    assert.equal(g.high_dop, 4000);
+  });
+});
+
+await check("0094 price guides: demo, unapproved, suspended, closed and no-range pros are excluded", async () => {
+  await withRollback(async () => {
+    await seedGuidePro("00000000-0000-4000-9000-000000000301", "carpenter", 1000, 2000);
+    await seedGuidePro("00000000-0000-4000-9000-000000000302", "carpenter", 1000, 2000);
+    await seedGuidePro("00000000-0000-4000-9000-000000000303", "carpenter", 1000, 2000);
+    // Excluded: demo, pending, suspended, closed, and no stated range (max 0).
+    await seedGuidePro("00000000-0000-4000-9000-000000000304", "carpenter", 1, 1, { demo: true });
+    await seedGuidePro("00000000-0000-4000-9000-000000000305", "carpenter", 1, 1, { status: "pending" });
+    await seedGuidePro("00000000-0000-4000-9000-000000000306", "carpenter", 1, 1, { status: "suspended" });
+    await seedGuidePro("00000000-0000-4000-9000-000000000307", "carpenter", 1, 1, { closed: true });
+    await seedGuidePro("00000000-0000-4000-9000-000000000308", "carpenter", 0, 0);
+    const g = await guideRow("carpenter");
+    assert.equal(g.sample, 3);
+    assert.equal(g.low_dop, 1000);
+    assert.equal(g.high_dop, 2000);
+  });
+});
+
+await check("0094 price guides: anon and authenticated can call; output is aggregates only, every trade listed", async () => {
+  await withRollback(async () => {
+    await seedGuidePro("00000000-0000-4000-9000-000000000401", "blacksmith", 1000, 2000);
+    await seedGuidePro("00000000-0000-4000-9000-000000000402", "blacksmith", 1000, 2000);
+    await seedGuidePro("00000000-0000-4000-9000-000000000403", "blacksmith", 1000, 2000);
+    const anon = await asAnon("select * from public.get_price_guides()");
+    assert.equal(anon.rows.length, 7);
+    assert.deepEqual(Object.keys(anon.rows[0]).sort(), ["high_dop", "low_dop", "sample", "trade"]);
+    const json = JSON.stringify(anon.rows);
+    assert.ok(!json.includes("0000-4000-9000"), "no pro ids in output");
+    const black = anon.rows.find((r) => r.trade === "blacksmith");
+    assert.equal(black.sample, 3);
+    const authed = await asUser(HOMEOWNER, "select count(*)::int as n from public.get_price_guides()");
+    assert.equal(authed.rows[0].n, 7);
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.
