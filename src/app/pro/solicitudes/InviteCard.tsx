@@ -199,7 +199,7 @@ export function InviteCard({
 
       {quote.status === "invited" && expired && <p className="muted">{es.jobs.expiredInvite}</p>}
       {quote.status === "sent" && (
-        <p className="ok">
+        <p className="ok" role="status">
           {es.jobs.quoteSent(quote.amount_dop ?? 0)}
           {quote.valid_until
             ? ` · ${es.jobs.validUntil(new Date(quote.valid_until).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short", timeZone: "America/Santo_Domingo" }))}`

@@ -77,7 +77,7 @@ export default async function ProPayoutsPage() {
       <EarningsSection earnings={earnings} performance={performance} />
       <PayoutDetailsCard proId={profile.id} initial={payoutDetails} />
       <p className="muted">{es.proPayouts.note}</p>
-      {error ? <p className="error">{es.proPayouts.failed}</p> : null}
+      {error ? <p className="error" role="alert">{es.proPayouts.failed}</p> : null}
       {!error && rows.length === 0 ? (
         <EmptyState title={es.proPayouts.title} body={es.proPayouts.empty} />
       ) : (

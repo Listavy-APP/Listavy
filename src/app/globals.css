@@ -3,10 +3,11 @@
   /* Neutrals */
   --ink: #0B132B;
   --ink-2: #334155;
-  --muted: #64748b;
+  --muted: #5f6b7d; /* 4.6:1+ on every light surface (was #64748b: 4.05 on primary-tint, 4.43 on canvas) */
   --paper: #ffffff;
   --canvas: #f5f7fa;
   --line: #e2e8f0;
+  --field-line: #7c8799; /* input borders: 3:1 against white and canvas (WCAG 1.4.11) */
 
   /* One primary: deep navy */
   --primary: #0B132B;
@@ -134,7 +135,7 @@ select {
   font-size: 16px;
   color: var(--ink);
   padding: 0 var(--s2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--field-line);
   border-radius: var(--radius-control);
   min-height: 56px;
   background: var(--paper);
@@ -1063,7 +1064,7 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .bell { position: relative; display: inline-flex; padding: 8px; cursor: pointer; color: var(--ink); }
 .bell-badge { position: absolute; top: 0; right: 0; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; color: #fff; }
 .bell-badge.urgent { background: #dc2626; }
-.bell-badge.attention { background: #d97706; }
+.bell-badge.attention { background: #b45309; } /* white text 5.0:1 (was #d97706, 3.19:1) */
 .bell-panel { position: absolute; right: 0; z-index: 10; width: min(360px, 90vw); max-height: 70vh; overflow-y: auto; }
 .bell-row { display: flex; justify-content: space-between; gap: var(--s1); padding: 8px 0; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: 14px; }
 
@@ -1071,6 +1072,12 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .brand-home { display: inline-flex; align-items: center; }
 .brand-lockup { height: 30px; width: auto; }
 .about-logo { display: block; width: min(300px, 100%); height: auto; margin: 0 auto var(--s2); }
+
+/* Tap targets (44px rule): each hit box is 44px tall. Negative margins cancel the extra height, so the layout is unchanged. */
+.header-links a, .legal-footer a { display: inline-flex; align-items: center; min-height: 44px; margin-block: -11px; }
+.brand-home { min-height: 44px; margin-block: -7px; }
+.check-row { min-height: 44px; }
+.check-row input[type="checkbox"] { width: 24px; height: 24px; flex: none; }
 
 /* Legal: footer wraps on narrow screens; acceptance checkbox row. */
 .legal-footer { flex-wrap: wrap; row-gap: var(--s2); }
@@ -1086,7 +1093,7 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .search-pill { background: #F8FAFC; color: #0B132B; border-radius: 14px; padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; box-sizing: border-box; width: 100%; max-width: 100%; }
 .search-pill > *, .search-pill .field, .search-pill .pill-field { min-width: 0; max-width: 100%; }
 .search-pill input[type=date] { display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; }
-.search-pill select, .search-pill input { width: 100%; min-height: 44px; border: 1px solid #94A3B8; border-radius: 10px; padding: 8px 10px; background: #fff; color: #0B132B; font: inherit; }
+.search-pill select, .search-pill input { width: 100%; min-height: 44px; border: 1px solid var(--field-line); border-radius: 10px; padding: 8px 10px; background: #fff; color: #0B132B; font: inherit; }
 .pill-field { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
 .trust-strip { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 14px; color: #0B132B; }
 .home-sec { display: flex; flex-direction: column; gap: 12px; }
@@ -1113,7 +1120,7 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .header-links { display: flex; gap: 12px; align-items: center; }
 .search-topbar { position: sticky; top: 0; z-index: 5; background: #F8FAFC; padding: 8px 0; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 .sort-select { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-.sort-select select { min-height: 40px; border: 1px solid #94A3B8; border-radius: 10px; padding: 4px 32px 4px 10px; background: #fff; appearance: none; -webkit-appearance: none; }
+.sort-select select { min-height: 40px; border: 1px solid var(--field-line); border-radius: 10px; padding: 4px 32px 4px 10px; background: #fff; appearance: none; -webkit-appearance: none; }
 .select-wrap { position: relative; display: inline-flex; }
 .select-wrap svg { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #0B132B; }
 .filters-btn { display: inline-flex; align-items: center; gap: 6px; }
@@ -1178,7 +1185,7 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
 .admin-nav-group { display: flex; flex-direction: column; gap: 2px; }
 .admin-group-title {
   margin: 8px 12px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: #94a3b8;
+  text-transform: uppercase; color: var(--muted);
 }
 
 .admin-navlink {
@@ -1347,7 +1354,7 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
 }
 
 /* Header bell with unread badge (8b). */
-.notification-bell { position: relative; display: inline-flex; align-items: center; text-decoration: none; }
+.notification-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; min-width: 44px; min-height: 44px; margin: -10px; }
 .notification-badge {
   position: absolute; top: -6px; right: -10px; min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700;

@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Avatar } from "@/components/Avatar";
+import { useDialog } from "@/components/useDialog";
 import { es } from "@/lib/i18n/es";
 import { squareJpeg } from "@/lib/media/square";
 import { removeCustomerPhoto, uploadCustomerPhoto } from "@/lib/storage/customerFiles";
@@ -23,6 +24,8 @@ export function PhotoPicker(props: {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog(sheetOpen, () => setSheetOpen(false), dialogRef);
 
   async function onPick(file: File) {
     setError(null);
@@ -83,7 +86,7 @@ export function PhotoPicker(props: {
       </div>
       {sheetOpen ? (
         <div className="sheet-backdrop" onClick={() => setSheetOpen(false)}>
-          <div className="sheet" role="dialog" aria-modal="true" aria-label={es.profile.photoChoose} onClick={(e) => e.stopPropagation()}>
+          <div ref={dialogRef} tabIndex={-1} className="sheet" role="dialog" aria-modal="true" aria-label={es.profile.photoChoose} onClick={(e) => e.stopPropagation()}>
             <label className="sheet-action">
               <input
                 className="sr-only"
@@ -119,8 +122,8 @@ export function PhotoPicker(props: {
         </div>
       ) : null}
       <p className="muted">{props.hint ?? es.profile.photoHint}</p>
-      {message ? <p className="ok">{message}</p> : null}
-      {error ? <p className="error">{error}</p> : null}
+      {message ? <p className="ok" role="status">{message}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
     </div>
   );
 }

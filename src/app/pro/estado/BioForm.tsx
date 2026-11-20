@@ -48,7 +48,7 @@ export function BioForm({ proId, initial }: { proId: string; initial: string | n
       <button className="button" type="submit" disabled={busy}>
         {es.proBioForm.save}
       </button>
-      {saved ? <p className="ok">{es.proBioForm.saved}</p> : null}
+      {saved ? <p className="ok" role="status">{es.proBioForm.saved}</p> : null}
       {error ? <p className="error" role="alert">{error}</p> : null}
     </form>
   );

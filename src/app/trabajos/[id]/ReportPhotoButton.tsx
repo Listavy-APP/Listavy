@@ -40,7 +40,7 @@ export function ReportPhotoButton({ path, reported = false }: { path: string; re
   return (
     <div className="stack">
       <h3>{esTrust.photoReport.reportTitle}</h3>
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
       <label className="field">
         {esTrust.photoReport.reasonLabel}
         <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />

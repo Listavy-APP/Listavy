@@ -282,7 +282,7 @@ export default async function ProDetailPage({
                 {photos.map((src, i) => (
                   // Signed URLs change each request, so the image is not optimized by Next.
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={src} alt={`${es.proDetail.photos} ${i + 1}`} loading="lazy" />
+                  <img key={i} src={src} alt={es.a11y.photoOf(pro.full_name ?? es.trades[pro.trade], es.trades[pro.trade], i + 1)} loading="lazy" />
                 ))}
               </div>
             )}

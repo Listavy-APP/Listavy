@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { es } from "@/lib/i18n/es";
 
 const MIN_REASON = 10;
 
@@ -49,6 +50,7 @@ export function ClearLimitButton({ clientId }: { clientId: string }) {
   return (
     <div className="stack">
       <textarea
+        aria-label={es.a11y.limitReason}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder={`Motivo del cambio (mínimo ${MIN_REASON} caracteres)`}
@@ -56,7 +58,7 @@ export function ClearLimitButton({ clientId }: { clientId: string }) {
       <span className="muted">
         {trimmed.length}/{MIN_REASON} caracteres mínimos
       </span>
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
       <div className="row">
         <button className="button" type="button" disabled={busy || trimmed.length < MIN_REASON} onClick={onClear}>
           Confirmar limpieza

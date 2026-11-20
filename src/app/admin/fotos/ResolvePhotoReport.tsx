@@ -28,7 +28,7 @@ export function ResolvePhotoReport({ reportId }: { reportId: string }) {
 
   return (
     <div className="stack">
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
       <label className="field">
         {esTrust.adminPhotos.noteLabel}
         <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />

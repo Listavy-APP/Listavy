@@ -40,7 +40,7 @@ export function DisputeDecision({ dispute }: { dispute: DisputeRow }) {
     if (windowOpen) return <p className="muted">La ventana de evidencia está abierta. No se puede decidir antes de que venza.</p>;
     return (
       <div className="stack">
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p className="error" role="alert">{error}</p> : null}
         <p className="muted">La ventana de evidencia venció. Puedes decidir.</p>
         <div className="chip-wrap">
           {OUTCOMES.map((o) => (
@@ -83,7 +83,7 @@ export function DisputeDecision({ dispute }: { dispute: DisputeRow }) {
   if (dispute.stage === "decided" && dispute.outcome === "redo") {
     return (
       <div className="stack">
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p className="error" role="alert">{error}</p> : null}
         <p className="muted">Esperando la aprobación del nuevo cierre del trabajo. El pago sigue retenido.</p>
         <button className="button secondary" type="button" disabled={busy} onClick={() => run(() => finishRedo(supabase, dispute.id))}>
           Marcar rediseño aprobado
@@ -95,7 +95,7 @@ export function DisputeDecision({ dispute }: { dispute: DisputeRow }) {
   if (dispute.stage === "executed") {
     return (
       <div className="stack">
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p className="error" role="alert">{error}</p> : null}
         <button className="button secondary" type="button" disabled={busy} onClick={() => run(() => closeDispute(supabase, dispute.id))}>
           Cerrar disputa
         </button>

@@ -48,7 +48,7 @@ export default async function ProVerificationPage() {
             <li key={s} className="panel stack">
               <b>{t.stageLabels[s]}</b>
               <span className="muted">{statusText(r)}</span>
-              {r?.status === "rejected" && r.reason ? <span className="error">{t.rejectedReason} {r.reason}</span> : null}
+              {r?.status === "rejected" && r.reason ? <span className="error" role="alert">{t.rejectedReason} {r.reason}</span> : null}
               {r?.status === "approved" && r.verified_at ? (
                 <span className="muted">
                   {t.verifiedOn} {formatDate(r.verified_at)}

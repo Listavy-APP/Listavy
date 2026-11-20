@@ -92,7 +92,7 @@ export function EmailPromptStep({ next }: { next: string }) {
   if (verified) {
     return (
       <div className="stack" role="status">
-        <p className="ok">{es.login.emailPromptVerified}</p>
+        <p className="ok" role="status">{es.login.emailPromptVerified}</p>
       </div>
     );
   }
@@ -106,7 +106,7 @@ export function EmailPromptStep({ next }: { next: string }) {
         </p>
         <label className="field">
           <span>{es.login.emailCodeLabel}</span>
-          <input
+          <input aria-invalid={error ? true : undefined} aria-describedby={error ? "emailpromptstep-error-1" : undefined}
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9]{6,10}"
@@ -116,7 +116,7 @@ export function EmailPromptStep({ next }: { next: string }) {
             required
           />
         </label>
-        {error && <p className="error" role="alert">{error}</p>}
+        {error && <p id="emailpromptstep-error-1" className="error" role="alert">{error}</p>}
         <button className="button" type="submit" disabled={busy || !CODE_RE.test(code)}>
           {busy ? es.login.verifying : es.login.verify}
         </button>
@@ -133,9 +133,9 @@ export function EmailPromptStep({ next }: { next: string }) {
       <p className="muted">{es.login.emailPromptBody}</p>
       <label className="field">
         <span>{es.login.emailLabel}</span>
-        <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input aria-invalid={error ? true : undefined} aria-describedby={error ? "emailpromptstep-error-2" : undefined} type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
       </label>
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && <p id="emailpromptstep-error-2" className="error" role="alert">{error}</p>}
       <button className="button" type="submit" disabled={busy || !email.trim()}>
         {busy ? es.login.sending : es.login.emailPromptSend}
       </button>

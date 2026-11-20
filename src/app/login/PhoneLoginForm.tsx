@@ -134,6 +134,8 @@ export function PhoneLoginForm({ next }: { next: string }) {
         <label className="field">
           <span>{es.login.codeLabel}</span>
           <input
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "phone-otp-error" : undefined}
             inputMode="numeric"
             autoComplete="one-time-code"
             maxLength={6}
@@ -143,7 +145,7 @@ export function PhoneLoginForm({ next }: { next: string }) {
           />
         </label>
         <p className="muted">{es.login.codeHint}</p>
-        {error && <p className="error" role="alert">{error}</p>}
+        {error && <p id="phone-otp-error" className="error" role="alert">{error}</p>}
         <button className="button" type="submit" disabled={busy}>
           {busy ? es.login.verifying : es.login.verify}
         </button>
@@ -175,7 +177,7 @@ export function PhoneLoginForm({ next }: { next: string }) {
       />
       <p className="muted">{es.phoneField.hint}</p>
       <AcceptLegal kind="client" checked={accepted} onChange={setAccepted} />
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && <p id="phone-send-error" className="error" role="alert">{error}</p>}
       <button className="button" type="submit" disabled={busy}>
         {busy ? es.login.sending : es.login.sendCode}
       </button>

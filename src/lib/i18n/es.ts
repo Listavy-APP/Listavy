@@ -873,6 +873,14 @@ export const es = {
     revisionOnlyRepair: "Los cambios de precio solo aplican a reparaciones.",
     cancelled: "Solicitud cancelada.",
   },
+  a11y: {
+    disputeStatement: "Tu declaración sobre la disputa",
+    reviewComment: "Comentario sobre el trabajo",
+    reviewResponse: "Tu respuesta al comentario",
+    moderationReason: "Motivo de la moderación",
+    limitReason: "Motivo del cambio de límite",
+    photoOf: (name: string, trade: string, n: number) => `Foto de trabajo ${n} de ${name}, ${trade}`,
+  },
   seo: {
     homeTitle: "Profesionales verificados en Santo Domingo | Listavy",
     homeDescription: "Plomeros, electricistas y técnicos de aire acondicionado verificados en Santo Domingo. Compare precios y pida su cotización en Listavy.",

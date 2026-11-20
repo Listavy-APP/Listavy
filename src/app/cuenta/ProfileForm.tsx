@@ -55,8 +55,8 @@ export function ProfileForm(props: { userId: string; fullName: string | null; zo
       <button className="button" type="submit" disabled={busy}>
         {busy ? es.profile.saving : es.profile.save}
       </button>
-      {message ? <p className="ok">{message}</p> : null}
-      {error ? <p className="error">{error}</p> : null}
+      {message ? <p className="ok" role="status">{message}</p> : null}
+      {error ? <p className="error" role="alert">{error}</p> : null}
     </form>
   );
 }

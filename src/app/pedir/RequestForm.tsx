@@ -103,7 +103,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
     // Location is off unless the homeowner allows it. The choice is saved before the job opens.
     return (
       <>
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p className="error" role="alert">{error}</p> : null}
         <LocationConsent
           onChoose={async (allowed) => {
             setError(null);
