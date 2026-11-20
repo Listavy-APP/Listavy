@@ -2467,8 +2467,9 @@ await check("0091 log: no user or anonymous role reads the send log; only the ad
       await db.exec("set role authenticated");
       await db.exec(`set request.jwt.claim.sub = '${N_USER}'`);
       const r = await db.query(`select count(*)::int as n from public.notification_log`).catch((e) => ({ err: e }));
+      // 0098 adds an owner-only select policy: the owner sees exactly their own row, nothing else.
       if (r.err) assert.match(r.err.message, /permission denied/);
-      else assert.equal(r.rows[0].n, 0, "the owner must see no log rows");
+      else assert.equal(r.rows[0].n, 1, "the owner sees only their own log row");
     } finally {
       await db.exec("rollback to savepoint log_read");
     }
@@ -3400,6 +3401,48 @@ await check("0097 support: close is the author's; closed tickets take no replies
     await refused(() => asUser(ADMIN, `select public.admin_set_support_ticket_status('${id}', 'open')`), /ya está así/);
     const logged = (await asService(`select count(*)::int as n from public.admin_audit_log where action = 'support_status' and details->>'ticket_id' = '${id}'`)).rows[0].n;
     assert.equal(logged, 1, "reopen is logged");
+  });
+});
+
+// ---- 0098 notification inbox ---------------------------------------------------
+// Owner-only reads of safe columns, mark-read only on own rows, links limited to internal paths.
+
+const INB_OTHER = "00000000-0000-4000-8000-0000000000e3";
+await seedFixture(`insert into auth.users (id, phone) values ('${INB_OTHER}', '+18095550097') on conflict do nothing;
+  insert into public.notification_log (id, user_id, channel, kind, status, detail, link)
+  values ('00000000-0000-4000-8000-0000000001a1', '${HOMEOWNER}', 'push', 'welcome', 'sent', 'secreto', '/trabajos'),
+         ('00000000-0000-4000-8000-0000000001a2', '${INB_OTHER}', 'push', 'welcome', 'sent', null, '/trabajos');`);
+const INB_OWN = "00000000-0000-4000-8000-0000000001a1";
+const INB_FOREIGN = "00000000-0000-4000-8000-0000000001a2";
+
+// Column privileges (detail and user_id unreadable, kind and status unwritable) are not testable
+// here: the harness re-grants table privileges after migrations. They are checked with
+// has_column_privilege against production after 0098 is applied (see the PR).
+await check("0098 inbox: owners read only their own log rows; anon reads nothing", async () => {
+  await withRollback(async () => {
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.notification_log where id = '${INB_OWN}'`)).rows[0].n, 1);
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.notification_log where id = '${INB_FOREIGN}'`)).rows[0].n, 0);
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.notification_log where user_id = '${INB_OTHER}'`)).rows[0].n, 0);
+  });
+});
+
+await check("0098 inbox: owners mark only their own rows read", async () => {
+  await withRollback(async () => {
+    const own = await asUser(HOMEOWNER, `update public.notification_log set read_at = now() where id = '${INB_OWN}' and read_at is null`);
+    assert.equal(own.affectedRows ?? own.rowCount, 1);
+    const foreign = await asUser(HOMEOWNER, `update public.notification_log set read_at = now() where id = '${INB_FOREIGN}'`);
+    assert.equal(foreign.affectedRows ?? foreign.rowCount, 0, "another user's row is invisible to update");
+    const read = await asUser(HOMEOWNER, `select read_at is not null as r from public.notification_log where id = '${INB_OWN}'`);
+    assert.equal(read.rows[0].r, true);
+  });
+});
+
+await check("0098 inbox: links must be internal paths", async () => {
+  await withRollback(async () => {
+    const ins = (link) => db.query(`insert into public.notification_log (user_id, channel, kind, status, link) values ('${HOMEOWNER}', 'email', 'welcome', 'sent', '${link}')`);
+    await refused(() => ins("//evil.example"), /notification_log_link_check/);
+    await refused(() => ins("https://evil.example"), /notification_log_link_check/);
+    await db.query(`insert into public.notification_log (user_id, channel, kind, status, link) values ('${HOMEOWNER}', 'email', 'welcome', 'sent', '/trabajos/x')`);
   });
 });
 

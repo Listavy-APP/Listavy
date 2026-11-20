@@ -127,3 +127,18 @@ function formatDate(iso: string): string {
     year: "numeric",
   }).format(new Date(iso));
 }
+
+// Deep link stored with each sent notification (0098). The inbox opens it. Only internal paths pass.
+const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function linkFor(kind: string, data: Record<string, unknown>): string | null {
+  const job = typeof data.job_id === "string" && ID_RE.test(data.job_id) ? data.job_id : null;
+  const ticket = typeof data.ticket_id === "string" && ID_RE.test(data.ticket_id) ? data.ticket_id : null;
+  if (kind === "support_reply") return ticket ? `/ayuda/tickets/${ticket}` : "/ayuda/tickets";
+  if (kind.startsWith("recurring_")) return "/cuenta/recurrentes";
+  return job ? `/trabajos/${job}` : null;
+}
+
+export function safeLink(url: unknown): string | null {
+  return typeof url === "string" && url.startsWith("/") && !url.startsWith("//") && url.length <= 300 ? url : null;
+}

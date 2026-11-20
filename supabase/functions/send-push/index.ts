@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { safeLink } from "../_shared/notification-copy.ts";
 import webpush from "npm:web-push@3";
 
 // Sends a Web Push. Two modes, both called only by DB functions that post the vault push_secret:
@@ -63,7 +64,7 @@ Deno.serve(async (req: Request) => {
         { TTL: 3600 },
       );
       sent++;
-      if (userId) await admin.from("notification_log").insert({ user_id: userId, channel: "push", kind, status: "sent" });
+      if (userId) await admin.from("notification_log").insert({ user_id: userId, channel: "push", kind, status: "sent", link: safeLink(body.url) });
     } catch (err) {
       const status = (err as { statusCode?: number }).statusCode;
       if (status === 404 || status === 410) {

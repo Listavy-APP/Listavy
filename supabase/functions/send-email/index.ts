@@ -10,7 +10,7 @@
 // Requires secrets: RESEND_API_KEY, EMAIL_FROM (optional), APP_URL (optional), STRIPE_SECRET_KEY (optional).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { renderEmail } from "../_shared/notification-copy.ts";
+import { linkFor, renderEmail } from "../_shared/notification-copy.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -110,6 +110,6 @@ Deno.serve(async (req: Request) => {
     return json({ sent: false, reason: "provider" }, 502);
   }
 
-  await admin.from("notification_log").insert({ user_id: userId, channel: "email", kind, status: "sent" });
+  await admin.from("notification_log").insert({ user_id: userId, channel: "email", kind, status: "sent", link: linkFor(kind, data) });
   return json({ sent: true });
 });
