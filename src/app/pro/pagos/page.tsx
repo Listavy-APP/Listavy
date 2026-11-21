@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
@@ -43,6 +45,7 @@ function formatDate(iso: string): string {
  * Shows only payments for jobs where this pro is the assigned pro. No balance, no money actions.
  */
 export default async function ProPayoutsPage() {
+  const tm = await getTradeMap();
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -85,7 +88,7 @@ export default async function ProPayoutsPage() {
           {rows.map((r) => (
             <li key={r.id} className="job-card">
               <div className="job-card-top">
-                <strong>{r.job ? es.trades[r.job.trade as keyof typeof es.trades] ?? r.job.trade : "—"}</strong>
+                <strong>{r.job ? proLabelOf(tm, r.job.trade) : "—"}</strong>
                 <span className="status-pill">{STATUS_LABEL[r.status] ?? r.status}</span>
               </div>
               <div className="muted">

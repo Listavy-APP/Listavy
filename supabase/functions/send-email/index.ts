@@ -77,6 +77,14 @@ Deno.serve(async (req: Request) => {
     zone = job?.zone ?? undefined;
   }
 
+  // Professional name from the catalog, so new lines read correctly in mail (0109). Falls back in the copy module.
+  const tradeKey = trade ?? (typeof data.trade === "string" ? data.trade : undefined);
+  let tradeLabel: string | undefined;
+  if (tradeKey) {
+    const { data: t } = await admin.from("trades").select("pro_label_es, label_es").eq("key", tradeKey).maybeSingle();
+    tradeLabel = (t?.pro_label_es as string | null) ?? (t?.label_es as string | undefined) ?? undefined;
+  }
+
   const enriched: Record<string, unknown> = { ...data };
   if (kind === "receipt" && typeof data.payment_intent_id === "string") {
     const url = await receiptUrl(data.payment_intent_id);
@@ -87,6 +95,7 @@ Deno.serve(async (req: Request) => {
     appUrl: APP_URL,
     name: profile.full_name ?? null,
     trade,
+    tradeLabel,
     zone,
   });
   if (!email) return json({ error: "Tipo de correo no válido." }, 400);

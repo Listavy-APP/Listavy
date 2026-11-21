@@ -1,4 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- signed storage URLs; next/image needs a loader for them */
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
@@ -54,6 +56,7 @@ export default async function ViewAsJob({
 }: {
   params: Promise<{ userId: string; jobId: string }>;
 }) {
+  const tm = await getTradeMap();
   const { userId, jobId } = await params;
   if (!isUuid(userId) || !isUuid(jobId)) notFound();
   await connection();
@@ -87,7 +90,7 @@ export default async function ViewAsJob({
   return (
     <section className="stack">
       <BackBar href={`/admin/ver-como/${userId}/trabajos`} label={esViewAs.homeJobs} />
-      <h1>{es.trades[job.trade as keyof typeof es.trades] ?? job.trade}</h1>
+      <h1>{proLabelOf(tm, job.trade)}</h1>
       <p className="muted">
         {job.viewer_role === "homeowner" ? esViewAs.roleHomeowner : esViewAs.rolePro} · {job.zone} · {dateLabel(job.created_at)}
       </p>

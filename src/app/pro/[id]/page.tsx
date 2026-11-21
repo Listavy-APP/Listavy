@@ -6,7 +6,9 @@ import { jsonLdScript, pageMetadata } from "@/lib/seo/metadata";
 import { proJsonLd } from "@/lib/seo/jsonld";
 import { absoluteUrl } from "@/lib/seo/site";
 import { BackArrow } from "@/components/BackBar";
-import { getProCard, getProSchedule, getProStats, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
+import { getProCard, getProPublicExtras, getProSchedule, getProStats, getWorkPhotoUrls, isProBoosted } from "@/lib/data/pros";
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { es } from "@/lib/i18n/es";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { customerPhotoUrl } from "@/lib/storage/customerFiles";
@@ -35,7 +37,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const supabase = await createSupabaseServerClient();
   const pro = await getProCard(supabase, id);
   if (!pro) return { title: es.proDetail.title, robots: { index: false, follow: false } };
-  const tradeLabel = es.trades[pro.trade];
+  const tradeLabel = proLabelOf(await getTradeMap(), pro.trade);
   const name = pro.full_name ?? tradeLabel;
   const meta = pageMetadata({
     title: es.seo.proTitle(name, tradeLabel, pro.zone),
@@ -93,6 +95,9 @@ export default async function ProDetailPage({
   const ownerAccountPhoto = isOwner && !pro.avatar_path ? await customerPhotoUrl(supabase, (await getCurrentProfile(supabase))?.avatar_path ?? null) : null;
   const savedIds = userId ? await listSavedProIds(supabase, userId) : [];
   const boosted = await isProBoosted(supabase, pro.id);
+  const tm = await getTradeMap();
+  const tradeLabel = proLabelOf(tm, pro.trade);
+  const { customLine, specialties } = await getProPublicExtras(supabase, pro.id);
   const photos = signedIn ? await getWorkPhotoUrls(supabase, pro.id) : [];
   const summary = await getProReviewSummary(supabase, pro.id);
   const stats = await getProStats(supabase, pro.id);
@@ -119,8 +124,8 @@ export default async function ProDetailPage({
             __html: jsonLdScript(
               proJsonLd({
                 url: absoluteUrl(`/pro/${pro.id}`),
-                name: pro.full_name ?? es.trades[pro.trade],
-                tradeLabel: es.trades[pro.trade],
+                name: pro.full_name ?? tradeLabel,
+                tradeLabel,
                 zone: pro.zone,
                 image: avatarUrl(supabase, pro.avatar_path),
               }),
@@ -164,8 +169,10 @@ export default async function ProDetailPage({
         </div>
         {pro.pro_type === "company" && pro.razon_social ? <p className="sub">{pro.razon_social}</p> : null}
         <p className="sub">
-          {es.trades[pro.trade]} · {pro.zone}
+          {tradeLabel} · {pro.zone}
         </p>
+        {customLine ? <p className="sub">{es.proDetail.customLineLabel}: {customLine}</p> : null}
+        {specialties.length > 0 ? <p className="sub">{es.proDetail.specialtiesLabel}: {specialties.join(", ")}</p> : null}
         <div className="pro-badges">
           {pro.is_demo ? <span className="badge demo-badge">{es.proDetail.demoBadge}</span> : null}
           {boosted ? <span className="badge">{es.search.boostedLabel}</span> : null}
@@ -289,7 +296,7 @@ export default async function ProDetailPage({
                 {photos.map((src, i) => (
                   // Signed URLs change each request, so the image is not optimized by Next.
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={src} alt={es.a11y.photoOf(pro.full_name ?? es.trades[pro.trade], es.trades[pro.trade], i + 1)} loading="lazy" />
+                  <img key={i} src={src} alt={es.a11y.photoOf(pro.full_name ?? tradeLabel, tradeLabel, i + 1)} loading="lazy" />
                 ))}
               </div>
             )}

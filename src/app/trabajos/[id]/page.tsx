@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { BackArrow } from "@/components/BackBar";
 import { notFound, redirect } from "next/navigation";
 import { JobActions } from "./JobActions";
@@ -36,6 +38,7 @@ export default async function JobPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ pago?: string }>;
 }) {
+  const tm = await getTradeMap();
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const { pago } = await searchParams;
@@ -196,7 +199,7 @@ export default async function JobPage({
       {payCancelled ? <p className="muted" role="status">{es.jobs.payCancelled}</p> : null}
 
       <h1>
-        {es.trades[j.trade as keyof typeof es.trades] ?? j.trade} · {j.zone}
+        {proLabelOf(tm, j.trade)} · {j.zone}
       </h1>
       <p>{j.description}</p>
       <dl className="job-facts">

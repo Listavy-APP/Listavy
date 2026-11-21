@@ -2876,14 +2876,14 @@ await check("0094 price guides: anon and authenticated can call; output is aggre
     await seedGuidePro("00000000-0000-4000-9000-000000000402", "blacksmith", 1000, 2000);
     await seedGuidePro("00000000-0000-4000-9000-000000000403", "blacksmith", 1000, 2000);
     const anon = await asAnon("select * from public.get_price_guides()");
-    assert.equal(anon.rows.length, 7);
+    assert.equal(anon.rows.length, 18, "one row per active catalog trade (0109)");
     assert.deepEqual(Object.keys(anon.rows[0]).sort(), ["high_dop", "low_dop", "sample", "trade"]);
     const json = JSON.stringify(anon.rows);
     assert.ok(!json.includes("0000-4000-9000"), "no pro ids in output");
     const black = anon.rows.find((r) => r.trade === "blacksmith");
     assert.equal(black.sample, 3);
     const authed = await asUser(HOMEOWNER, "select count(*)::int as n from public.get_price_guides()");
-    assert.equal(authed.rows[0].n, 7);
+    assert.equal(authed.rows[0].n, 18);
   });
 });
 
@@ -4456,6 +4456,105 @@ await check("0105 approved pros: city and trade filters apply; search matches na
     assert.equal(wildcard.rows.length, 0, "a bare % matches no name literally");
   });
 });
+
+// 0109 · Trades catalog (Item 10, Part 1). Public read of active trades, no client writes,
+// foreign keys in place of the literal lists, super-admin create with reason and audit.
+// ---------------------------------------------------------------------------
+await check("0109 trades: anon reads 18 active trades; clients cannot write", async () => {
+  const anon = await asAnon("select key, slug from public.trades order by key");
+  assert.equal(anon.rows.length, 18);
+  for (const k of ["cleaning", "handyman", "plumber"]) assert.ok(anon.rows.some((r) => r.key === k), k);
+  await assert.rejects(
+    () => asAnon("insert into public.trades (key, label_es, slug) values ('zz_probe', 'Prueba', 'zz-probe')"),
+    (e) => e.code === "42501",
+  );
+});
+
+await check("0109 trades: jobs, pros and recurring_bookings use foreign keys, not literal lists", async () => {
+  const r = await db.query(
+    `select conname from pg_constraint
+      where conname in ('jobs_trade_fk','pros_trade_fk','recurring_bookings_trade_fk')
+         or conname in ('jobs_trade_check','pros_trade_check','recurring_bookings_trade_check')`,
+  );
+  const names = r.rows.map((x) => x.conname).sort();
+  assert.deepEqual(names, ["jobs_trade_fk", "pros_trade_fk", "recurring_bookings_trade_fk"]);
+});
+
+await check("0109 admin_upsert_trade: super admin creates with reason and audit; others refused", () => withRollback(async () => {
+  await expectCode(
+    () => asSession(ADMIN, "aal1", "select * from public.admin_upsert_trade('zz_probe','Prueba','zz-probe','{}','Motivo de prueba suficiente')"),
+    "42501",
+  );
+  await expectCode(
+    () => asSession(ADMIN, "aal2", "select * from public.admin_upsert_trade('zz_probe','Prueba','zz-probe','{}','corto')"),
+    "22023",
+  );
+  await expectCode(
+    () => asSession(ADMIN, "aal2", "select * from public.admin_upsert_trade('plumber','Plomería','plomeria-2','{}','Motivo de prueba suficiente')"),
+    "22023",
+  );
+  const row = await asSession(
+    ADMIN, "aal2",
+    "select key, slug from public.admin_upsert_trade('zz_probe','Prueba','zz-probe','{}','Motivo de prueba suficiente')",
+  );
+  assert.equal(row.rows[0].key, "zz_probe");
+  const audit = await db.query("select count(*)::int as n from public.admin_audit_log where action = 'trade_created' and details->>'key' = 'zz_probe'");
+  assert.equal(audit.rows[0].n, 1);
+}));
+
+// 0110 · Company write-in (Item 10, Part 4). Companies only; admin resolution with reason and audit.
+// ---------------------------------------------------------------------------
+await check("0110 custom line: individuals cannot carry a write-in", () => withRollback(async () => {
+  await expectCode(() => db.query(`update public.pros set custom_line = 'Bicicletas eléctricas' where id = '${PRO}'`), "23514");
+}));
+
+await check("0110 custom line: non-admins cannot resolve; a resolution happens once and is audited", () => withRollback(async () => {
+  await db.exec(`update public.pros set custom_line = 'Taller de bicicletas' where id = '${COMPANY_PRO}'`);
+  await expectCode(
+    () => asSession(HOMEOWNER, "aal2", `select public.admin_resolve_custom_line('${COMPANY_PRO}','profile_only',null,null,null,null,'Motivo de prueba suficiente')`),
+    "42501",
+  );
+  await expectCode(
+    () => asSession(ADMIN, "aal2", `select public.admin_resolve_custom_line('${COMPANY_PRO}','profile_only',null,null,null,null,'corto')`),
+    "22023",
+  );
+  await asSession(ADMIN, "aal2", `select public.admin_resolve_custom_line('${COMPANY_PRO}','profile_only',null,null,null,null,'Motivo de prueba suficiente')`);
+  const r = await db.query(`select custom_line_resolution from public.pros where id = '${COMPANY_PRO}'`);
+  assert.equal(r.rows[0].custom_line_resolution, "profile_only");
+  await expectCode(
+    () => asSession(ADMIN, "aal2", `select public.admin_resolve_custom_line('${COMPANY_PRO}','map','plumber',null,null,null,'Motivo de prueba suficiente')`),
+    "22023",
+  );
+  const audit = await db.query(`select count(*)::int as n from public.admin_audit_log where action = 'custom_line_resolved' and target_id = '${COMPANY_PRO}'`);
+  assert.equal(audit.rows[0].n, 1);
+}));
+
+await check("0110 custom line: map sets the primary catalog trade", () => withRollback(async () => {
+  await db.exec(`update public.pros set custom_line = 'Limpieza de oficinas' where id = '${COMPANY_PRO}'`);
+  await asSession(ADMIN, "aal2", `select public.admin_resolve_custom_line('${COMPANY_PRO}','map','cleaning',null,null,null,'Motivo de prueba suficiente')`);
+  const r = await db.query(`select trade, custom_line_resolution from public.pros where id = '${COMPANY_PRO}'`);
+  assert.equal(r.rows[0].trade, "cleaning");
+  assert.equal(r.rows[0].custom_line_resolution, "mapped");
+}));
+
+// 0110 · Folded specialties (Item 10, Part 1). Pro picks from the catalog list for their own trade.
+await check("0110 specialties: valid picks save; other trades' picks, direct writes, and non-pros are refused", () => withRollback(async () => {
+  await db.exec(`update public.pros set trade = 'cleaning' where id = '${PRO}'`);
+  await asUser(PRO, "select public.pro_set_specialties(array['Limpieza de hogar','Cisternas y tinacos','Limpieza de hogar'])");
+  const r = await db.query(`select specialties from public.pros where id = '${PRO}'`);
+  assert.deepEqual(r.rows[0].specialties, ["Cisternas y tinacos", "Limpieza de hogar"]);
+  await expectCode(() => asUser(PRO, "select public.pro_set_specialties(array['Piscinas'])"), "22023");
+  await expectCode(() => asUser(HOMEOWNER, "select public.pro_set_specialties(array['Limpieza de hogar'])"), "42501");
+  await expectCode(() => asSession(PRO, "aal2", "update public.pros set specialties = array['Jardinería'] where id = '" + PRO + "'"), "42501");
+  await expectCode(() => asSession(PRO, "aal2", `update public.pros set custom_line_resolution = 'profile_only' where id = '${PRO}'`), "42501");
+}));
+
+await check("0110 specialties: a resolved trade change clears the old specialties", () => withRollback(async () => {
+  await db.exec(`update public.pros set trade = 'cleaning', specialties = array['Jardinería'], custom_line = 'Taller de limpieza', pro_type = 'company' where id = '${COMPANY_PRO}'`);
+  await asSession(ADMIN, "aal2", `select public.admin_resolve_custom_line('${COMPANY_PRO}','map','moving',null,null,null,'Motivo de prueba suficiente')`);
+  const r = await db.query(`select specialties from public.pros where id = '${COMPANY_PRO}'`);
+  assert.deepEqual(r.rows[0].specialties, []);
+}));
 
 await db.close();
 

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
@@ -16,6 +18,7 @@ export const metadata = { title: es.saved.title };
 export const instant = false;
 
 export default async function SavedProsPage() {
+  const tm = await getTradeMap();
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -45,7 +48,7 @@ export default async function SavedProsPage() {
                 <strong>{p.full_name ?? es.proDetail.title}</strong>
               </div>
               <div className="muted">
-                {es.trades[p.trade]} · {p.zone}
+                {proLabelOf(tm, p.trade)} · {p.zone}
               </div>
             </Link>
           ))}

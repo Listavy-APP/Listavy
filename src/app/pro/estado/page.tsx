@@ -8,6 +8,8 @@ import { BoostPanel } from "./BoostPanel";
 import { ProPlanPanel } from "./ProPlanPanel";
 import { ManagePlanButton } from "./ManagePlanButton";
 import { BioForm } from "./BioForm";
+import { SpecialtiesForm } from "./SpecialtiesForm";
+import { getTradeMap } from "@/lib/data/trades-server";
 import { PricingZoneForm } from "./PricingZoneForm";
 import { AvailabilityToggle } from "@/components/AvailabilityToggle";
 import { connection } from "next/server";
@@ -32,6 +34,7 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
   if (!userData.user) redirect("/login?next=/pro/estado");
 
   const pro = await getMyPro(supabase);
+  const tm = await getTradeMap();
 
   // Current boost, if any. RLS limits this to the signed-in pro's own rows.
   const { data: activeBoost } = pro
@@ -150,6 +153,12 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
         <AvailabilityToggle proId={pro.id} initial={(pro as { available?: boolean }).available ?? true} />
       )}
       <PricingZoneForm initialMin={pro.price_min_dop} initialMax={pro.price_max_dop} initialZone={pro.zone} />
+      {pro.verification_status === "approved" && tm[pro.trade]?.specialties.length ? (
+        <SpecialtiesForm
+          initial={(pro as { specialties?: string[] }).specialties ?? []}
+          options={tm[pro.trade]!.specialties}
+        />
+      ) : null}
       {pro.verification_status === "approved" && <BioForm proId={pro.id} initial={(pro as { bio?: string | null }).bio ?? null} />}
       {pro.verification_status === "approved" && (() => {
         const planEnd = pro.plan_current_period_end ?? null;

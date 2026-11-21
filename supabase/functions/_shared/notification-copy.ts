@@ -2,10 +2,12 @@
 // email strings live here. Keep them in step with the app's wording when either changes.
 // Every template is plain text, like the verification email.
 
-export type CopyContext = { appUrl: string; name: string | null; trade?: string; zone?: string };
+/** tradeLabel: the professional name from the trades catalog (0109). Preferred over the fallback map. */
+export type CopyContext = { appUrl: string; name: string | null; trade?: string; tradeLabel?: string; zone?: string };
 
 export type RenderedEmail = { subject: string; text: string };
 
+/** Fallback names for the seven original trades only. The catalog (trades table) is the source; new lines always arrive as tradeLabel. */
 const TRADES: Record<string, string> = {
   plumber: "Plomero",
   electrician: "Electricista",
@@ -21,8 +23,8 @@ const OUTCOMES: Record<string, string> = {
   resolved_pro: "El caso se resolvió a favor del profesional.",
 };
 
-export function tradeName(trade: string | undefined): string {
-  return (trade && TRADES[trade]) || "Trabajo";
+export function tradeName(trade: string | undefined, label?: string): string {
+  return label || (trade && TRADES[trade]) || "Trabajo";
 }
 
 function greet(name: string | null): string {
@@ -30,7 +32,7 @@ function greet(name: string | null): string {
 }
 
 function jobLine(ctx: CopyContext): string {
-  return `${tradeName(ctx.trade)}${ctx.zone ? ` · ${ctx.zone}` : ""}`;
+  return `${tradeName(ctx.trade, ctx.tradeLabel)}${ctx.zone ? ` · ${ctx.zone}` : ""}`;
 }
 
 function footer(): string {
@@ -117,7 +119,7 @@ export function renderEmail(kind: string, data: Record<string, unknown>, ctx: Co
       };
     }
     case "recurring_auto_paused": {
-      const trade = tradeName(typeof data.trade === "string" ? data.trade : undefined);
+      const trade = tradeName(typeof data.trade === "string" ? data.trade : undefined, ctx.tradeLabel);
       return {
         subject: "Pausamos tu trabajo recurrente",
         text: `${hi}\n\nPausamos tu serie de trabajos recurrentes (${trade}) porque tu profesional ya no está disponible para este servicio. No se creará ninguna solicitud mientras la serie esté pausada.\n\nRevisa la serie y decide qué hacer: ${ctx.appUrl}/cuenta/recurrentes${footer()}`,

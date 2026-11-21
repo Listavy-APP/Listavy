@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { SignOutButton } from "./SignOutButton";
@@ -35,6 +37,7 @@ function formatDate(iso: string): string {
 }
 
 export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ como?: string }> }) {
+  const tm = await getTradeMap();
   const { como } = await searchParams;
   // Per-request render: the session and profile are read at request time.
   await connection();
@@ -272,7 +275,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             <JobCard
               key={j.id}
               href={`/trabajos/${j.id}`}
-              title={es.trades[j.trade as keyof typeof es.trades] ?? j.trade}
+              title={proLabelOf(tm, j.trade)}
               proName={j.pros?.profiles?.full_name ?? null}
               zone={j.zone}
               dateLabel={formatDate(j.created_at)}

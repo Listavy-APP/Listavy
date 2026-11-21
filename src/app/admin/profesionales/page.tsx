@@ -4,7 +4,9 @@ import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
 import { ViewAsButton } from "@/components/ViewAsButton";
 import { getCurrentProfile } from "@/lib/data/profiles";
-import { CITIES, TRADES } from "@/lib/domain/catalog";
+import { CITIES } from "@/lib/domain/catalog";
+import { getTradeCatalog, getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -36,7 +38,9 @@ export default async function AdminApprovedProsPage({
   if (!profile || profile.role !== "admin") notFound();
 
   const cityFilter = (CITIES as readonly string[]).includes(city) ? city : null;
-  const tradeFilter = (TRADES as readonly string[]).includes(trade) ? trade : null;
+  const catalog = await getTradeCatalog();
+  const tm = await getTradeMap();
+  const tradeFilter = catalog.some((t) => t.key === trade) ? trade : null;
 
   // admin_list_approved_pros() is SECURITY DEFINER and checks is_admin() (AAL2). Read-only, list columns only.
   const { data, error } = await supabase.rpc("admin_list_approved_pros", {
@@ -71,8 +75,8 @@ export default async function AdminApprovedProsPage({
           {es.adminPros.tradeLabel}
           <select name="trade" defaultValue={tradeFilter ?? ""}>
             <option value="">{es.adminPros.allTrades}</option>
-            {TRADES.map((t) => (
-              <option key={t} value={t}>{es.trades[t]}</option>
+            {catalog.map((t) => (
+              <option key={t.key} value={t.key}>{t.proLabel}</option>
             ))}
           </select>
         </label>
@@ -84,7 +88,7 @@ export default async function AdminApprovedProsPage({
         <article key={p.id} className="card stack">
           <h2>{p.full_name ?? es.adminPros.noName}</h2>
           <dl className="stack">
-            <div><dt className="muted">{es.trades[p.trade as keyof typeof es.trades] ?? p.trade}</dt><dd>{p.zone}, {es.cities[p.city as keyof typeof es.cities] ?? p.city}</dd></div>
+            <div><dt className="muted">{proLabelOf(tm, p.trade)}</dt><dd>{p.zone}, {es.cities[p.city as keyof typeof es.cities] ?? p.city}</dd></div>
             <div><dt className="muted">{es.adminPros.plan}</dt><dd>{p.plan === "pro" ? es.adminPros.planPro : es.adminPros.planFree}</dd></div>
             <div><dt className="muted">{es.adminPros.available}</dt><dd>{p.available ? es.adminPros.availableYes : es.adminPros.availableNo}</dd></div>
           </dl>

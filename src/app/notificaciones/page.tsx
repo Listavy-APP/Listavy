@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
@@ -30,6 +32,7 @@ function disputeDeadline(due: Date, now: Date): string {
 }
 
 export default async function NotificationsInboxPage() {
+  const tm = await getTradeMap();
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -83,7 +86,7 @@ export default async function NotificationsInboxPage() {
             <article key={d.id} className="card stack">
               <p className="muted">{es.notifications.disputeOpen}</p>
               <p>
-                <strong>{es.trades[d.job?.trade as keyof typeof es.trades] ?? d.job?.trade}</strong>
+                <strong>{proLabelOf(tm, d.job?.trade)}</strong>
                 {d.job?.approved_quote ? ` · RD$${d.job.approved_quote.amount_dop.toLocaleString("es-DO")}` : ""}
               </p>
               <p className="muted">{disputeDeadline(new Date(d.evidence_due_at as string), now)}</p>

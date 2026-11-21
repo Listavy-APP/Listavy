@@ -5,8 +5,32 @@ import { es } from "../i18n/es.ts";
 import { pageMetadata, jsonLdScript } from "../seo/metadata.ts";
 import { proJsonLd, tradeJsonLd } from "../seo/jsonld.ts";
 import { buildSitemapEntries, isPrivateUrl, type SitemapProRow } from "../seo/sitemap.ts";
-import { TRADES } from "./catalog.ts";
-import { PRIVATE_PATHS, PUBLIC_STATIC_PATHS, SITE_URL, TRADE_VIEWS, tradeViewPath } from "../seo/site.ts";
+import { PRIVATE_PATHS, PUBLIC_STATIC_PATHS, SITE_URL, tradeViewPath } from "../seo/site.ts";
+
+/**
+ * The trade views, one per active catalog trade. Mirrors the seed in migration 0109.
+ * The RLS suite checks the database side (18 active rows, slugs present).
+ */
+const TRADE_VIEWS = [
+  { slug: "plomeria", trade: "plumber", proLabel: "Plomero" },
+  { slug: "electricidad", trade: "electrician", proLabel: "Electricista" },
+  { slug: "aire-acondicionado", trade: "ac_technician", proLabel: "Técnico de aire acondicionado" },
+  { slug: "pintura", trade: "painter", proLabel: "Pintor" },
+  { slug: "cerrajeria", trade: "locksmith", proLabel: "Cerrajero" },
+  { slug: "carpinteria", trade: "carpenter", proLabel: "Carpintero" },
+  { slug: "herreria", trade: "blacksmith", proLabel: "Herrero" },
+  { slug: "limpieza", trade: "cleaning", proLabel: "Limpieza" },
+  { slug: "energia-y-respaldo", trade: "energy_backup", proLabel: "Energía y respaldo" },
+  { slug: "construccion-y-remodelacion", trade: "construction", proLabel: "Construcción y remodelación" },
+  { slug: "tecnologia-e-instalaciones", trade: "tech_install", proLabel: "Tecnología e instalaciones" },
+  { slug: "exteriores", trade: "exteriors", proLabel: "Exteriores" },
+  { slug: "fumigacion", trade: "pest_control", proLabel: "Fumigación y control de plagas" },
+  { slug: "electrodomesticos", trade: "appliance_repair", proLabel: "Reparación de electrodomésticos" },
+  { slug: "mudanzas", trade: "moving", proLabel: "Mudanzas y fletes" },
+  { slug: "vidrios-y-ventanas", trade: "glass_windows", proLabel: "Vidrios y ventanas" },
+  { slug: "tapiceria", trade: "upholstery", proLabel: "Tapicería" },
+  { slug: "servicios-generales", trade: "handyman", proLabel: "Servicios generales" },
+] as const;
 
 const NOW = new Date("2026-11-20T10:00:00Z");
 const APPROVED = "00000000-0000-4000-8000-00000000a001";
@@ -24,7 +48,7 @@ const fixtures: SitemapProRow[] = [
   { id: APPROVED, verification_status: "approved", is_demo: false, verified_at: "2026-11-01T12:00:00Z" },
 ];
 
-const urls = buildSitemapEntries(fixtures, NOW).map((e) => e.url);
+const urls = buildSitemapEntries(fixtures, NOW, TRADE_VIEWS).map((e) => e.url);
 const has = (path: string) => urls.includes(new URL(path, SITE_URL).toString());
 
 test("sitemap: approved non-demo pros are in, once each", () => {
@@ -44,9 +68,9 @@ test("sitemap: public static routes and trade views are in", () => {
   for (const v of TRADE_VIEWS) assert.ok(has(tradeViewPath(v.slug)), v.slug);
 });
 
-test("trade views: every catalog trade has exactly one view, slugs unique", () => {
-  const covered = TRADE_VIEWS.map((v) => v.trade).sort();
-  assert.deepEqual(covered, [...TRADES].sort(), "one view per catalog trade");
+test("trade views: one view per catalog trade, slugs unique", () => {
+  assert.equal(TRADE_VIEWS.length, 18, "one view per active catalog trade (0109 seed)");
+  assert.equal(new Set(TRADE_VIEWS.map((v) => v.trade)).size, TRADE_VIEWS.length, "trades unique");
   assert.equal(new Set(TRADE_VIEWS.map((v) => v.slug)).size, TRADE_VIEWS.length, "slugs unique");
 });
 
@@ -56,7 +80,7 @@ test("sitemap: no private path appears, anywhere", () => {
 });
 
 test("sitemap: lastmod for a pro comes from approval; falls back to now", () => {
-  const entries = buildSitemapEntries(fixtures, NOW);
+  const entries = buildSitemapEntries(fixtures, NOW, TRADE_VIEWS);
   const approved = entries.find((e) => e.url.endsWith(`/pro/${APPROVED}`));
   const noDate = entries.find((e) => e.url.endsWith(`/pro/${APPROVED_TWO}`));
   assert.ok(approved && noDate);
@@ -65,7 +89,7 @@ test("sitemap: lastmod for a pro comes from approval; falls back to now", () => 
 });
 
 test("sitemap: a pro who drops out of the rows drops out of the output", () => {
-  const after = buildSitemapEntries(fixtures.filter((r) => r.id !== APPROVED), NOW).map((e) => e.url);
+  const after = buildSitemapEntries(fixtures.filter((r) => r.id !== APPROVED), NOW, TRADE_VIEWS).map((e) => e.url);
   assert.equal(after.some((u) => u.endsWith(`/pro/${APPROVED}`)), false);
 });
 
@@ -75,8 +99,8 @@ test("metadata: every public route has a unique title and description, and an ab
     { title: es.seo.searchTitle, description: es.seo.searchDescription, path: "/buscar" },
     { title: es.priceGuide.metaTitle, description: es.priceGuide.metaDescription, path: "/precios" },
     ...TRADE_VIEWS.map((v) => ({
-      title: es.seo.tradeTitle(es.trades[v.trade]),
-      description: es.seo.tradeDescription(es.trades[v.trade]),
+      title: es.seo.tradeTitle(v.proLabel),
+      description: es.seo.tradeDescription(v.proLabel),
       path: tradeViewPath(v.slug),
     })),
     ...fixtures

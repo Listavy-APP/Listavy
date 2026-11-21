@@ -1,4 +1,6 @@
 import { connection } from "next/server";
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { BackBar } from "@/components/BackBar";
 import { EmptyState } from "@/components/EmptyState";
 import { JobCard } from "@/components/JobCard";
@@ -24,6 +26,7 @@ const dateLabel = (iso: string) =>
   new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
 
 export default async function ViewAsJobs({ params }: { params: Promise<{ userId: string }> }) {
+  const tm = await getTradeMap();
   const { userId } = await params;
   await connection();
   const supabase = await createSupabaseServerClient();
@@ -40,7 +43,7 @@ export default async function ViewAsJobs({ params }: { params: Promise<{ userId:
             <JobCard
               key={`${j.viewer_role}-${j.job_id}`}
               href={`/admin/ver-como/${userId}/trabajos/${j.job_id}`}
-              title={es.trades[j.trade as keyof typeof es.trades] ?? j.trade}
+              title={proLabelOf(tm, j.trade)}
               proName={j.pro_name}
               zone={j.zone}
               dateLabel={dateLabel(j.created_at)}

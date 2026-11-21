@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf, type CatalogTrade } from "@/lib/data/trades";
 import { connection } from "next/server";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { listMyJobs, listProJobs, type CustomerJob } from "@/lib/data/customer";
@@ -17,14 +19,14 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-DO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
 }
 
-function JobList({ jobs, showPro }: { jobs: CustomerJob[]; showPro: boolean }) {
+function JobList({ jobs, showPro, tm }: { jobs: CustomerJob[]; showPro: boolean; tm: Record<string, CatalogTrade> }) {
   return (
     <div className="cards">
       {jobs.map((j) => (
         <JobCard
           key={j.id}
           href={`/trabajos/${j.id}`}
-          title={es.trades[j.trade as keyof typeof es.trades] ?? j.trade}
+          title={proLabelOf(tm, j.trade)}
           proName={j.pros?.profiles?.full_name ?? null}
           zone={j.zone}
           dateLabel={formatDate(j.created_at)}
@@ -45,6 +47,7 @@ function JobList({ jobs, showPro }: { jobs: CustomerJob[]; showPro: boolean }) {
 }
 
 export default async function TrabajosPage() {
+  const tm = await getTradeMap();
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -66,13 +69,13 @@ export default async function TrabajosPage() {
           {clientJobs.length > 0 && (
             <div className="hub-group">
               <h2>{es.trabajos.asClient}</h2>
-              <JobList jobs={clientJobs} showPro />
+              <JobList jobs={clientJobs} showPro tm={tm} />
             </div>
           )}
           {proJobs.length > 0 && (
             <div className="hub-group">
               <h2>{es.trabajos.asPro}</h2>
-              <JobList jobs={proJobs} showPro={false} />
+              <JobList jobs={proJobs} showPro={false} tm={tm} />
             </div>
           )}
         </>

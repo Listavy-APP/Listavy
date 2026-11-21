@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { es } from "@/lib/i18n/es";
 import { pageMetadata } from "@/lib/seo/metadata";
-import { TRADES } from "@/lib/domain/catalog";
+import { getTradeCatalog } from "@/lib/data/trades-server";
 import { DIAGNOSTIC_BAND_DOP, formatRange, guideFor, type PriceGuideRow } from "@/lib/domain/price-guides";
 import { listPriceGuides } from "@/lib/data/price-guides";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -26,6 +26,7 @@ export default function PriceGuidePage() {
 async function PriceGuideContent() {
   await connection();
   const supabase = await createSupabaseServerClient();
+  const catalog = await getTradeCatalog();
   let rows: PriceGuideRow[] | null = null;
   try {
     rows = await listPriceGuides(supabase);
@@ -50,11 +51,12 @@ async function PriceGuideContent() {
           <p>{es.priceGuide.loadError}</p>
         </div>
       ) : (
-        TRADES.map((trade) => {
+        catalog.map((item) => {
+          const trade = item.key;
           const guide = guideFor(rows, trade);
           return (
             <div className="panel stack" key={trade}>
-              <h2>{es.trades[trade]}</h2>
+              <h2>{item.proLabel}</h2>
               {guide ? (
                 <>
                   <p>

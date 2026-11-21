@@ -5,7 +5,9 @@ import { getProCardsByIds, listBoostedProIds, listProCards } from "@/lib/data/pr
 import { getProReviewSummary, type ReviewSummary } from "@/lib/data/reviews";
 import { es } from "@/lib/i18n/es";
 import { pageMetadata } from "@/lib/seo/metadata";
-import { DEFAULT_CITY, TRADES, cityOfZone, isCity, isTrade, isZone, type City } from "@/lib/domain/catalog";
+import { DEFAULT_CITY, cityOfZone, isCity, isZone, type City } from "@/lib/domain/catalog";
+import { getTradeCatalog, getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { filterPros, parseDate, parseSort, sortPros, type SortKey } from "@/lib/domain/discovery";
 import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -30,7 +32,9 @@ type Params = {
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
-  const trade = params.trade && isTrade(params.trade) ? params.trade : null;
+  const catalog = await getTradeCatalog();
+  const tm = await getTradeMap();
+  const trade = params.trade && catalog.some((t) => t.key === params.trade) ? params.trade : null;
   const zone = params.zone && isZone(params.zone) ? params.zone : null;
   // A chosen zone decides the city. Otherwise the city param, default Santo Domingo.
   const city: City = zone
@@ -101,7 +105,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       available: p.available,
       name: p.full_name,
       trade: p.trade,
-      tradeLabel: es.trades[p.trade],
+      tradeLabel: proLabelOf(tm, p.trade),
       zone: p.zone,
       priceLabel: `${es.search.priceRange}: ${es.money.dop(p.price_min_dop)} – ${es.money.dop(p.price_max_dop)}`,
       reviewLabel,
@@ -180,9 +184,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <Link className={`chip${trade === null ? " on" : ""}`} href={carry({ trade: null })}>
             {es.search.all}
           </Link>
-          {TRADES.map((t) => (
-            <Link key={t} className={`chip${trade === t ? " on" : ""}`} href={carry({ trade: t })}>
-              {es.trades[t]}
+          {catalog.map((t) => (
+            <Link key={t.key} className={`chip${trade === t.key ? " on" : ""}`} href={carry({ trade: t.key })}>
+              {t.proLabel}
             </Link>
           ))}
         </div>

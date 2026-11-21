@@ -9,6 +9,7 @@ import { FilePick } from "@/components/ui/FilePick";
 import { TextArea } from "@/components/ui/TextArea";
 import { createJobRequest, setLocationConsent, uploadJobFile, type JobType, type RequestedType } from "@/lib/data/jobs";
 import { es } from "@/lib/i18n/es";
+import { proLabelOf, type CatalogTrade } from "@/lib/data/trades";
 import { resizeImage } from "@/lib/media/resize";
 import { cityOfZone } from "@/lib/domain/catalog";
 import { formatRange, type PriceGuide } from "@/lib/domain/price-guides";
@@ -18,7 +19,7 @@ import { SCHEDULE_WINDOWS, maxScheduleDate, santoDomingoToday, scheduleProblem, 
 
 type ProOption = { id: string; name: string | null; trade: string; zone: string; pro_type: "individual" | "company" };
 
-export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: PriceGuide | null }) {
+export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: PriceGuide | null; trades: Record<string, CatalogTrade> }) {
   const router = useRouter();
   const trade = props.pros[0].trade;
   const sameTrade = props.pros.every((p) => p.trade === trade);
@@ -137,7 +138,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
       <ul className="list">
         {props.pros.map((p) => (
           <li key={p.id}>
-            <strong>{p.name ?? "—"}</strong> · {es.trades[p.trade as keyof typeof es.trades] ?? p.trade}
+            <strong>{p.name ?? "—"}</strong> · {proLabelOf(props.trades, p.trade)}
           </li>
         ))}
       </ul>

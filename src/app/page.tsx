@@ -5,7 +5,9 @@ import { es } from "@/lib/i18n/es";
 import { pageMetadata } from "@/lib/seo/metadata";
 
 export const metadata = pageMetadata({ title: es.seo.homeTitle, description: es.seo.homeDescription, path: "/" });
-import { TRADES, DEFAULT_CITY, CITIES, isCity, type City } from "@/lib/domain/catalog";
+import { DEFAULT_CITY, CITIES, isCity, type City } from "@/lib/domain/catalog";
+import { getTradeCatalog } from "@/lib/data/trades-server";
+import { proLabelOf, tradeMap } from "@/lib/data/trades";
 import { getMyReferralCode, referralProgramEnabled } from "@/lib/data/referrals";
 import { listProCards } from "@/lib/data/pros";
 import { verifiedKindsByPro } from "@/lib/data/verifiedFlags";
@@ -17,7 +19,8 @@ import { InstallBanner } from "@/components/home/InstallBanner";
 import type { ProCard } from "@/lib/types/database";
 
 /** Representative category photos only. They do not show a specific pro. */
-const CAT_PHOTO: Record<(typeof TRADES)[number], string> = {
+/** Lines without an entry here get the designed fallback tile (no stock photos). */
+const CAT_PHOTO: Record<string, string> = {
   plumber: "/categories/plomero.jpg",
   electrician: "/categories/electricista.jpg",
   ac_technician: "/categories/aire-acondicionado.jpg",
@@ -53,6 +56,8 @@ async function HomeContent({
   const city: City = params.city && isCity(params.city) ? params.city : DEFAULT_CITY;
 
   const supabase = await createSupabaseServerClient();
+  const catalog = await getTradeCatalog();
+  const tm = tradeMap(catalog);
   const referralOn = await referralProgramEnabled(supabase);
   const { data: userData } = await supabase.auth.getUser();
   const code = referralOn && userData.user ? await getMyReferralCode(supabase) : null;
@@ -93,8 +98,8 @@ async function HomeContent({
             <span>{es.discover.whatNeed}</span>
             <select name="trade" defaultValue="">
               <option value="">{es.search.all}</option>
-              {TRADES.map((t) => (
-                <option key={t} value={t}>{es.discover.tileNames[t]}</option>
+              {catalog.map((t) => (
+                <option key={t.key} value={t.key}>{t.label}</option>
               ))}
             </select>
           </label>
@@ -125,13 +130,18 @@ async function HomeContent({
       <section id="oficios" className="home-sec">
         <h2>{es.discover.tilesTitle}</h2>
         <div className="tile-grid">
-          {TRADES.map((t) => {
-            const min = minByTrade.get(t);
+          {catalog.map((t) => {
+            const min = minByTrade.get(t.key);
+            const photo = CAT_PHOTO[t.key];
             return (
-              <Link key={t} className="tile" href={`/buscar?trade=${t}&city=${city}`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img className="tile-photo" src={CAT_PHOTO[t]} alt="" loading="lazy" />
-                <span className="tile-name">{es.discover.tileNames[t]}</span>
+              <Link key={t.key} className="tile" href={`/buscar?trade=${t.key}&city=${city}`}>
+                {photo ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img className="tile-photo" src={photo} alt="" loading="lazy" />
+                ) : (
+                  <span className="tile-photo tile-photo-fallback" aria-hidden="true" />
+                )}
+                <span className="tile-name">{t.label}</span>
                 {min !== undefined ? <span className="tile-price">{es.discover.tileFrom(es.money.dop(min))}</span> : null}
               </Link>
             );
@@ -149,7 +159,7 @@ async function HomeContent({
           </div>
         ) : (
           <div className="rail">
-            {nearby.map((p) => <ProMiniCard key={p.id} pro={p} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
+            {nearby.map((p) => <ProMiniCard key={p.id} pro={p} tradeLabel={proLabelOf(tm, p.trade)} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
           </div>
         )}
       </section>
@@ -163,7 +173,7 @@ async function HomeContent({
           </div>
         ) : (
           <div className="rail">
-            {newest.map((p) => <ProMiniCard key={p.id} pro={p} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
+            {newest.map((p) => <ProMiniCard key={p.id} pro={p} tradeLabel={proLabelOf(tm, p.trade)} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
           </div>
         )}
       </section>

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { BackBar } from "@/components/BackBar";
@@ -20,6 +22,7 @@ const money = (n: number) => `RD$${Math.round(n).toLocaleString("es-DO")}`;
  * This is not a fiscal document. No NCF or DGII fields (gated separately).
  */
 export default async function AnnualStatementPage({ searchParams }: { searchParams: Promise<{ anio?: string }> }) {
+  const tm = await getTradeMap();
   await connection();
   const { anio } = await searchParams;
   const supabase = await createSupabaseServerClient();
@@ -90,7 +93,7 @@ export default async function AnnualStatementPage({ searchParams }: { searchPara
                     {statement.lines.map((l) => (
                       <li key={l.id} className="statement-line">
                         <div className="job-card-top">
-                          <strong>{l.kind === "fee" ? es.proStatement.feeLine : (es.trades[l.trade as keyof typeof es.trades] ?? l.trade)}</strong>
+                          <strong>{l.kind === "fee" ? es.proStatement.feeLine : (proLabelOf(tm, l.trade))}</strong>
                           <span className="muted">{l.released_on}</span>
                         </div>
                         <div className="muted">{l.zone}</div>

@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { getTradeMap } from "@/lib/data/trades-server";
+import { proLabelOf } from "@/lib/data/trades";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { PendingProActions } from "./PendingProActions";
+import { CustomLineResolver } from "./CustomLineResolver";
+import { getTradeCatalog } from "@/lib/data/trades-server";
 import { ViewAsButton } from "@/components/ViewAsButton";
 import { BackBar } from "@/components/BackBar";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -23,6 +27,8 @@ type PendingPro = {
   pro_type: string;
   full_name: string | null;
   phone: string | null;
+  custom_line: string | null;
+  custom_line_resolution: string | null;
 };
 
 type FileRow = { pro_id: string; kind: string; storage_path: string };
@@ -38,6 +44,8 @@ function dateTime(iso: string) {
 }
 
 export default async function AdminPendingProsPage() {
+  const tm = await getTradeMap();
+  const catalog = await getTradeCatalog();
   await connection();
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentProfile(supabase);
@@ -107,7 +115,7 @@ export default async function AdminPendingProsPage() {
             ) : null}
             <dl className="stack">
               <div><dt className="muted">{es.adminPending.phone}</dt><dd>{pro.phone ?? "—"}</dd></div>
-              <div><dt className="muted">{es.trades[pro.trade as keyof typeof es.trades] ?? pro.trade}</dt><dd>{pro.zone}, {pro.city}</dd></div>
+              <div><dt className="muted">{proLabelOf(tm, pro.trade)}</dt><dd>{pro.zone}, {pro.city}</dd></div>
               <div><dt className="muted">{es.adminPending.price}</dt><dd>{dop(pro.price_min_dop)} – {dop(pro.price_max_dop)}</dd></div>
               <div><dt className="muted">{es.adminPending.applied}</dt><dd>{dateTime(pro.created_at)}</dd></div>
             </dl>
@@ -134,6 +142,9 @@ export default async function AdminPendingProsPage() {
             <p><Link href={`/pro/${pro.id}`}>{es.adminPending.viewProfile}</Link></p>
             <p className="muted">ID: {pro.id}</p>
 
+            {pro.custom_line && !pro.custom_line_resolution ? (
+              <CustomLineResolver proId={pro.id} customLine={pro.custom_line} trades={catalog} isSuper={profile?.admin_role === "super_admin"} />
+            ) : null}
             <PendingProActions proId={pro.id} />
             {profile.admin_role === "super_admin" ? <ViewAsButton userId={pro.id} /> : null}
           </article>

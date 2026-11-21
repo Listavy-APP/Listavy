@@ -1,14 +1,14 @@
-import { absoluteUrl, PRIVATE_PATHS, PUBLIC_STATIC_PATHS, TRADE_VIEWS, tradeViewPath } from "./site.ts";
+import { absoluteUrl, PRIVATE_PATHS, PUBLIC_STATIC_PATHS, tradeViewPath, type TradeViewSlug } from "./site.ts";
 
 /** Pro rows the sitemap reads: approved and non-demo only. The query filters; this rebuilds the rule. */
 export type SitemapProRow = { id: string; verification_status: string; is_demo: boolean; verified_at: string | null };
 export type SitemapEntry = { url: string; lastModified: Date };
 
 /** Pure builder. Public static routes, trade views, and approved non-demo pro profiles. Never private paths. */
-export function buildSitemapEntries(pros: SitemapProRow[], now: Date): SitemapEntry[] {
+export function buildSitemapEntries(pros: SitemapProRow[], now: Date, views: readonly TradeViewSlug[]): SitemapEntry[] {
   const entries: SitemapEntry[] = [];
   for (const path of PUBLIC_STATIC_PATHS) entries.push({ url: absoluteUrl(path), lastModified: now });
-  for (const view of TRADE_VIEWS) entries.push({ url: absoluteUrl(tradeViewPath(view.slug)), lastModified: now });
+  for (const view of views) entries.push({ url: absoluteUrl(tradeViewPath(view.slug)), lastModified: now });
 
   const seen = new Set<string>();
   for (const row of pros) {
