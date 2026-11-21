@@ -1108,6 +1108,8 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .tile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .tile { position: relative; display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; background: #0B132B; color: #F8FAFC; text-decoration: none; min-height: 120px; }
 .tile-photo { width: 100%; height: 90px; object-fit: cover; opacity: .85; }
+/* Designed fallback for catalog lines without a category photo. Brand navy to cobalt. */
+.tile-photo-fallback { display: block; background: linear-gradient(135deg, #0B132B 0%, #1E3A8A 100%); }
 .tile-name { padding: 8px 10px 0; font-weight: 700; }
 .tile-price { padding: 0 10px 10px; font-size: 13px; color: #93C5FD; }
 .rail { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x mandatory; }

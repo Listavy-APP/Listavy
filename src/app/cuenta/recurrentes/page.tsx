@@ -1,3 +1,4 @@
+import { getTradeMap } from "@/lib/data/trades-server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -13,6 +14,7 @@ export const metadata = { title: es.recurring.title };
 export const instant = false;
 
 export default async function RecurringPage() {
+  const tm = await getTradeMap();
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -33,7 +35,7 @@ export default async function RecurringPage() {
           </Link>
         </div>
       ) : (
-        <RecurringList rows={rows} />
+        <RecurringList rows={rows} trades={tm} />
       )}
     </section>
   );

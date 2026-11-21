@@ -5,7 +5,7 @@ import type { VerifiedKind } from "@/lib/domain/verifiedIcon";
 import { VerifiedIcon } from "@/components/VerifiedIcon";
 
 /** Compact verified-pro card for the home rails. No rating: reviews are not shown until they exist. */
-export function ProMiniCard({ pro, avatarSrc, verified }: { pro: ProCard; avatarSrc: string | null; verified: VerifiedKind | null }) {
+export function ProMiniCard({ pro, tradeLabel, avatarSrc, verified }: { pro: ProCard; tradeLabel: string; avatarSrc: string | null; verified: VerifiedKind | null }) {
   return (
     <Link className="mini-card" href={`/pro/${pro.id}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -15,7 +15,7 @@ export function ProMiniCard({ pro, avatarSrc, verified }: { pro: ProCard; avatar
           {pro.full_name ?? ""}
           {verified ? <> <VerifiedIcon kind={verified} /></> : null}
         </span>
-        <span className="muted">{es.trades[pro.trade]} · {pro.zone}</span>
+        <span className="muted">{tradeLabel} · {pro.zone}</span>
         <span className="muted">{es.search.priceRange}: {es.money.dop(pro.price_min_dop)} – {es.money.dop(pro.price_max_dop)}</span>
       </span>
     </Link>

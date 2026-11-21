@@ -1,3 +1,4 @@
+import { getTradeMap } from "@/lib/data/trades-server";
 import { redirect } from "next/navigation";
 import { RequestForm } from "./RequestForm";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -21,6 +22,7 @@ export default async function RequestPage({
   searchParams: Promise<{ pro?: string }>;
 }) {
     // Per-request render: the session is read at request time.
+  const tm = await getTradeMap();
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -105,6 +107,7 @@ export default async function RequestPage({
       userId={userData.user.id}
       pros={cards.map((c) => ({ id: c.id, name: c.full_name, trade: c.trade, zone: c.zone, pro_type: c.pro_type }))}
       guide={guide}
+      trades={tm}
     />
     </>
   );

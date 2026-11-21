@@ -6,13 +6,14 @@ import { setRecurringStatus, type RecurringRow } from "@/lib/data/recurring";
 import { frequencyLine } from "@/lib/domain/recurring";
 import { formatScheduleDate } from "@/lib/domain/schedule";
 import { es } from "@/lib/i18n/es";
+import { proLabelOf, type CatalogTrade } from "@/lib/data/trades";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Action = "pause" | "resume" | "cancel";
 type Pending = { id: string; action: Action } | null;
 
 /** Pausar, Reanudar and Cancelar. Each pause and cancel asks once more inline. No window.confirm. */
-export function RecurringList({ rows }: { rows: RecurringRow[] }) {
+export function RecurringList({ rows, trades }: { rows: RecurringRow[]; trades: Record<string, CatalogTrade> }) {
   const router = useRouter();
   const [pending, setPending] = useState<Pending>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -36,7 +37,7 @@ export function RecurringList({ rows }: { rows: RecurringRow[] }) {
     <div className="stack">
       {error ? <p className="error" role="alert">{error}</p> : null}
       {rows.map((row) => {
-        const trade = (es.trades as Record<string, string>)[row.trade] ?? row.trade;
+        const trade = proLabelOf(trades, row.trade);
         const isPending = pending?.id === row.id ? pending.action : null;
         const busy = busyId === row.id;
         return (

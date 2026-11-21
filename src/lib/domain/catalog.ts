@@ -1,15 +1,5 @@
-import type { Trade } from "@/lib/types/database";
-
-/** Trades offered in v1. Must match the check constraints in the migrations. */
-export const TRADES: readonly Trade[] = [
-  "plumber",
-  "electrician",
-  "ac_technician",
-  "painter",
-  "locksmith",
-  "carpenter",
-  "blacksmith",
-] as const;
+/** Trade keys are not a literal list: they come from the trades catalog (migration 0109). */
+export type TradeKey = string;
 
 /** Cities. Must match the city check constraints in migrations 0054. */
 export const CITIES = ["santo_domingo", "santiago", "puerto_plata", "la_romana"] as const;
@@ -69,10 +59,6 @@ export type Zone =
   | (typeof SANTIAGO_ZONES)[number]
   | (typeof PUERTO_PLATA_ZONES)[number]
   | (typeof LA_ROMANA_ZONES)[number];
-
-export function isTrade(value: string): value is Trade {
-  return (TRADES as readonly string[]).includes(value);
-}
 
 export function isCity(value: string): value is City {
   return (CITIES as readonly string[]).includes(value);

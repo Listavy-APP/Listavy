@@ -6,7 +6,8 @@
  */
 
 export type Role = "homeowner" | "pro" | "admin";
-export type Trade = "plumber" | "electrician" | "ac_technician" | "painter" | "locksmith" | "carpenter" | "blacksmith";
+/** A catalog trade key (table public.trades). Not a literal union: new lines are added at runtime. */
+export type Trade = string;
 export type VerificationStatus = "pending" | "approved" | "suspended" | "rejected";
 export type ProPlan = "free" | "pro";
 export type ProType = "individual" | "company";

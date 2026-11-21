@@ -33,11 +33,13 @@ export interface ProApplicationInput {
   company?: CompanyInput;
   /** Optional profile photo. Shown only after an admin approves it. */
   avatar?: Blob;
+  /** Companies only: free-text line of work (migration 0110). Admin resolves it after signup. */
+  customLine?: string;
 }
 
 /** Columns the signed-in pro may read directly. Private columns come from get_my_pro_status(). */
 const OWN_PRO_COLUMNS =
-  "id, trade, zone, price_min_dop, price_max_dop, verification_status, verified_at, plan, pro_type, created_at, bio, available, is_demo";
+  "id, trade, zone, price_min_dop, price_max_dop, verification_status, verified_at, plan, pro_type, created_at, bio, available, is_demo, specialties";
 
 /** Returns the signed-in user's pro application, or null. */
 export async function getMyPro(supabase: SupabaseClient): Promise<Pro | null> {
@@ -109,6 +111,7 @@ export async function createProApplication(
     p_razon_social: company?.razonSocial ?? null,
     p_rnc: company?.rnc ?? null,
     p_avatar_path: avatarPath,
+    p_custom_line: input.proType === "company" ? input.customLine ?? null : null,
   });
   if (error) throw error;
 }
@@ -138,6 +141,23 @@ export async function getProCard(supabase: SupabaseClient, id: string): Promise<
   });
   if (error) throw new Error(`No se pudo cargar el perfil: ${error.message}`);
   return ((data ?? []) as ProCard[])[0] ?? null;
+}
+
+/** Public extras from migration 0110: a company's write-in and the folded specialties. */
+export async function getProPublicExtras(
+  supabase: SupabaseClient,
+  id: string,
+): Promise<{ customLine: string | null; specialties: string[] }> {
+  const { data, error } = await supabase.from("pros").select("custom_line, specialties").eq("id", id).maybeSingle();
+  if (error) throw new Error(`No se pudo cargar el perfil: ${error.message}`);
+  const row = data as { custom_line: string | null; specialties: string[] | null } | null;
+  return { customLine: row?.custom_line ?? null, specialties: row?.specialties ?? [] };
+}
+
+/** Saves the pro's specialties. The database checks them against the catalog list for the pro's trade. */
+export async function setMySpecialties(supabase: SupabaseClient, specialties: string[]): Promise<void> {
+  const { error } = await supabase.rpc("pro_set_specialties", { p_specialties: specialties });
+  if (error) throw error;
 }
 
 /** Signed URLs for an approved pro's work photos. RLS limits them to approved pros. */

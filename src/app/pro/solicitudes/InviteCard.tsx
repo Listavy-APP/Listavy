@@ -8,6 +8,7 @@ import { TextArea } from "@/components/ui/TextArea";
 import { declineInvite, submitQuote } from "@/lib/data/jobs";
 import type { QuoteTemplate } from "@/lib/data/pro-tools";
 import { es } from "@/lib/i18n/es";
+import { proLabelOf, type CatalogTrade } from "@/lib/data/trades";
 import { VoiceNote } from "@/app/trabajos/[id]/VoiceNote";
 import { scheduleText } from "@/components/ScheduleText";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -42,7 +43,9 @@ export function InviteCard({
   photoUrls = [],
   voiceUrl = null,
   templates = [],
+  trades,
 }: {
+  trades: Record<string, CatalogTrade>;
   quote: Quote;
   photoUrls?: string[];
   voiceUrl?: string | null;
@@ -113,7 +116,7 @@ export function InviteCard({
   return (
     <article className="card stack">
       <strong>
-        {es.trades[job.trade as keyof typeof es.trades] ?? job.trade} · {job.zone}
+        {proLabelOf(trades, job.trade)} · {job.zone}
         {isDiagnostic ? ` · ${es.jobs.typeDiagnostic}` : ""}
       </strong>
       <p>{job.description}</p>

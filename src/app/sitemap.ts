@@ -29,5 +29,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if ((data ?? []).length < PAGE) break;
   }
 
-  return buildSitemapEntries(pros, new Date());
+  // Active catalog trades (public read, 0109). Each one gets a /servicios page.
+  const { data: tradeRows, error: tErr } = await supabase.from("trades").select("slug").eq("active", true);
+  if (tErr) throw new Error(`sitemap: no se pudieron leer los oficios: ${tErr.message}`);
+
+  return buildSitemapEntries(pros, new Date(), (tradeRows ?? []) as { slug: string }[]);
 }

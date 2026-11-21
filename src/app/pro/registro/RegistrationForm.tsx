@@ -9,7 +9,8 @@ import { FilePick } from "@/components/ui/FilePick";
 import { createProApplication, type CompanyInput } from "@/lib/data/pros";
 import { recordLegalAcceptance } from "@/lib/data/legal";
 import { AcceptLegal } from "@/components/AcceptLegal";
-import { TRADES, isTrade, isZone } from "@/lib/domain/catalog";
+import { isZone } from "@/lib/domain/catalog";
+import type { CatalogTrade } from "@/lib/data/trades";
 import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
@@ -19,7 +20,7 @@ import type { ProType } from "@/lib/types/database";
 const MAX_WORK_PHOTOS = 3;
 const RNC_PATTERN = /^[0-9]{9}$/;
 
-export function RegistrationForm() {
+export function RegistrationForm({ trades }: { trades: CatalogTrade[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,9 +43,10 @@ export function RegistrationForm() {
     const priceMax = Number(form.get("priceMax"));
     const razonSocial = String(form.get("razonSocial") ?? "").trim();
     const rnc = String(form.get("rnc") ?? "").trim();
+    const customLine = String(form.get("customLine") ?? "").trim();
 
     if (!fullName) return setError(es.registration.needName);
-    if (!isTrade(trade)) return setError(es.registration.needTrade);
+    if (!trades.some((t) => t.key === trade)) return setError(es.registration.needTrade);
     if (!isZone(zone)) return setError(es.registration.needZone);
     if (!Number.isInteger(priceMin) || !Number.isInteger(priceMax) || priceMin < 0 || priceMax < priceMin) {
       return setError(es.registration.invalidPrice);
@@ -91,6 +93,7 @@ export function RegistrationForm() {
         workPhotos,
         proType,
         company,
+        customLine: proType === "company" && customLine ? customLine : undefined,
         avatar: avatarFile ? await resizeImage(avatarFile) : undefined,
       });
       router.push("/pro/estado");
@@ -128,9 +131,9 @@ export function RegistrationForm() {
         <span>{es.registration.trade}</span>
         <select name="trade" required defaultValue="">
           <option value="" disabled>—</option>
-          {TRADES.map((t) => (
-            <option key={t} value={t}>
-              {es.trades[t]}
+          {trades.map((t) => (
+            <option key={t.key} value={t.key}>
+              {t.proLabel}
             </option>
           ))}
         </select>
@@ -196,6 +199,12 @@ export function RegistrationForm() {
             <input name="rnc" inputMode="numeric" pattern="[0-9]{9}" maxLength={9} required />
           </label>
           <p className="muted">{es.registration.rncHint}</p>
+
+          <label className="field">
+            <span>{es.registration.customLine}</span>
+            <input name="customLine" maxLength={80} />
+          </label>
+          <p className="muted">{es.registration.customLineHint}</p>
 
           <FilePick
             label={es.registration.companyDocLabel}

@@ -41,16 +41,8 @@ export const PRIVATE_PATHS = [
   "/pro/verificacion",
 ] as const;
 
-/** Trade views: slug in the URL and the trade key in the database. */
-export const TRADE_VIEWS = [
-  { slug: "plomeria", trade: "plumber" },
-  { slug: "electricidad", trade: "electrician" },
-  { slug: "aire-acondicionado", trade: "ac_technician" },
-  { slug: "pintura", trade: "painter" },
-  { slug: "cerrajeria", trade: "locksmith" },
-  { slug: "carpinteria", trade: "carpenter" },
-  { slug: "herreria", trade: "blacksmith" },
-] as const;
+/** Trade views come from the trades catalog (migration 0109): one view per active trade, slug in the URL. */
+export type TradeViewSlug = { slug: string };
 
 export function tradeViewPath(slug: string): string {
   return `/servicios/${slug}`;

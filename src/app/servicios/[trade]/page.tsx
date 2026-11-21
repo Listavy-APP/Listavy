@@ -1,3 +1,5 @@
+import { proLabelOf } from "@/lib/data/trades";
+import { getTradeCatalog, getTradeMap } from "@/lib/data/trades-server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,7 +11,7 @@ import { es } from "@/lib/i18n/es";
 import { DEFAULT_CITY } from "@/lib/domain/catalog";
 import { pageMetadata, jsonLdScript } from "@/lib/seo/metadata";
 import { tradeJsonLd } from "@/lib/seo/jsonld";
-import { absoluteUrl, TRADE_VIEWS, tradeViewPath } from "@/lib/seo/site";
+import { absoluteUrl, tradeViewPath } from "@/lib/seo/site";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Live pro list: render per request, same convention as the other data pages.
@@ -17,16 +19,20 @@ export const instant = false;
 
 type Params = Promise<{ trade: string }>;
 
-function viewFor(slug: string) {
-  return TRADE_VIEWS.find((v) => v.slug === slug) ?? null;
+/** The catalog trade for a URL slug, or null (404). */
+async function viewFor(slug: string) {
+  const catalog = await getTradeCatalog();
+  const hit = catalog.find((t) => t.slug === slug);
+  return hit ? { slug: hit.slug, trade: hit.key } : null;
 }
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  const tm = await getTradeMap();
   await connection();
   const { trade: slug } = await params;
-  const view = viewFor(slug);
+  const view = await viewFor(slug);
   if (!view) return { title: es.search.title, robots: { index: false } };
-  const label = es.trades[view.trade];
+  const label = proLabelOf(tm, view.trade);
   return pageMetadata({
     title: es.seo.tradeTitle(label),
     description: es.seo.tradeDescription(label),
@@ -45,11 +51,12 @@ export default async function TradeViewPage({ params }: { params: Params }) {
 }
 
 async function TradeList({ params }: { params: Params }) {
+  const tm = await getTradeMap();
   const { trade: slug } = await params;
-  const view = viewFor(slug);
+  const view = await viewFor(slug);
   if (!view) notFound();
 
-  const label = es.trades[view.trade];
+  const label = proLabelOf(tm, view.trade);
   const supabase = await createSupabaseServerClient();
   const pros = (await listProCards(supabase, { trade: view.trade, city: DEFAULT_CITY })).filter((p) => !p.is_demo);
   const path = tradeViewPath(view.slug);
