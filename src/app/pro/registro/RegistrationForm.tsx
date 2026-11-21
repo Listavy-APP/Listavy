@@ -9,9 +9,10 @@ import { FilePick } from "@/components/ui/FilePick";
 import { createProApplication, type CompanyInput } from "@/lib/data/pros";
 import { recordLegalAcceptance } from "@/lib/data/legal";
 import { AcceptLegal } from "@/components/AcceptLegal";
-import { isZone } from "@/lib/domain/catalog";
 import type { CatalogTrade } from "@/lib/data/trades";
-import { CityZoneSelect } from "@/components/CityZoneSelect";
+import { MunicipalityPicker } from "@/components/MunicipalityPicker";
+import type { Municipality } from "@/lib/data/municipalities";
+import { ZONES_BY_CITY, CITIES } from "@/lib/domain/catalog";
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -20,7 +21,9 @@ import type { ProType } from "@/lib/types/database";
 const MAX_WORK_PHOTOS = 3;
 const RNC_PATTERN = /^[0-9]{9}$/;
 
-export function RegistrationForm({ trades }: { trades: CatalogTrade[] }) {
+export function RegistrationForm({ trades, municipalities }: { trades: CatalogTrade[]; municipalities: Municipality[] }) {
+  const [municipalityId, setMunicipalityId] = useState("");
+  const sectorSuggestions = CITIES.flatMap((c) => ZONES_BY_CITY[c] as readonly string[]);
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +50,8 @@ export function RegistrationForm({ trades }: { trades: CatalogTrade[] }) {
 
     if (!fullName) return setError(es.registration.needName);
     if (!trades.some((t) => t.key === trade)) return setError(es.registration.needTrade);
-    if (!isZone(zone)) return setError(es.registration.needZone);
+    if (!municipalityId) return setError("Elige tu municipio.");
+    if (zone.length < 2 || zone.length > 60) return setError(es.registration.needZone);
     if (!Number.isInteger(priceMin) || !Number.isInteger(priceMax) || priceMin < 0 || priceMax < priceMin) {
       return setError(es.registration.invalidPrice);
     }
@@ -87,6 +91,7 @@ export function RegistrationForm({ trades }: { trades: CatalogTrade[] }) {
         fullName,
         trade,
         zone,
+        municipalityId,
         priceMinDop: priceMin,
         priceMaxDop: priceMax,
         idDocument,
@@ -139,7 +144,23 @@ export function RegistrationForm({ trades }: { trades: CatalogTrade[] }) {
         </select>
       </label>
 
-      <CityZoneSelect cityName="city" zoneName="zone" zoneLabel={es.registration.zone} placeholder />
+      <MunicipalityPicker
+        municipalities={municipalities}
+        value={municipalityId}
+        onChange={setMunicipalityId}
+        label="Municipio"
+        required
+      />
+
+      <label className="field">
+        <span>{es.registration.zone}</span>
+        <input name="zone" list="sector-suggestions" required minLength={2} maxLength={60} style={{ minHeight: 44 }} />
+        <datalist id="sector-suggestions">
+          {sectorSuggestions.map((z) => (
+            <option key={z} value={z} />
+          ))}
+        </datalist>
+      </label>
 
       <div className="row">
         <label className="field">

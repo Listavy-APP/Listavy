@@ -24,6 +24,8 @@ export interface ProApplicationInput {
   fullName: string;
   trade: Trade;
   zone: string;
+  /** Municipality id (0111). Required for new applications. */
+  municipalityId: string;
   priceMinDop: number;
   priceMaxDop: number;
   idDocument: Blob;
@@ -112,6 +114,7 @@ export async function createProApplication(
     p_rnc: company?.rnc ?? null,
     p_avatar_path: avatarPath,
     p_custom_line: input.proType === "company" ? input.customLine ?? null : null,
+    p_municipality_id: input.municipalityId,
   });
   if (error) throw error;
 }

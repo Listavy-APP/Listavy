@@ -3,6 +3,7 @@ import { getMyPro } from "@/lib/data/pros";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { RegistrationForm } from "./RegistrationForm";
 import { getTradeCatalog } from "@/lib/data/trades-server";
+import { getMunicipalities } from "@/lib/data/municipalities-server";
 import { BackBar } from "@/components/BackBar";
 import { connection } from "next/server";
 
@@ -23,7 +24,7 @@ export default async function RegistrationPage() {
   return (
     <>
       <BackBar href="/cuenta" />
-      <RegistrationForm trades={await getTradeCatalog()} />
+      <RegistrationForm trades={await getTradeCatalog()} municipalities={await getMunicipalities()} />
     </>
   );
 }

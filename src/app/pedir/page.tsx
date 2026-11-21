@@ -1,6 +1,7 @@
 import { getTradeMap } from "@/lib/data/trades-server";
 import { redirect } from "next/navigation";
 import { RequestForm } from "./RequestForm";
+import { getMunicipalities } from "@/lib/data/municipalities-server";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { getProCard } from "@/lib/data/pros";
 import { getClientStanding } from "@/lib/data/standing";
@@ -108,6 +109,7 @@ export default async function RequestPage({
       pros={cards.map((c) => ({ id: c.id, name: c.full_name, trade: c.trade, zone: c.zone, pro_type: c.pro_type }))}
       guide={guide}
       trades={tm}
+      municipalities={await getMunicipalities()}
     />
     </>
   );

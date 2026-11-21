@@ -47,6 +47,8 @@ export function PricingZoneForm({
         p_price_min: priceMin,
         p_price_max: priceMax,
         p_zone: zone,
+        // Municipality is not editable here yet; null keeps the current one (0111 signature).
+        p_municipality_id: null,
       });
       if (err) throw err;
       setSaved(true);

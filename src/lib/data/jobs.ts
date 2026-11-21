@@ -116,6 +116,8 @@ export async function createJobRequest(
     /** Both null for "Lo antes posible". Otherwise one date (YYYY-MM-DD) and one window. */
     scheduledDate?: string | null;
     scheduledWindow?: string | null;
+    /** Municipality id (0111). The place of the job. */
+    municipalityId: string;
   },
 ): Promise<string> {
   const { data, error } = await supabase.rpc("create_job_request", {
@@ -129,6 +131,7 @@ export async function createJobRequest(
     p_requested_pro_type: input.requestedProType ?? "any",
     p_scheduled_date: input.scheduledDate ?? null,
     p_scheduled_window: input.scheduledWindow ?? null,
+    p_municipality_id: input.municipalityId,
   });
   fail(error);
   return data as string;
