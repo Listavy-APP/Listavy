@@ -52,6 +52,11 @@ export function EarningsSection({
           <p className="muted">
             {es.proEarnings.pending}: <strong>{money(earnings.pending)}</strong>
           </p>
+          {earnings.first_job_waived_dop > 0 ? (
+            <p className="muted">
+              {es.proEarnings.firstJobWaived}: <strong>{money(earnings.first_job_waived_dop)}</strong>
+            </p>
+          ) : null}
 
           <div className="stack">
             <h3>{es.proEarnings.monthlyTitle}</h3>

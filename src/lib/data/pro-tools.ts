@@ -13,6 +13,8 @@ export type EarningsSummary = {
   last_month: number;
   all_time: number;
   pending: number;
+  /** Released payouts on waived first jobs (migration 0108). */
+  first_job_waived_dop: number;
   monthly: MonthlyPoint[];
 };
 
@@ -37,6 +39,8 @@ export type StatementLine = {
   commission: number;
   tip: number;
   net: number;
+  /** True when the first-job waiver applied: commission 0 (migration 0108). */
+  waived: boolean;
 };
 
 export type AnnualStatement = {

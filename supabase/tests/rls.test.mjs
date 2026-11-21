@@ -126,6 +126,9 @@ await seedFixture(`
 `);
 // Admin role after the admin's auth.users row exists (the profile is created by the auth trigger).
 await db.exec(`update public.profiles set role = 'admin', admin_role = 'super_admin' where id = '${ADMIN}';`);
+// 0108: the fixture PRO is not a launch pro by default, so existing commission tests keep their normal math.
+// First-job waiver tests delete this row inside their own rollback.
+await db.exec(`insert into public.pro_launch_waivers (pro_id, reason) values ('${PRO}', 'pre_launch') on conflict do nothing;`);
 
 /** Runs SQL as a given user and returns the result. Always resets role. */
 async function asUser(uid, sql) {
@@ -4228,6 +4231,179 @@ await check("0107 statement: a released cancellation fee is its own line, carrie
     assert.equal(fee.net, 300);
     assert.equal(st.totals.fees, 300);
     assert.equal(st.totals.tips, 0, "the refunded tip is not reported as income");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 0108 · First-job commission waiver (Item 11). Money cases; proven on production by Sam after apply.
+// ---------------------------------------------------------------------------
+const launchPro = () => db.exec(`delete from public.pro_launch_waivers where pro_id = '${PRO}'`);
+const payRow = async (id) => (await db.query(`select commission_dop, pro_payout_dop, amount_dop, tip_dop, commission_waived, status from public.payments where id = '${id}'`)).rows[0];
+const paymentFor = async (job) => (await db.query(`select id from public.payments where job_id = '${job}' and status = 'held' order by created_at desc limit 1`)).rows[0].id;
+const applyJob = (job, { amount = 6000, commission = 720, payout = 5280, event, session, purpose = "job" } = {}) =>
+  db.query(`select public.apply_stripe_checkout('${event}', 'checkout.session.completed', false, '${job}', '${session}', 'pi_${event}',
+     '${purpose}', 8750, 60, ${amount}, ${commission}, ${payout}, 0) as r`);
+
+await check("0108 waiver: a first job is commission-free and the pro keeps the full amount", async () => {
+  await withRollback(async () => {
+    await launchPro();
+    const job = await seedPayJob({ quote: 6000 });
+    await applyJob(job, { event: "evt_w1", session: "cs_w1" });
+    const p = await payRow(await paymentFor(job));
+    assert.equal(p.commission_dop, 0);
+    assert.equal(p.pro_payout_dop, 6000, "payout = 6000 (commission moved into payout)");
+    assert.equal(p.commission_waived, true);
+  });
+});
+
+await check("0108 waiver: the second job of the same pro pays normal tiers (12% of 6,000 = 720)", async () => {
+  await withRollback(async () => {
+    await launchPro();
+    const first = await seedPayJob({ quote: 6000 });
+    await applyJob(first, { event: "evt_w2a", session: "cs_w2a" });
+    const second = await seedPayJob({ quote: 6000 });
+    await applyJob(second, { event: "evt_w2b", session: "cs_w2b", commission: 720, payout: 5280 });
+    const p = await payRow(await paymentFor(second));
+    assert.equal(p.commission_dop, 720);
+    assert.equal(p.commission_waived, false);
+  });
+});
+
+await check("0108 waiver: a diagnostic as first job (RD$500) has no commission and no RD$400 minimum", async () => {
+  await withRollback(async () => {
+    await launchPro();
+    const job = await seedPayJob({ quote: 500, type: "diagnostic" });
+    await applyJob(job, { event: "evt_w3", session: "cs_w3", amount: 500, commission: 75, payout: 425, purpose: "diagnostic" });
+    const p = await payRow(await paymentFor(job));
+    assert.equal(p.commission_dop, 0);
+    assert.equal(p.pro_payout_dop, 500);
+  });
+});
+
+await check("0108 waiver: a tip on a waived first job stays with the pro", async () => {
+  await withRollback(async () => {
+    await launchPro();
+    const job = await seedPayJob({ quote: 6000 });
+    await db.query(`select public.apply_stripe_checkout('evt_w4', 'checkout.session.completed', false, '${job}', 'cs_w4', 'pi_w4',
+      'job', 8750, 60, 6150, 720, 5430, 150) as r`).catch(() => null);
+    const p = await payRow(await paymentFor(job));
+    assert.equal(p.commission_dop, 0);
+    assert.equal(p.tip_dop, 150);
+    assert.equal(p.pro_payout_dop, 6150, "payout includes the tip; commission 0");
+  });
+});
+
+await check("0108 waiver: a pro-plan pro's first job is commission-free too", async () => {
+  await withRollback(async () => {
+    await launchPro();
+    await db.exec(`update public.pros set plan = 'pro' where id = '${PRO}'`);
+    const job = await seedPayJob({ quote: 6000 });
+    await applyJob(job, { event: "evt_w5", session: "cs_w5", commission: 480, payout: 5520 });
+    assert.equal((await payRow(await paymentFor(job))).commission_dop, 0);
+  });
+});
+
+await check("0108 waiver: a partial dispute on a waived job keeps 0 commission on the kept amount", async () => {
+  await withRollback(async () => {
+    await launchPro();
+    const job = await seedPayJob({ quote: 6000 });
+    await applyJob(job, { event: "evt_w6", session: "cs_w6" });
+    await db.exec(`update public.jobs set status = 'completed', approved_at = now() - interval '1 hour' where id = '${job}'`);
+    await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'El trabajo quedó incompleto.')`);
+    const d = (await db.query(`select id from public.disputes where job_id = '${job}'`)).rows[0].id;
+    await db.exec(`update public.disputes set evidence_due_at = now() - interval '1 minute' where id = '${d}'`);
+    await asSession(ADMIN, "aal2", `select public.resolve_dispute('${d}', 'partial_refund', 2000, 'Reembolso parcial por trabajo incompleto.')`);
+    const p = (await db.query(`select keep_dop, keep_commission_dop, keep_pro_payout_dop from public.payments where job_id = '${job}'`)).rows[0];
+    assert.equal(p.keep_dop, 4000);
+    assert.equal(p.keep_commission_dop, 0, "no commission on the kept portion");
+    assert.equal(p.keep_pro_payout_dop, 4000);
+  });
+});
+
+await check("0108 waiver: a first job fully refunded before release does not consume the slot; the next job is waived", async () => {
+  await withRollback(async () => {
+    await launchPro();
+    const first = await seedPayJob({ quote: 6000 });
+    await applyJob(first, { event: "evt_w7a", session: "cs_w7a" });
+    await db.exec(`update public.jobs set status = 'accepted' where id = '${first}'`);
+    await asUser(HOMEOWNER, `select public.cancel_job_with_refund('${first}', 'homeowner')`);
+    const rf = (await db.query(`select id from public.refunds where job_id = '${first}'`)).rows[0].id;
+    await db.query(`select public.mark_refund_succeeded('${rf}', 'st_w7')`);
+    assert.equal((await db.query(`select count(*)::int as n from public.pro_launch_waivers where pro_id = '${PRO}'`)).rows[0].n, 0, "slot freed");
+    const second = await seedPayJob({ quote: 6000 });
+    await applyJob(second, { event: "evt_w7b", session: "cs_w7b" });
+    assert.equal((await payRow(await paymentFor(second))).commission_dop, 0, "the waiver moved to the next paid job");
+  });
+});
+
+await check("0108 waiver: the switch OFF uses the slot at normal commission; switching ON does not retro-waive it", async () => {
+  await withRollback(async () => {
+    await launchPro();
+    await db.exec(`update public.platform_settings set value = '{"enabled": false}' where key = 'first_job_free_enabled'`);
+    const first = await seedPayJob({ quote: 6000 });
+    await applyJob(first, { event: "evt_w8a", session: "cs_w8a" });
+    const p = await payRow(await paymentFor(first));
+    assert.equal(p.commission_dop, 720, "normal commission while off");
+    assert.equal(p.commission_waived, false);
+    await db.exec(`update public.platform_settings set value = '{"enabled": true}' where key = 'first_job_free_enabled'`);
+    const second = await seedPayJob({ quote: 6000 });
+    await applyJob(second, { event: "evt_w8b", session: "cs_w8b", commission: 720, payout: 5280 });
+    assert.equal((await payRow(await paymentFor(second))).commission_dop, 720, "the second job is not waived either");
+  });
+});
+
+await check("0108 waiver: one claim per pro is enforced by the database (second insert fails)", async () => {
+  await withRollback(async () => {
+    await launchPro();
+    const job = await seedPayJob({ quote: 6000 });
+    await applyJob(job, { event: "evt_w9", session: "cs_w9" });
+    await assert.rejects(db.exec(`insert into public.pro_launch_waivers (pro_id, reason) values ('${PRO}', 'pre_launch')`), /duplicate key|unique/i);
+  });
+});
+
+await check("0108 waiver: a pro with an earlier payment (pre-launch) gets no waiver", async () => {
+  await withRollback(async () => {
+    const job = await seedPayJob({ quote: 6000 });
+    await applyJob(job, { event: "evt_w10", session: "cs_w10" });
+    assert.equal((await payRow(await paymentFor(job))).commission_dop, 720);
+  });
+});
+
+await check("0108 waiver: the switch is super-admin only, needs a reason, and is logged", async () => {
+  await withRollback(async () => {
+    await expectCode(() => asUser(HOMEOWNER, `select public.admin_set_first_job_free(false, 'Intento de cliente sin permiso.')`), "42501");
+    await expectCode(() => asSession(OUTSIDER_PRO, "aal2", `select public.admin_set_first_job_free(false, 'Admin sin rango super.')`), "42501");
+    await expectCode(() => asSession(ADMIN, "aal2", `select public.admin_set_first_job_free(false, 'corto')`), "22023");
+    await asSession(ADMIN, "aal2", `select public.admin_set_first_job_free(false, 'Pausa de prueba del lanzamiento.')`);
+    const v = (await db.query(`select (value->>'enabled')::boolean as e from public.platform_settings where key = 'first_job_free_enabled'`)).rows[0].e;
+    assert.equal(v, false);
+    const log = (await db.query(`select count(*)::int as n from public.admin_audit_log where action = 'first_job_free_changed'`)).rows[0].n;
+    assert.equal(log, 1);
+  });
+});
+
+await check("0108 waiver: clients cannot read the switch or the claim table", async () => {
+  await withRollback(async () => {
+    // RLS is on with no policies: a client reads zero rows (the harness re-grants table access, as Supabase defaults do).
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.pro_launch_waivers`)).rows[0].n, 0);
+    assert.equal((await asUser(HOMEOWNER, `select count(*)::int as n from public.platform_settings`)).rows[0].n, 0);
+    await assert.rejects(asUser(HOMEOWNER, `insert into public.platform_settings (key, value) values ('x', '{}')`));
+  });
+});
+
+await check("0108 waiver: the statement and earnings show the waived job with its marker", async () => {
+  await withRollback(async () => {
+    await launchPro();
+    const job = await seedPayJob({ quote: 6000 });
+    await applyJob(job, { event: "evt_w11", session: "cs_w11" });
+    await db.exec(`update public.payments set status = 'released', released_at = now() where job_id = '${job}'`);
+    const year = new Date().getUTCFullYear();
+    const st = (await asUser(PRO, `select public.pro_annual_statement(${year}) as r`)).rows[0].r;
+    const line = st.lines.find((l) => l.waived === true);
+    assert.ok(line, "waived line present");
+    assert.equal(line.commission, 0);
+    const earn = (await asUser(PRO, `select public.pro_earnings_summary() as r`)).rows[0].r;
+    assert.equal(earn.first_job_waived_dop, 6000);
   });
 });
 
