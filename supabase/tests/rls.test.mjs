@@ -4673,6 +4673,87 @@ await check("0111 job request: without a municipality, the zone's legacy market 
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0112 · Search ladder, invite place, service requests, admin province filter.
+// ---------------------------------------------------------------------------
+await check("0112 ladder: the same municipality comes first with no distance; labels tiers 1 to 4", async () => {
+  await withRollback(async () => {
+    await db.exec(`update public.pros set municipality_id = (select id from public.municipalities where legacy_city = 'santo_domingo') where id = '${PRO}'`);
+    const sd = (await db.query(`select id from public.municipalities where legacy_city = 'santo_domingo'`)).rows[0].id;
+    const r = (await asAnon(`select * from public.search_pros_ladder(null, '${sd}'::uuid)`)).rows;
+    const mine = r.find((x) => x.pro_id === PRO);
+    assert.ok(mine, "same-municipality pro is returned");
+    assert.equal(mine.tier, 1);
+    assert.equal(mine.approx_km, null, "tier 1 shows no distance");
+    assert.equal(r[0].tier, 1, "tier 1 sorts first");
+  });
+});
+
+await check("0112 ladder: tiers 3 and 4 appear only when tiers 1 and 2 return fewer than 5 pros, with real place and distance", async () => {
+  await withRollback(async () => {
+    const sd = (await db.query(`select id from public.municipalities where legacy_city = 'santo_domingo'`)).rows[0].id;
+    const r = (await asAnon(`select * from public.search_pros_ladder(null, '${sd}'::uuid, 50)`)).rows;
+    const near = r.filter((x) => x.tier <= 2).length;
+    const far = r.filter((x) => x.tier >= 3);
+    if (near >= 5) assert.equal(far.length, 0, "no widening at five or more near pros");
+    for (const x of far) {
+      assert.ok(x.municipality_name, "widened row names its municipality");
+      assert.ok(x.approx_km !== null, "widened row carries an approximate distance");
+    }
+    assert.ok(far.length === 0 || near < 5, "widening only when near is short");
+  });
+});
+
+await check("0112 ladder: a bad municipality is refused", async () => {
+  await withRollback(() => expectCode(() => asAnon("select * from public.search_pros_ladder(null, '00000000-0000-0000-0000-00000000dead'::uuid)"), "22023"));
+});
+
+await check("0112 invite place: a pro sees the job's municipality for their own quote only", async () => {
+  await withRollback(async () => {
+    const q = (await db.query(`select id, pro_id from public.quotes limit 1`)).rows[0];
+    if (!q) return;
+    const own = await asSession(q.pro_id, "aal1", `select municipality_name from public.invite_place('${q.id}'::uuid)`);
+    assert.ok(own.rows.length <= 1);
+    const other = await asSession(OUTSIDER_PRO === q.pro_id ? PRO : OUTSIDER_PRO, "aal1", `select * from public.invite_place('${q.id}'::uuid)`);
+    assert.equal(other.rows.length, 0, "another pro sees nothing");
+  });
+});
+
+await check("0112 service requests: sign-in required, owner-only insert, no public read, admin reads", async () => {
+  await withRollback(async () => {
+    const mun = (await db.query(`select id from public.municipalities where legacy_city = 'santiago'`)).rows[0].id;
+    await withRollback(() => assert.rejects(
+      asAnon(`insert into public.service_requests (requester_id, trade, municipality_id, full_name, phone)
+              values ('${HOMEOWNER}', 'plumber', '${mun}', 'Ana Test', '8095550101')`),
+      /row-level security|permission denied|violates/i,
+    ));
+    await withRollback(() => assert.rejects(
+      asUser(HOMEOWNER, `insert into public.service_requests (requester_id, trade, municipality_id, full_name, phone)
+              values ('${PRO}', 'plumber', '${mun}', 'Ana Test', '8095550101')`),
+      /row-level security|violates/i,
+    ));
+    await asUser(HOMEOWNER, `insert into public.service_requests (trade, municipality_id, full_name, phone, note)
+              values ('plumber', '${mun}', 'Ana Test', '8095550101', 'Necesito una cotización')`);
+    const own = await asUser(HOMEOWNER, `select count(*)::int as n from public.service_requests`);
+    assert.equal(own.rows[0].n, 0, "requester cannot read the list back; admins read it");
+    const other = await asUser(PRO, `select count(*)::int as n from public.service_requests where requester_id = '${HOMEOWNER}'`);
+    assert.equal(other.rows[0].n, 0, "another user does not see it");
+    const adm = await asSession(ADMIN, "aal2", `select count(*)::int as n from public.service_requests`);
+    assert.ok(adm.rows[0].n >= 1, "admin reads requests");
+  });
+});
+
+await check("0112 admin list: province filter returns only that province; non-admins refused", async () => {
+  await withRollback(async () => {
+    const mun = (await db.query(`select id from public.municipalities where legacy_city = 'santiago'`)).rows[0].id;
+    await db.exec(`update public.pros set municipality_id = '${mun}' where id = '${OUTSIDER_PRO}'`);
+    const r = await asSession(ADMIN, "aal2", "select id, province from public.admin_list_approved_pros(null, null, null, 'Santiago')");
+    assert.ok(r.rows.some((x) => x.id === OUTSIDER_PRO));
+    assert.ok(r.rows.every((x) => x.province === "Santiago"));
+    await expectCode(() => asSession(ADMIN, "aal1", "select * from public.admin_list_approved_pros(null, null, null, 'Santiago')"), "42501");
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

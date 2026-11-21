@@ -11,20 +11,23 @@ import { createJobRequest, setLocationConsent, uploadJobFile, type JobType, type
 import { es } from "@/lib/i18n/es";
 import { proLabelOf, type CatalogTrade } from "@/lib/data/trades";
 import { resizeImage } from "@/lib/media/resize";
-import { cityOfZone } from "@/lib/domain/catalog";
+import { CITIES, ZONES_BY_CITY } from "@/lib/domain/catalog";
+import { MunicipalityPicker } from "@/components/MunicipalityPicker";
+import type { Municipality } from "@/lib/data/municipalities";
 import { formatRange, type PriceGuide } from "@/lib/domain/price-guides";
-import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { SCHEDULE_WINDOWS, maxScheduleDate, santoDomingoToday, scheduleProblem, type ScheduleWindow } from "@/lib/domain/schedule";
 
 type ProOption = { id: string; name: string | null; trade: string; zone: string; pro_type: "individual" | "company" };
 
-export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: PriceGuide | null; trades: Record<string, CatalogTrade> }) {
+export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: PriceGuide | null; trades: Record<string, CatalogTrade>; municipalities: Municipality[] }) {
   const router = useRouter();
   const trade = props.pros[0].trade;
   const sameTrade = props.pros.every((p) => p.trade === trade);
 
   const [zone, setZone] = useState<string>(props.pros[0].zone);
+  const [municipalityId, setMunicipalityId] = useState("");
+  const sectorSuggestions = CITIES.flatMap((c) => ZONES_BY_CITY[c] as readonly string[]);
   const [jobType, setJobType] = useState<JobType>("repair");
   // Person / company choice (Phase 1). The server refuses a pro of the other type.
   const [requestedType, setRequestedType] = useState<RequestedType>("any");
@@ -53,9 +56,9 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
     if (schedProblem) return setError(es.schedule.problems[schedProblem]);
     if (description.trim().length < 20) return setError(es.jobs.descriptionShort);
     if (photos.length < 1) return setError(es.jobs.photoRequired);
-    // Every chosen pro must serve the city of the job. The zone list follows the city.
-    const jobCity = cityOfZone(zone);
-    if (props.pros.some((p) => cityOfZone(p.zone) !== jobCity)) return setError(es.cityUi.mismatch);
+    // Place is the municipality the client picks (0111). No city gate: the client chooses the pro.
+    if (!municipalityId) return setError("Elige el municipio donde necesitas el servicio.");
+    if (zone.trim().length < 2) return setError(es.jobs.zoneLabel);
 
     setBusy(true);
     try {
@@ -82,7 +85,8 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
       }
       const jobId = await createJobRequest(supabase, {
         trade,
-        zone,
+        zone: zone.trim(),
+        municipalityId,
         description: description.trim(),
         jobType,
         proIds: props.pros.map((p) => p.id),
@@ -144,13 +148,23 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
       </ul>
       <p className="muted">{props.pros.length === 1 ? es.jobs.oneQuoteHint : es.jobs.manyQuotesHint(props.pros.length)}</p>
 
-      <CityZoneSelect
-        cityName="city"
-        zoneName="zone"
-        zoneLabel={es.jobs.zoneLabel}
-        defaultZone={zone}
-        onChange={(_, z) => setZone(z)}
+      <MunicipalityPicker
+        municipalities={props.municipalities}
+        value={municipalityId}
+        onChange={setMunicipalityId}
+        label="Municipio"
+        required
       />
+
+      <label className="field">
+        <span>{es.jobs.zoneLabel}</span>
+        <input name="zone" list="job-sector-suggestions" value={zone} onChange={(e) => setZone(e.target.value)} required minLength={2} maxLength={60} style={{ minHeight: 44 }} />
+        <datalist id="job-sector-suggestions">
+          {sectorSuggestions.map((z) => (
+            <option key={z} value={z} />
+          ))}
+        </datalist>
+      </label>
 
       <Choice
         legend={es.jobs.typeLabel}

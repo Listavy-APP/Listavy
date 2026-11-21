@@ -21,6 +21,8 @@ type ApprovedPro = {
   trade: string;
   zone: string;
   city: string;
+  municipality_name: string | null;
+  province: string | null;
   plan: string;
   available: boolean;
   is_demo: boolean;
@@ -29,10 +31,10 @@ type ApprovedPro = {
 export default async function AdminApprovedProsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; city?: string; trade?: string }>;
+  searchParams: Promise<{ q?: string; city?: string; trade?: string; province?: string }>;
 }) {
   await connection();
-  const { q = "", city = "", trade = "" } = await searchParams;
+  const { q = "", city = "", trade = "", province = "" } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentProfile(supabase);
   if (!profile || profile.role !== "admin") notFound();
@@ -47,6 +49,7 @@ export default async function AdminApprovedProsPage({
     p_search: q.trim() || null,
     p_city: cityFilter,
     p_trade: tradeFilter,
+    p_province: province.trim() || null,
   });
   if (error) throw new Error(`No se pudieron leer los profesionales: ${error.message}`);
   const pros = (data ?? []) as unknown as ApprovedPro[];
@@ -72,6 +75,10 @@ export default async function AdminApprovedProsPage({
           </select>
         </label>
         <label className="field">
+          Provincia
+          <input name="province" defaultValue={province} placeholder="Ej.: Santiago" style={{ minHeight: 44 }} />
+        </label>
+        <label className="field">
           {es.adminPros.tradeLabel}
           <select name="trade" defaultValue={tradeFilter ?? ""}>
             <option value="">{es.adminPros.allTrades}</option>
@@ -88,7 +95,7 @@ export default async function AdminApprovedProsPage({
         <article key={p.id} className="card stack">
           <h2>{p.full_name ?? es.adminPros.noName}</h2>
           <dl className="stack">
-            <div><dt className="muted">{proLabelOf(tm, p.trade)}</dt><dd>{p.zone}, {es.cities[p.city as keyof typeof es.cities] ?? p.city}</dd></div>
+            <div><dt className="muted">{proLabelOf(tm, p.trade)}</dt><dd>{p.zone}, {p.municipality_name ?? (es.cities[p.city as keyof typeof es.cities] ?? p.city)}{p.province ? ` (${p.province})` : ""}</dd></div>
             <div><dt className="muted">{es.adminPros.plan}</dt><dd>{p.plan === "pro" ? es.adminPros.planPro : es.adminPros.planFree}</dd></div>
             <div><dt className="muted">{es.adminPros.available}</dt><dd>{p.available ? es.adminPros.availableYes : es.adminPros.availableNo}</dd></div>
           </dl>

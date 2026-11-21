@@ -4,7 +4,7 @@ import { VerifiedIcon } from "@/components/VerifiedIcon";
 import type { VerifiedKind } from "@/lib/domain/verifiedIcon";
 import Link from "next/link";
 import { SaveProButton } from "@/components/SaveProButton";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { es } from "@/lib/i18n/es";
 
@@ -15,6 +15,8 @@ export type PickerPro = {
   trade: string;
   tradeLabel: string;
   zone: string;
+  /** Ladder heading (0112). Shown above the first card of each group. */
+  tierLabel?: string;
   priceLabel: string;
   reviewLabel: string;
   avatarSrc: string | null;
@@ -114,7 +116,18 @@ export function ProPicker({
         </section>
       ) : null}
 
-      <ul className="cards">{pros.map(renderCard)}</ul>
+      <ul className="cards">
+        {pros.map((p, i) => (
+          <Fragment key={p.id}>
+            {p.tierLabel && p.tierLabel !== pros[i - 1]?.tierLabel ? (
+              <li role="presentation" className="tier-heading">
+                <h2 className="tier-title">{p.tierLabel}</h2>
+              </li>
+            ) : null}
+            {renderCard(p)}
+          </Fragment>
+        ))}
+      </ul>
 
       {notice ? <p className="error" role="status">{notice}</p> : null}
 

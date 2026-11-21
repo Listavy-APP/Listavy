@@ -12,6 +12,7 @@ import { proLabelOf, type CatalogTrade } from "@/lib/data/trades";
 import { VoiceNote } from "@/app/trabajos/[id]/VoiceNote";
 import { scheduleText } from "@/components/ScheduleText";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { approxDistance } from "@/lib/data/municipalities";
 
 type Job = {
   id: string;
@@ -42,11 +43,13 @@ export function InviteCard({
   quote,
   photoUrls = [],
   voiceUrl = null,
+  place = null,
   templates = [],
   trades,
 }: {
   trades: Record<string, CatalogTrade>;
   quote: Quote;
+  place?: { municipality_name: string; province: string; approx_km: number | null } | null;
   photoUrls?: string[];
   voiceUrl?: string | null;
   templates?: QuoteTemplate[];
@@ -119,6 +122,12 @@ export function InviteCard({
         {proLabelOf(trades, job.trade)} · {job.zone}
         {isDiagnostic ? ` · ${es.jobs.typeDiagnostic}` : ""}
       </strong>
+      {place ? (
+        <p className="muted">
+          Trabajo en {place.municipality_name}, {place.province}
+          {approxDistance(place.approx_km) ? ` · ${approxDistance(place.approx_km)}` : ""}
+        </p>
+      ) : null}
       <p>{job.description}</p>
       <p className="muted">{es.schedule.requested}: {scheduleText(job.scheduled_date, job.scheduled_window)}</p>
       <p className="muted">

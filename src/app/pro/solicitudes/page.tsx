@@ -68,13 +68,23 @@ export default async function InboxPage() {
     }
   }
 
+  // Where each open job is, before the pro accepts (0112). Only the pro's own invites resolve.
+  const places = new Map(
+    await Promise.all(
+      open.map(async (r) => {
+        const { data: pl } = await supabase.rpc("invite_place", { p_quote: r.id });
+        return [r.id, ((pl ?? []) as { municipality_name: string; province: string; approx_km: number | null }[])[0] ?? null] as const;
+      }),
+    ),
+  );
+
   return (
     <section className="stack">
       <BackBar href="/cuenta" />
       <h1>{es.jobs.inboxTitle}</h1>
       {open.length === 0 ? <p className="muted">{es.jobs.inboxEmpty}</p> : null}
       {open.map((r) => (
-        <InviteCard key={r.id} quote={r} photoUrls={photosByJob.get(r.job!.id) ?? []} voiceUrl={voiceByJob.get(r.job!.id) ?? null} templates={templates} trades={tm} />
+        <InviteCard key={r.id} quote={r} photoUrls={photosByJob.get(r.job!.id) ?? []} voiceUrl={voiceByJob.get(r.job!.id) ?? null} templates={templates} trades={tm} place={places.get(r.id) ?? null} />
       ))}
       {sent.length > 0 ? <h2>{es.jobs.sentQuotesTitle}</h2> : null}
       {sent.map((r) => (
