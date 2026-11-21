@@ -94,6 +94,7 @@ export default async function AnnualStatementPage({ searchParams }: { searchPara
                           <span className="muted">{l.released_on}</span>
                         </div>
                         <div className="muted">{l.zone}</div>
+                        {l.waived ? <p className="muted">{es.proStatement.firstJobMarker}</p> : null}
                         <dl className="statement-line-figures">
                           <div><dt>{es.proStatement.gross}</dt><dd>{money(l.gross)}</dd></div>
                           <div><dt>{es.proStatement.commission}</dt><dd>−{money(l.commission)}</dd></div>
