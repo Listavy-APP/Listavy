@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Choice } from "@/components/ui/Choice";
 import { createRecurringBooking, type RecurringRow } from "@/lib/data/recurring";
+import type { Property } from "@/lib/data/properties";
 import {
   RECURRING_FREQUENCIES,
   anchorProblem,
@@ -24,11 +25,13 @@ export function RecurringPanel({
   proName,
   jobWindow,
   existing,
+  properties,
 }: {
   jobId: string;
   proName: string | null;
   jobWindow: string | null;
   existing: RecurringRow | null;
+  properties: Property[];
 }) {
   const router = useRouter();
   const today = santoDomingoToday();
@@ -38,6 +41,7 @@ export function RecurringPanel({
     (WINDOWS as readonly string[]).includes(jobWindow ?? "") ? (jobWindow as (typeof WINDOWS)[number]) : "morning",
   );
   const [busy, setBusy] = useState(false);
+  const [propertyId, setPropertyId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
@@ -71,7 +75,7 @@ export function RecurringPanel({
     }
     setBusy(true);
     try {
-      await createRecurringBooking(createSupabaseBrowserClient(), { sourceJobId: jobId, frequency, anchor, window: win });
+      await createRecurringBooking(createSupabaseBrowserClient(), { sourceJobId: jobId, frequency, anchor, window: win, propertyId: propertyId || null });
       setDone(true);
       router.refresh();
     } catch (err) {
@@ -90,6 +94,17 @@ export function RecurringPanel({
         {es.recurring.startHelp}
         {proName ? ` ${es.recurring.professional}: ${proName}.` : ""}
       </p>
+      {properties.length > 0 ? (
+            <label className="field">
+              <span>{es.properties.picker}</span>
+              <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)} disabled={busy}>
+                <option value="">{es.properties.pickerNone}</option>
+                {properties.map((x) => (
+                  <option key={x.id} value={x.id}>{x.name}</option>
+                ))}
+              </select>
+            </label>
+        ) : null}
       <Choice
         legend={es.recurring.frequency}
         name="recurringFrequency"

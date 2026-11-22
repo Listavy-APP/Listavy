@@ -3544,7 +3544,7 @@ const CK_PARTIAL = "00000000-0000-4000-8000-0000000000c2";
 const CK_FULL = "00000000-0000-4000-8000-0000000000c3";
 await seedFixture(`
   insert into auth.users (id, phone) values
-    ('${CK_BARE}', '+18095550101'), ('${CK_PARTIAL}', '+18095550102'), ('${CK_FULL}', '+18095550103') on conflict do nothing;
+    ('${CK_BARE}', '+18095559201'), ('${CK_PARTIAL}', '+18095559202'), ('${CK_FULL}', '+18095559203') on conflict do nothing;
   update public.profiles set role = 'pro' where id in ('${CK_BARE}', '${CK_PARTIAL}', '${CK_FULL}');
   insert into public.pros (id, trade, zone, price_min_dop, price_max_dop, verification_status) values
     ('${CK_BARE}', 'plumber', 'Naco', 2000, 4000, 'pending'),
@@ -5208,6 +5208,162 @@ await check("0117 dispute: a full refund returns the urgent fee inside the refun
     const p = (await db.query(`select status, keep_dop from public.payments where id = '${payment}'`)).rows[0];
     assert.equal(p.status, "refunded");
     assert.equal(p.keep_dop, null);
+  });
+});
+
+// 0119 B2B properties (Item 17). Owner-only property data; property attach; statement; access notes.
+const B2B_OWNER = "00000000-0000-4000-8000-0000000000b1";
+const B2B_OTHER = "00000000-0000-4000-8000-0000000000b2";
+await seedFixture(`insert into auth.users (id, phone) values ('${B2B_OWNER}', '+18095557101'), ('${B2B_OTHER}', '+18095557102') on conflict do nothing;`);
+
+const b2bMunicipality = async (legacy = true) =>
+  (await db.query(legacy
+    ? `select id from public.municipalities where legacy_city = 'santo_domingo'`
+    : `select id from public.municipalities where legacy_city is null order by name limit 1`)).rows[0].id;
+
+async function b2bProperty(owner = B2B_OWNER, { municipality = null, archived = false, notes = "Caja de llaves 1234" } = {}) {
+  const mun = municipality ?? (await b2bMunicipality(true));
+  const r = await asOwner(owner, () => db.query(`insert into public.properties (owner_id, name, municipality_id, address_detail, access_notes, business_name, archived_at)
+    values ('${owner}', 'Apartamento Naco', '${mun}', 'Calle Principal 12, apto 3B', ${notes === null ? "null" : `'${notes}'`}, 'Hospedaje Naco', ${archived ? "now()" : "null"})
+    returning id`));
+  return r.rows[0].id;
+}
+
+const b2bDesc = "Limpieza entre huéspedes, apartamento de prueba.";
+const b2bJobReq = (client, property, { mun = "null", urgent = "false", date = "null", win = "null" } = {}) =>
+  `select public.create_job_request('plumber','Naco','${b2bDesc}','repair',
+     array['${PRO}']::uuid[], array[gen_random_uuid()::text]::text[], null, 'any', ${date}, ${win}, ${mun}, ${urgent}, '${property}') as job`;
+
+await check("0119 properties: owner-only read, insert and update; other clients and anon see nothing", async () => {
+  await withRollback(async () => {
+    const prop = await b2bProperty();
+    const mine = await asUser(B2B_OWNER, `select count(*)::int as n from public.properties where id = '${prop}'`);
+    assert.equal(mine.rows[0].n, 1);
+    const theirs = await asUser(B2B_OTHER, `select count(*)::int as n from public.properties where id = '${prop}'`);
+    assert.equal(theirs.rows[0].n, 0);
+    await asUser(B2B_OTHER, `update public.properties set name = 'Robado ahora' where id = '${prop}'`);
+    assert.equal((await db.query(`select name from public.properties where id = '${prop}'`)).rows[0].name, "Apartamento Naco");
+    const falsaMun = await b2bMunicipality();
+    await db.exec("savepoint b2b_insert");
+    try {
+      await assert.rejects(asUser(B2B_OTHER, `insert into public.properties (owner_id, name, municipality_id) values ('${B2B_OWNER}', 'Falsa', '${falsaMun}')`), (e) => e.code === "42501", "insert as another client");
+    } finally { await db.exec("rollback to savepoint b2b_insert"); }
+    assert.equal((await asAnon(`select count(*)::int as n from public.properties`)).rows[0].n, 0, "anon sees no rows");
+    // No delete policy: even the owner cannot hard-delete. The row survives (jobs reference it).
+    await db.exec("savepoint b2b_delete");
+    try {
+      await asUser(B2B_OWNER, `delete from public.properties where id = '${prop}'`);
+      assert.equal((await db.query(`select count(*)::int as n from public.properties where id = '${prop}'`)).rows[0].n, 1, "owner cannot hard-delete");
+    } finally { await db.exec("rollback to savepoint b2b_delete"); }
+  });
+});
+
+await check("0119 attach: another client's property is refused in create_job_request; the owner's attaches", async () => {
+  await withRollback(async () => {
+    const prop = await b2bProperty();
+    await expectCode(() => asUser(B2B_OTHER, b2bJobReq(B2B_OTHER, prop)), "42501");
+    const ok = await asUser(B2B_OWNER, b2bJobReq(B2B_OWNER, prop));
+    const job = (await db.query(`select property_id from public.jobs where id = '${ok.rows[0].job}'`)).rows[0];
+    assert.equal(job.property_id, prop);
+  });
+});
+
+await check("0119 attach: the job takes the property's municipality; a different municipality is refused; archived is refused", async () => {
+  await withRollback(async () => {
+    const outside = await b2bMunicipality(false);
+    const prop = await b2bProperty(B2B_OWNER, { municipality: outside });
+    const job = await asUser(B2B_OWNER, b2bJobReq(B2B_OWNER, prop));
+    assert.equal((await db.query(`select municipality_id from public.jobs where id = '${job.rows[0].job}'`)).rows[0].municipality_id, outside);
+    const legacy = await b2bMunicipality(true);
+    await expectCode(() => asUser(B2B_OWNER, b2bJobReq(B2B_OWNER, prop, { mun: `'${legacy}'` })), "22023");
+    const same = await asUser(B2B_OWNER, b2bJobReq(B2B_OWNER, prop, { mun: `'${outside}'` }));
+    assert.ok(same.rows[0].job);
+    const archived = await b2bProperty(B2B_OWNER, { archived: true });
+    await expectCode(() => asUser(B2B_OWNER, b2bJobReq(B2B_OWNER, archived)), "22023");
+  });
+});
+
+await check("0119 guard: a job's property is fixed at creation; the series property follows the same owner rule", async () => {
+  await withRollback(async () => {
+    const prop = await b2bProperty();
+    const other = await b2bProperty();
+    const job = (await asUser(B2B_OWNER, b2bJobReq(B2B_OWNER, prop))).rows[0].job;
+    await expectCode(() => asService(`update public.jobs set property_id = '${other}' where id = '${job}'`), "42501");
+    const foreignSrc = await rbCompletedJob(RB_CLIENT);
+    await expectCode(() => asUser(RB_CLIENT, `select public.create_recurring_booking('${foreignSrc}', 'weekly', 1, 'morning', '${prop}')`), "42501");
+  });
+});
+
+await check("0119 recurring: a series with a property generates jobs that carry it", async () => {
+  await withRollback(async () => {
+    const prop = await b2bProperty(RB_CLIENT);
+    const seriesId = await rbSeries({ due: "today+1", client: RB_CLIENT });
+    await asService(`update public.recurring_bookings set property_id = '${prop}' where id = '${seriesId.id}'`);
+    assert.equal((await rbRun()).created, 1);
+    const job = (await db.query(`select property_id from public.jobs where homeowner_id = '${RB_CLIENT}' and status = 'requested'
+      and property_id is not null order by created_at desc limit 1`)).rows[0];
+    assert.equal(job.property_id, prop);
+  });
+});
+
+await check("0119 statement: groups by property with an unassigned group, and totals net of succeeded refunds", async () => {
+  await withRollback(async () => {
+    const stmtClient = "00000000-0000-4000-8000-0000000000b3";
+    await seedFixture(`insert into auth.users (id, phone) values ('${stmtClient}', '+18095557103') on conflict do nothing;`);
+    const legacy = await b2bMunicipality(true);
+    const outside = await b2bMunicipality(false);
+    const propA = await b2bProperty(stmtClient, { municipality: legacy });
+    const propB = await b2bProperty(stmtClient, { municipality: outside });
+    const mkJob = async (property, payStatus = "unpaid") => {
+      const id = randomUUID();
+      await asOwner(stmtClient, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, property_id, municipality_id)
+        values ('${id}', '${stmtClient}', '${PRO}', 'plumber', 'Naco', 'TEST: estado mensual.', 'completed', 'repair', '${payStatus}', ${property ? `'${property}'` : "null"}, '${property ? legacy : legacy}')`));
+      return id;
+    };
+    const pay = (job, amount) => db.exec(`insert into public.payments (job_id, provider, currency, amount_minor, fx_rate_dop_per_usd, amount_dop, commission_dop, pro_payout_dop, purpose, status, release_after)
+      values ('${job}', 'stripe', 'USD', ${amount * 10}, 60, ${amount}, 0, ${amount}, 'job', 'held', now() + interval '1 day')`);
+    const a1 = await mkJob(propA, "paid");
+    await pay(a1, 6000);
+    const refundPay = (await db.query(`select id from public.payments where job_id = '${a1}'`)).rows[0].id;
+    await db.query(`insert into public.refunds (payment_id, job_id, amount_dop, amount_minor, reason, status) values ('${refundPay}', '${a1}', 1000, 1000, 'client_cancel_fee', 'succeeded')`);
+    await mkJob(propA);
+    const b1 = await mkJob(propB, "paid");
+    await pay(b1, 3000);
+    const u1 = await mkJob(null, "paid");
+    await pay(u1, 2000);
+    const ym = (await db.query(`select extract(year from (now() at time zone 'America/Santo_Domingo'))::int as y,
+                                       extract(month from (now() at time zone 'America/Santo_Domingo'))::int as m`)).rows[0];
+    const st = (await asUser(stmtClient, `select public.client_monthly_statement(${ym.y}, ${ym.m}) as s`)).rows[0].s;
+    assert.equal(st.total_jobs, 4);
+    assert.equal(st.total_paid_dop, 5000 + 3000 + 2000);
+    const groupA = st.groups.find((g) => g.property_id === propA);
+    assert.deepEqual([groupA.job_count, groupA.paid_dop], [2, 5000]);
+    const unassigned = st.groups.find((g) => g.property_id === null);
+    assert.deepEqual([unassigned.job_count, unassigned.paid_dop], [1, 2000]);
+    await expectCode(() => asAnon(`select public.client_monthly_statement(${ym.y}, ${ym.m})`), "42501");
+    await expectCode(() => asUser(stmtClient, `select public.client_monthly_statement(${ym.y}, 13)`), "22023");
+  });
+});
+
+await check("0119 access notes: the owner always reads them; a pro reads them only on a booked and paid job", async () => {
+  await withRollback(async () => {
+    const prop = await b2bProperty();
+    const job = (await asUser(B2B_OWNER, b2bJobReq(B2B_OWNER, prop))).rows[0].job;
+    const view = (uid) => asUser(uid, `select property_name, access_notes, business_name from public.job_property_view('${job}')`);
+    assert.equal((await view(B2B_OWNER)).rows[0].access_notes, "Caja de llaves 1234");
+    // Invited but not booked: the pro sees nothing at all.
+    await asService(`update public.jobs set pro_id = '${PRO}' where id = '${job}'`);
+    assert.equal((await view(PRO)).rows.length, 0);
+    // Booked, not paid: name and address only, no notes.
+    await asService(`update public.jobs set status = 'accepted', booked_at = now() where id = '${job}'`);
+    const booked = (await view(PRO)).rows[0];
+    assert.equal(booked.property_name, "Apartamento Naco");
+    assert.equal(booked.access_notes, null);
+    // Booked and paid: notes revealed.
+    await asService(`update public.jobs set payment_status = 'paid' where id = '${job}'`);
+    assert.equal((await view(PRO)).rows[0].access_notes, "Caja de llaves 1234");
+    // A stranger sees nothing.
+    assert.equal((await view(B2B_OTHER)).rows.length, 0);
   });
 });
 

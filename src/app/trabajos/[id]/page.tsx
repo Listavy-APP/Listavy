@@ -6,6 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import { JobActions } from "./JobActions";
 import { ReferralPrompt } from "@/components/ReferralPrompt";
 import { RecurringPanel } from "./RecurringPanel";
+import { getJobProperty, listMyProperties } from "@/lib/data/properties";
 import { liveRecurringForJob } from "@/lib/data/recurring";
 import { JobTimeline } from "./JobTimeline";
 import { VoiceNote } from "./VoiceNote";
@@ -124,6 +125,9 @@ export default async function JobPage({
 
   const voiceUrl = j.voice_path ? await jobFileUrl(supabase, j.voice_path) : null;
   const recurring = role === "homeowner" && j.status === "completed" ? await liveRecurringForJob(supabase, id) : null;
+  // B2B property (0119). Notes come back only where the database allows them (owner, or booked and paid pro).
+  const propertyView = j.property_id ? await getJobProperty(supabase, id) : null;
+  const myProperties = role === "homeowner" && j.status === "completed" ? await listMyProperties(supabase) : [];
   const disputes = await listJobDisputes(supabase, id);
   const jobReview = await getJobReview(supabase, id);
   const clientRated = role === "pro" ? await hasClientRating(supabase, id) : false;
@@ -283,12 +287,22 @@ export default async function JobPage({
         completionCode={completionCode}
       />
       {j.status === "completed" && role === "homeowner" ? <ReferralPrompt supabase={supabase} /> : null}
+      {propertyView ? (
+        <section className="panel stack">
+          <h2>{es.properties.jobProperty}</h2>
+          <p><strong>{propertyView.property_name}</strong>, {propertyView.municipality_name}</p>
+          {propertyView.address_detail ? <p className="muted">{propertyView.address_detail}</p> : null}
+          {propertyView.business_name ? <p className="muted">{es.properties.businessName}: {propertyView.business_name}</p> : null}
+          {propertyView.access_notes ? <p className="muted">{es.properties.accessNotes}: {propertyView.access_notes}</p> : null}
+        </section>
+      ) : null}
       {j.status === "completed" && role === "homeowner" ? (
         <RecurringPanel
           jobId={j.id}
           proName={j.pro_id ? (pros[j.pro_id]?.name ?? null) : null}
           jobWindow={j.scheduled_window}
           existing={recurring}
+          properties={myProperties}
         />
       ) : null}
       <DisputePanel

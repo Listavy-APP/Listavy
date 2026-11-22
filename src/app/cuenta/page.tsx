@@ -208,6 +208,13 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       ) : null}
 
       {clientView ? (
+        <Link className="contact-row" href="/cuenta/propiedades">
+          <span className="icon-box"><Icon name="home" /></span>
+          <span className="contact-label">{es.properties.title}</span>
+        </Link>
+      ) : null}
+
+      {clientView ? (
         <Link className="contact-row" href="/cuenta/recurrentes">
           <span className="icon-box"><Icon name="home" /></span>
           <span className="contact-label">{es.recurring.listLink}</span>

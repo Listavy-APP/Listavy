@@ -13,6 +13,7 @@ import { proLabelOf, type CatalogTrade } from "@/lib/data/trades";
 import { resizeImage } from "@/lib/media/resize";
 import { CITIES, ZONES_BY_CITY } from "@/lib/domain/catalog";
 import { MunicipalityPicker } from "@/components/MunicipalityPicker";
+import type { Property } from "@/lib/data/properties";
 import type { Municipality } from "@/lib/data/municipalities";
 import { formatRange, type PriceGuide } from "@/lib/domain/price-guides";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -21,13 +22,16 @@ import { isUrgentScheduleAllowed } from "@/lib/domain/urgent";
 
 type ProOption = { id: string; name: string | null; trade: string; zone: string; pro_type: "individual" | "company" };
 
-export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: PriceGuide | null; trades: Record<string, CatalogTrade>; municipalities: Municipality[]; urgentFeeDop: number | null }) {
+export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: PriceGuide | null; trades: Record<string, CatalogTrade>; municipalities: Municipality[]; properties: Property[]; urgentFeeDop: number | null }) {
   const router = useRouter();
   const trade = props.pros[0].trade;
   const sameTrade = props.pros.every((p) => p.trade === trade);
 
   const [zone, setZone] = useState<string>(props.pros[0].zone);
   const [municipalityId, setMunicipalityId] = useState("");
+  // B2B property (0119). A chosen property sets the place; the database re-checks it.
+  const [propertyId, setPropertyId] = useState("");
+  const chosenProperty = props.properties.find((x) => x.id === propertyId) ?? null;
   const sectorSuggestions = CITIES.flatMap((c) => ZONES_BY_CITY[c] as readonly string[]);
   const [jobType, setJobType] = useState<JobType>("repair");
   // Person / company choice (Phase 1). The server refuses a pro of the other type.
@@ -62,7 +66,8 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
     if (description.trim().length < 20) return setError(es.jobs.descriptionShort);
     if (photos.length < 1) return setError(es.jobs.photoRequired);
     // Place is the municipality the client picks (0111). No city gate: the client chooses the pro.
-    if (!municipalityId) return setError("Elige el municipio donde necesitas el servicio.");
+    const placeId = chosenProperty ? chosenProperty.municipality_id : municipalityId;
+    if (!placeId) return setError("Elige el municipio donde necesitas el servicio.");
     if (zone.trim().length < 2) return setError(es.jobs.zoneLabel);
 
     setBusy(true);
@@ -91,7 +96,8 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
       const jobId = await createJobRequest(supabase, {
         trade,
         zone: zone.trim(),
-        municipalityId,
+        municipalityId: placeId,
+        propertyId: chosenProperty?.id ?? null,
         description: description.trim(),
         jobType,
         proIds: props.pros.map((p) => p.id),
@@ -154,13 +160,28 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
       </ul>
       <p className="muted">{props.pros.length === 1 ? es.jobs.oneQuoteHint : es.jobs.manyQuotesHint(props.pros.length)}</p>
 
-      <MunicipalityPicker
-        municipalities={props.municipalities}
-        value={municipalityId}
-        onChange={setMunicipalityId}
-        label="Municipio"
-        required
-      />
+      {props.properties.length > 0 ? (
+        <label className="field">
+          <span>{es.properties.picker}</span>
+          <select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
+            <option value="">{es.properties.pickerNone}</option>
+            {props.properties.map((x) => (
+              <option key={x.id} value={x.id}>{x.name}</option>
+            ))}
+          </select>
+          <span className="muted">{es.properties.pickerHint}</span>
+        </label>
+      ) : null}
+
+      {chosenProperty ? null : (
+        <MunicipalityPicker
+          municipalities={props.municipalities}
+          value={municipalityId}
+          onChange={setMunicipalityId}
+          label="Municipio"
+          required
+        />
+      )}
 
       <label className="field">
         <span>{es.jobs.zoneLabel}</span>

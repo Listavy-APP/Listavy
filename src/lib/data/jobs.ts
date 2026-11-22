@@ -14,6 +14,8 @@ export interface JobRow {
   /** Urgent lane (0117). The fee is the snapshot taken when the job was created. */
   urgent: boolean;
   urgent_fee_dop: number | null;
+  /** B2B property (0119). Null for jobs without one. The page reads notes through job_property_view. */
+  property_id: string | null;
   homeowner_id: string;
   pro_id: string | null;
   trade: string;
@@ -123,6 +125,8 @@ export async function createJobRequest(
     municipalityId: string;
     /** Urgent lane (0117). Today only; the fee is snapshotted by the database. */
     urgent?: boolean;
+    /** B2B property (0119). The caller's own, active property. Its municipality is the job's place. */
+    propertyId?: string | null;
   },
 ): Promise<string> {
   const { data, error } = await supabase.rpc("create_job_request", {
@@ -137,6 +141,7 @@ export async function createJobRequest(
     p_scheduled_date: input.scheduledDate ?? null,
     p_scheduled_window: input.scheduledWindow ?? null,
     p_municipality_id: input.municipalityId,
+    p_property_id: input.propertyId ?? null,
     p_urgent: input.urgent ?? false,
   });
   fail(error);
