@@ -75,3 +75,24 @@ export async function searchLadder(
   if (error) throw new Error(`No se pudo buscar profesionales: ${error.message}`);
   return (data ?? []) as LadderRow[];
 }
+
+export type NationwideRow = {
+  pro_id: string;
+  municipality_id: string;
+  municipality_name: string;
+  province: string;
+  total_count: number;
+};
+
+/** Nationwide list of pro ids with their place (0113). Cards are fetched by id afterwards. */
+export async function searchNationwide(
+  supabase: SupabaseClient,
+  input: { trade: string | null; limit?: number },
+): Promise<NationwideRow[]> {
+  const { data, error } = await supabase.rpc("search_pros_nationwide", {
+    p_trade: input.trade,
+    p_limit: input.limit ?? 60,
+  });
+  if (error) throw new Error(`No se pudo buscar profesionales: ${error.message}`);
+  return (data ?? []) as NationwideRow[];
+}
