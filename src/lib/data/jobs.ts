@@ -11,6 +11,9 @@ export type JobType = "repair" | "diagnostic";
 
 export interface JobRow {
   id: string;
+  /** Urgent lane (0117). The fee is the snapshot taken when the job was created. */
+  urgent: boolean;
+  urgent_fee_dop: number | null;
   homeowner_id: string;
   pro_id: string | null;
   trade: string;
@@ -118,6 +121,8 @@ export async function createJobRequest(
     scheduledWindow?: string | null;
     /** Municipality id (0111). The place of the job. */
     municipalityId: string;
+    /** Urgent lane (0117). Today only; the fee is snapshotted by the database. */
+    urgent?: boolean;
   },
 ): Promise<string> {
   const { data, error } = await supabase.rpc("create_job_request", {
@@ -132,6 +137,7 @@ export async function createJobRequest(
     p_scheduled_date: input.scheduledDate ?? null,
     p_scheduled_window: input.scheduledWindow ?? null,
     p_municipality_id: input.municipalityId,
+    p_urgent: input.urgent ?? false,
   });
   fail(error);
   return data as string;

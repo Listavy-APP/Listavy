@@ -39,7 +39,7 @@ export function JobActions(props: {
   job: JobRow;
   quotes: QuoteRow[];
   pros: Record<string, { name: string | null; avatarUrl: string | null; verified: VerifiedKind | null }>;
-  pay: { quoteDop: number; creditDop: number; fx: number } | null;
+  pay: { quoteDop: number; creditDop: number; fx: number; urgentFeeDop: number } | null;
   photos: Photo[];
   reportedPaths: string[];
   contactPhone: string | null;
@@ -139,6 +139,7 @@ export function JobActions(props: {
               quote={q}
               pro={props.pros[q.pro_id]}
               busy={busy}
+              urgentFeeDop={job.urgent ? (job.urgent_fee_dop ?? 0) : 0}
               onApprove={role === "homeowner" ? () => run(() => approveQuote(supabase(), q.id)) : undefined}
             />
           ))}
@@ -153,7 +154,7 @@ export function JobActions(props: {
 
       {role === "homeowner" && job.status === "accepted" && !paid ? (
         props.pay ? (
-          <PaySheet jobId={job.id} quoteDop={props.pay.quoteDop} creditDop={props.pay.creditDop} fx={props.pay.fx} />
+          <PaySheet jobId={job.id} quoteDop={props.pay.quoteDop} creditDop={props.pay.creditDop} fx={props.pay.fx} urgentFeeDop={props.pay.urgentFeeDop} />
         ) : (
           <p className="muted">{es.jobs.payHint}</p>
         )

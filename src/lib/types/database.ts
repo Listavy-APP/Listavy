@@ -166,4 +166,6 @@ export interface ProCard {
   /** 'company' pros carry the public razón social. The RNC is never on the card. */
   pro_type: "individual" | "company";
   razon_social: string | null;
+  /** Opted in to urgent jobs (0117). Shown as a badge; only meaningful while available is true. */
+  urgent_available: boolean;
 }

@@ -17,10 +17,11 @@ import type { Municipality } from "@/lib/data/municipalities";
 import { formatRange, type PriceGuide } from "@/lib/domain/price-guides";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { SCHEDULE_WINDOWS, maxScheduleDate, santoDomingoToday, scheduleProblem, type ScheduleWindow } from "@/lib/domain/schedule";
+import { isUrgentScheduleAllowed } from "@/lib/domain/urgent";
 
 type ProOption = { id: string; name: string | null; trade: string; zone: string; pro_type: "individual" | "company" };
 
-export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: PriceGuide | null; trades: Record<string, CatalogTrade>; municipalities: Municipality[] }) {
+export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: PriceGuide | null; trades: Record<string, CatalogTrade>; municipalities: Municipality[]; urgentFeeDop: number | null }) {
   const router = useRouter();
   const trade = props.pros[0].trade;
   const sameTrade = props.pros.every((p) => p.trade === trade);
@@ -37,6 +38,9 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
   const [scheduleMode, setScheduleMode] = useState<"asap" | "dated">("asap");
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleWindow, setScheduleWindow] = useState<ScheduleWindow | "">("");
+  // Urgent lane (0117). Urgent means today: the date is locked to today, or ASAP.
+  const [urgencyMode, setUrgencyMode] = useState<"normal" | "urgent">("normal");
+  const urgent = urgencyMode === "urgent";
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [voice, setVoice] = useState<File | null>(null);
@@ -54,6 +58,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
     const schedWindow = scheduleMode === "dated" ? scheduleWindow || null : null;
     const schedProblem = scheduleProblem(schedDate, schedWindow);
     if (schedProblem) return setError(es.schedule.problems[schedProblem]);
+    if (urgent && !isUrgentScheduleAllowed(schedDate, santoDomingoToday())) return setError(es.urgent.dateToday);
     if (description.trim().length < 20) return setError(es.jobs.descriptionShort);
     if (photos.length < 1) return setError(es.jobs.photoRequired);
     // Place is the municipality the client picks (0111). No city gate: the client chooses the pro.
@@ -95,6 +100,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
         requestedProType: requestedType,
         scheduledDate: schedDate,
         scheduledWindow: schedWindow,
+        urgent,
       });
       setCreatedJobId(jobId);
       setBusy(false);
@@ -196,6 +202,27 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
         </p>
       ) : null}
 
+      {props.urgentFeeDop !== null ? (
+        <>
+          <Choice
+            legend={es.urgent.question}
+            name="urgencyMode"
+            value={urgencyMode}
+            options={[
+              { value: "normal", label: es.urgent.normal },
+              { value: "urgent", label: es.urgent.urgent },
+            ]}
+            onChange={setUrgencyMode}
+            disabled={busy}
+          />
+          {urgent ? (
+            <p className="muted">
+              {es.urgent.hint} {es.urgent.feeChoice(props.urgentFeeDop)}
+            </p>
+          ) : null}
+        </>
+      ) : null}
+
       <Choice
         legend={es.schedule.question}
         name="scheduleMode"
@@ -215,7 +242,7 @@ export function RequestForm(props: { userId: string; pros: ProOption[]; guide?: 
               type="date"
               value={scheduleDate}
               min={santoDomingoToday()}
-              max={maxScheduleDate()}
+              max={urgent ? santoDomingoToday() : maxScheduleDate()}
               onChange={(e) => setScheduleDate(e.target.value)}
               disabled={busy}
             />

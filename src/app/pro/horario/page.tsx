@@ -7,6 +7,7 @@ import { es } from "@/lib/i18n/es";
 import { santoDomingoToday } from "@/lib/domain/schedule";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ScheduleForms, type HoursRow } from "./ScheduleForms";
+import { UrgentToggle } from "./UrgentToggle";
 
 export const metadata = { title: es.schedule.pro.title };
 export const instant = false;
@@ -44,11 +45,17 @@ export default async function HorarioPage() {
       end: h.end_time?.slice(0, 5) ?? "17:00",
     }));
 
+  // Fee amount for the explainer. Null when the read fails; the explainer then uses the default.
+  const { data: urgentFee } = await supabase.rpc("public_urgent_fee");
   return (
     <section className="stack">
       <BackBar href="/pro/estado" />
       <h1>{es.schedule.pro.title}</h1>
       {(pro as { available?: boolean }).available === false ? <p className="muted">{es.schedule.pro.offNote}</p> : null}
+      <UrgentToggle
+        initial={(pro as { urgent_available?: boolean }).urgent_available === true}
+        feeDop={typeof urgentFee === "number" ? urgentFee : null}
+      />
       <ScheduleForms
         proId={pro.id}
         today={today}

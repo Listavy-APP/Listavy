@@ -114,6 +114,7 @@ export default async function AdminPayoutsPage() {
               [es.admin.colAmount, `${usd(p.amount_minor)} / ${es.money.dop(p.amount_dop)}`],
               [es.admin.colCommission, es.money.dop(p.commission_dop)],
               [es.admin.colPayout, es.money.dop(p.pro_payout_dop)],
+              [es.urgent.adminUrgentFlag, p.urgent_fee_dop > 0 ? `${es.money.dop(p.urgent_fee_dop)} → pro` : "—"],
               [es.admin.colRecovery, p.recovery_netted_dop > 0 ? es.money.dop(p.recovery_netted_dop) : "—"],
               [
                 es.admin.colKept,

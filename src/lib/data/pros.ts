@@ -44,7 +44,7 @@ export interface ProApplicationInput {
 
 /** Columns the signed-in pro may read directly. Private columns come from get_my_pro_status(). */
 const OWN_PRO_COLUMNS =
-  "id, trade, zone, price_min_dop, price_max_dop, price_unit, verification_status, verified_at, plan, pro_type, created_at, bio, available, is_demo, specialties";
+  "id, trade, zone, price_min_dop, price_max_dop, price_unit, verification_status, verified_at, plan, pro_type, created_at, bio, available, is_demo, specialties, urgent_available";
 
 /** Returns the signed-in user's pro application, or null. */
 export async function getMyPro(supabase: SupabaseClient): Promise<Pro | null> {
@@ -148,6 +148,12 @@ export async function getProCard(supabase: SupabaseClient, id: string): Promise<
   });
   if (error) throw new Error(`No se pudo cargar el perfil: ${error.message}`);
   return ((data ?? []) as ProCard[])[0] ?? null;
+}
+
+/** Urgent opt-in (0117). The pro's own switch; availability still decides whether they are offered. */
+export async function setMyUrgentAvailable(supabase: SupabaseClient, available: boolean): Promise<void> {
+  const { error } = await supabase.rpc("pro_set_urgent_available", { p_available: available });
+  if (error) throw new Error(error.message);
 }
 
 /** Public extras from migration 0110: a company's write-in and the folded specialties. */

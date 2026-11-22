@@ -161,6 +161,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       isCompany: p.pro_type === "company",
       verified: kinds.get(p.id) ?? null,
       companyName: p.pro_type === "company" ? p.razon_social : null,
+      urgentAvailable: p.urgent_available,
     };
   };
 

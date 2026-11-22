@@ -14,6 +14,8 @@ export function QuoteCard(props: {
   /** Shown only to the homeowner while the quote can still be chosen. */
   onApprove?: () => void;
   busy: boolean;
+  /** Urgent fee for the job (0117). Shown as its own line; the quote amount excludes it. */
+  urgentFeeDop?: number;
 }) {
   const { quote: q, pro } = props;
   const sent = q.status === "sent";
@@ -34,6 +36,8 @@ export function QuoteCard(props: {
         </div>
         {sent ? <span className="quote-price">{es.money.dop(q.amount_dop ?? 0)}</span> : null}
       </div>
+
+      {sent && props.urgentFeeDop ? <p className="muted">{es.urgent.feeLine(props.urgentFeeDop)}</p> : null}
 
       {sent ? (
         <>

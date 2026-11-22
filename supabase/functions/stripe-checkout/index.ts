@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: job } = await admin
     .from("jobs")
-    .select("id, homeowner_id, pro_id, trade, status, payment_status, job_type, approved_quote_id, credit_from_job_id, fx_rate_dop_per_usd, payment_provider")
+    .select("id, homeowner_id, pro_id, trade, status, payment_status, job_type, approved_quote_id, credit_from_job_id, fx_rate_dop_per_usd, payment_provider, urgent, urgent_fee_dop")
     .eq("id", jobId)
     .maybeSingle();
   if (!job) return json({ error: "Trabajo no encontrado." }, 404);
@@ -130,6 +130,8 @@ Deno.serve(async (req: Request) => {
       plan: proPlan,
       discountDop,
       promoDiscountDop: promoDop,
+      // Urgent fee (0117): from the job snapshot. Added on top of the charged part, never commissioned.
+      urgentFeeDop: job.urgent ? Number(job.urgent_fee_dop ?? 0) : 0,
     });
   } catch (e) {
     await admin.rpc("release_referral_reservation", { p_job: job.id });
@@ -211,6 +213,7 @@ Deno.serve(async (req: Request) => {
     url: session.url,
     charged_dop: split.chargedDop,
     tip_dop: split.tipDop,
+    urgent_fee_dop: split.urgentFeeDop,
     amount_dop: split.amountDop,
     commission_dop: split.commissionDop,
     referral_discount_dop: split.referralDiscountDop,

@@ -137,7 +137,12 @@ export type PaymentSplit = {
   ratePct: number;
 };
 
-export type PaymentSplitWithReferral = PaymentSplit & {
+export type PaymentSplitWithUrgent = PaymentSplit & {
+  /** Urgent fee (0117), RD$500 by default. Not commissioned. Paid in full to the pro. 0 when not urgent. */
+  urgentFeeDop: number;
+};
+
+export type PaymentSplitWithReferral = PaymentSplitWithUrgent & {
   /** Referral discount taken off the charge. Listavy funds it. The pro is not affected. */
   referralDiscountDop: number;
   /** Promo code discount taken off the charge (0095). Listavy funds it. The pro is not affected. */
@@ -158,10 +163,13 @@ export function splitPayment(input: {
   plan: PlanTier;
   discountDop?: number;
   promoDiscountDop?: number;
+  urgentFeeDop?: number;
 }): PaymentSplitWithReferral {
   const { quoteDop, creditDop, tipDop, kind, plan } = input;
   const discount = input.discountDop ?? 0;
   const promo = input.promoDiscountDop ?? 0;
+  const urgentFee = input.urgentFeeDop ?? 0;
+  if (!Number.isInteger(urgentFee) || urgentFee < 0) throw new Error("La tarifa urgente no es válida.");
   if (!Number.isInteger(discount) || discount < 0) throw new Error("El descuento no es válido.");
   if (!Number.isInteger(promo) || promo < 0) throw new Error("El descuento no es válido.");
   const tip = validateTip(tipDop, quoteDop);
@@ -173,11 +181,14 @@ export function splitPayment(input: {
   const chargedDop = beforeReferral - totalDiscount;
   if (chargedDop <= 0) throw new Error("No hay monto que cobrar.");
   const commission = computeCommission({ amountDop: beforeReferral, kind, plan });
+  // Order: discounts, then the urgent fee, then the tip. amount = charged + fee + tip.
+  // Identity (0117): proPayoutDop + commissionDop + urgentFeeDop = amountDop + referralDiscountDop + promoDiscountDop.
   return {
     chargedDop,
     commissionDop: commission.commissionDop,
     tipDop: tip,
-    amountDop: chargedDop + tip,
+    urgentFeeDop: urgentFee,
+    amountDop: chargedDop + urgentFee + tip,
     proPayoutDop: commission.proPayoutDop + tip,
     ratePct: commission.ratePct,
     referralDiscountDop: discount,
