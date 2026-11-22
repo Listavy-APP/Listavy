@@ -586,8 +586,7 @@ export const es = {
     zone: "Zona de trabajo",
     priceMin: "Precio mínimo (RD$)",
     priceMax: "Precio máximo (RD$)",
-    priceHint: "Un rango típico de trabajo. Lo ven los propietarios antes de contratar.",
-    idLabel: "Foto de tu cédula",
+    priceHint: "Un rango típico de trabajo. Lo ven los propietarios antes de contratar.",    idLabel: "Foto de tu cédula",
     idHint: "Por ambos lados si puedes. Usa buena luz y que se lean los datos.",
     photosLabel: "Fotos de trabajos anteriores (1 a 3)",
     photosHint: "Trabajos reales que hayas hecho. Sin fotos de otras personas.",
@@ -1319,6 +1318,16 @@ export const es = {
       disputed: "En disputa",
     },
     notAdmin: "Esta página es solo para administradores.",
+  },
+  // Price unit (0115). Reference range only; the quote amount stays "Precio fijo" per job.
+  priceUnit: {
+    label: "Unidad de precio",
+    job: "Por trabajo",
+    hour: "Por hora",
+    visit: "Por visita",
+    suffix: { job: "por trabajo", hour: "por hora", visit: "por visita" },
+    needUnit: "Elige la unidad de precio.",
+    explainer: "La unidad aplica a tu rango de referencia. El precio final de cada trabajo lo defines en tu cotización.",
   },
   money: {
     dop: (amount: number) => `RD$${amount.toLocaleString("es-DO")}`,

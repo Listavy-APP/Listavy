@@ -3,23 +3,27 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { CITIES, ZONES_BY_CITY } from "@/lib/domain/catalog";
+import { PRICE_UNITS, isPriceUnit, type PriceUnit } from "@/lib/domain/price-unit";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-/** Price range and zone. Writes only through pro_update_pricing_zone (0103); the city follows the zone. */
+/** Price range, unit and zone. Writes only through pro_update_pricing_zone (0103, unit 0115); the city follows the zone. */
 export function PricingZoneForm({
   initialMin,
   initialMax,
   initialZone,
+  initialUnit,
 }: {
   initialMin: number;
   initialMax: number;
   initialZone: string;
+  initialUnit: PriceUnit;
 }) {
   const router = useRouter();
   const [min, setMin] = useState(String(initialMin));
   const [max, setMax] = useState(String(initialMax));
   const [zone, setZone] = useState(initialZone);
+  const [unit, setUnit] = useState<PriceUnit>(initialUnit);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +37,10 @@ export function PricingZoneForm({
     // Same rules as registration: whole pesos, min >= 0, max >= min.
     if (!Number.isInteger(priceMin) || !Number.isInteger(priceMax) || priceMin < 0 || priceMax < priceMin) {
       setError(es.proPricingForm.invalidPrice);
+      return;
+    }
+    if (!isPriceUnit(unit)) {
+      setError(es.priceUnit.needUnit);
       return;
     }
     const allZones = CITIES.flatMap((c) => ZONES_BY_CITY[c] as readonly string[]);
@@ -49,6 +57,7 @@ export function PricingZoneForm({
         p_zone: zone,
         // Municipality is not editable here yet; null keeps the current one (0111 signature).
         p_municipality_id: null,
+        p_price_unit: unit,
       });
       if (err) throw err;
       setSaved(true);
@@ -64,6 +73,7 @@ export function PricingZoneForm({
     <form id="precios-zona" className="stack" onSubmit={onSubmit} noValidate>
       <h2>{es.proPricingForm.title}</h2>
       <p className="muted">{es.proPricingForm.intro}</p>
+      <p className="muted">{es.priceUnit.explainer}</p>
       <label className="field">
         {es.proPricingForm.priceMin}
         <input type="number" inputMode="numeric" min={0} step={1} value={min} onChange={(e) => setMin(e.target.value)} />
@@ -71,6 +81,16 @@ export function PricingZoneForm({
       <label className="field">
         {es.proPricingForm.priceMax}
         <input type="number" inputMode="numeric" min={0} step={1} value={max} onChange={(e) => setMax(e.target.value)} />
+      </label>
+      <label className="field">
+        {es.priceUnit.label}
+        <select value={unit} onChange={(e) => setUnit(e.target.value as PriceUnit)}>
+          {PRICE_UNITS.map((u) => (
+            <option key={u} value={u}>
+              {es.priceUnit[u]}
+            </option>
+          ))}
+        </select>
       </label>
       <label className="field">
         {es.proPricingForm.zone}

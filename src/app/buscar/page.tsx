@@ -154,7 +154,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       tradeLabel: proLabelOf(tm, p.trade),
       zone: info?.line ?? p.zone,
       tierLabel,
-      priceLabel: `${es.search.priceRange}: ${es.money.dop(p.price_min_dop)} – ${es.money.dop(p.price_max_dop)}`,
+      priceLabel: `${es.search.priceRange}: ${es.money.dop(p.price_min_dop)} – ${es.money.dop(p.price_max_dop)} · ${es.priceUnit.suffix[p.price_unit]}`,
       reviewLabel,
       avatarSrc: avatarUrl(supabase, p.avatar_path),
       boosted: false,

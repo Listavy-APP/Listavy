@@ -18,6 +18,7 @@ import { ProMiniCard } from "@/components/home/ProMiniCard";
 import { DateField } from "@/components/home/DateField";
 import { HomeIcon } from "@/components/home/HomeIcons";
 import type { ProCard } from "@/lib/types/database";
+import { isJobUnit } from "@/lib/domain/price-unit";
 
 /** Representative category photos only. They do not show a specific pro. */
 /** Lines without an entry here get the designed fallback tile (no stock photos). */
@@ -73,12 +74,14 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
   const pros: ProCard[] = (await getProCardsByIds(supabase, ids)).filter((p) => p.id !== userId);
 
   // Lowest price per trade and overall, from real approved pros only. Missing trade means no price shown.
+  // Per-job ranges only (0115): hourly and visit ranges never set the "desde" minimum.
+  const jobPros = pros.filter((p) => isJobUnit(p.price_unit));
   const minByTrade = new Map<string, number>();
-  for (const p of pros) {
+  for (const p of jobPros) {
     const cur = minByTrade.get(p.trade);
     if (cur === undefined || p.price_min_dop < cur) minByTrade.set(p.trade, p.price_min_dop);
   }
-  const overallMin = pros.length ? Math.min(...pros.map((p) => p.price_min_dop)) : null;
+  const overallMin = jobPros.length ? Math.min(...jobPros.map((p) => p.price_min_dop)) : null;
 
   const nearby = pros.slice(0, RAIL_LIMIT);
   const newest = [...pros]

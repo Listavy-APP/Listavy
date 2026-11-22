@@ -13,6 +13,7 @@ import type { CatalogTrade } from "@/lib/data/trades";
 import { MunicipalityPicker } from "@/components/MunicipalityPicker";
 import type { Municipality } from "@/lib/data/municipalities";
 import { ZONES_BY_CITY, CITIES } from "@/lib/domain/catalog";
+import { isPriceUnit } from "@/lib/domain/price-unit";
 import { es } from "@/lib/i18n/es";
 import { resizeImage } from "@/lib/media/resize";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -44,6 +45,7 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
     const zone = String(form.get("zone") ?? "");
     const priceMin = Number(form.get("priceMin"));
     const priceMax = Number(form.get("priceMax"));
+    const unitRaw = String(form.get("priceUnit") ?? "");
     const razonSocial = String(form.get("razonSocial") ?? "").trim();
     const rnc = String(form.get("rnc") ?? "").trim();
     const customLine = String(form.get("customLine") ?? "").trim();
@@ -55,6 +57,7 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
     if (!Number.isInteger(priceMin) || !Number.isInteger(priceMax) || priceMin < 0 || priceMax < priceMin) {
       return setError(es.registration.invalidPrice);
     }
+    if (!isPriceUnit(unitRaw)) return setError(es.priceUnit.needUnit);
     if (!idFile) return setError(es.registration.needId);
     if (workFiles.length < 1) return setError(es.registration.needPhotos);
     if (workFiles.length > MAX_WORK_PHOTOS) return setError(es.registration.tooManyPhotos);
@@ -94,6 +97,7 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
         municipalityId,
         priceMinDop: priceMin,
         priceMaxDop: priceMax,
+        priceUnit: unitRaw,
         idDocument,
         workPhotos,
         proType,
@@ -173,6 +177,14 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
         </label>
       </div>
       <p className="muted">{es.registration.priceHint}</p>
+      <label className="field">
+        <span>{es.priceUnit.label}</span>
+        <select name="priceUnit" defaultValue="job" required>
+          <option value="job">{es.priceUnit.job}</option>
+          <option value="hour">{es.priceUnit.hour}</option>
+          <option value="visit">{es.priceUnit.visit}</option>
+        </select>
+      </label>
 
       <FilePick
         label={es.registration.idLabel}

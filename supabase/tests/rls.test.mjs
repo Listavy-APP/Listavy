@@ -3929,7 +3929,8 @@ await check("0103 pricing: the function has no target id, so another pro's row i
         where proname = 'pro_update_pricing_zone' and pronamespace = 'public'::regnamespace`,
     )).rows;
     assert.equal(sig.length, 1);
-    assert.equal(sig[0].pronargs, 4);
+    // 0115 added p_price_unit (default null). Still no target id.
+    assert.equal(sig[0].pronargs, 5);
     assert.doesNotMatch(sig[0].args, /p_pro_id|p_target|p_id\b/i, "no target id parameter");
     const before = (await db.query(`select price_min_dop, zone from public.pros where id = '${PRO2}'`)).rows[0];
     await asUser(PRO, "select public.pro_update_pricing_zone(900, 1000, 'Gazcue', null)");
@@ -4789,6 +4790,81 @@ await check("0114 seed fix: La Caleta and La Victoria are in Santo Domingo provi
   }
   const provinces = (await db.query(`select count(distinct province)::int as p from public.municipalities`)).rows[0].p;
   assert.equal(provinces, 32);
+});
+
+// ---- 0115 price unit -------------------------------------------------------------
+// Reference range only. The unit is shown with the range, and aggregates count only 'job' pros.
+
+await check("0115 price unit: defaults to job and the table refuses other values", async () => {
+  await withRollback(async () => {
+    const r = (await db.query(`select price_unit from public.pros where id = '${PRO}'`)).rows[0];
+    assert.equal(r.price_unit, "job");
+    await db.exec("savepoint pu_bad");
+    let code = null;
+    try { await asService(`update public.pros set price_unit = 'day' where id = '${PRO}'`); } catch (e) { code = e.code; } finally { await db.exec("rollback to savepoint pu_bad"); }
+    assert.equal(code, "23514");
+  });
+});
+
+await check("0115 price unit: the owner cannot write the column directly", async () => {
+  await withRollback(async () => {
+    await db.exec("savepoint pu_direct");
+    let code = null;
+    try { await asUser(PRO, `update public.pros set price_unit = 'hour' where id = '${PRO}'`); } catch (e) { code = e.code; } finally { await db.exec("rollback to savepoint pu_direct"); }
+    // The guard trigger refuses it (the harness does not enforce column grants, as in 0103).
+    assert.equal(code, "P0001");
+  });
+});
+
+await check("0115 price unit: the pricing RPC sets the unit, null keeps it, other values are refused", async () => {
+  await withRollback(async () => {
+    await asUser(PRO, "select public.pro_update_pricing_zone(1200, 3400, 'Naco', null, 'hour')");
+    let r = (await db.query(`select price_unit from public.pros where id = '${PRO}'`)).rows[0];
+    assert.equal(r.price_unit, "hour");
+    await asUser(PRO, "select public.pro_update_pricing_zone(1200, 3400, 'Naco', null, null)");
+    r = (await db.query(`select price_unit from public.pros where id = '${PRO}'`)).rows[0];
+    assert.equal(r.price_unit, "hour", "null keeps the current unit");
+    await expectCode(() => asUser(PRO, "select public.pro_update_pricing_zone(1200, 3400, 'Naco', null, 'day')"), "22023");
+  });
+});
+
+await check("0115 price unit: list_pro_cards returns the unit on the card", async () => {
+  const r = await asUser(HOMEOWNER, `select price_unit from public.list_pro_cards(null, null, '${PRO}')`);
+  assert.equal(r.rows[0].price_unit, "job");
+});
+
+await check("0115 price unit: hour and visit pros stay out of the price guide", async () => {
+  await withRollback(async () => {
+    const before = await guideRow("glass_windows");
+    for (const n of ["401", "402", "403"]) {
+      const id = `00000000-0000-4000-9000-000000000${n}`;
+      await seedGuidePro(id, "glass_windows", 1000, 2000);
+      await asService(`update public.pros set price_unit = '${n === "403" ? "visit" : "hour"}' where id = '${id}'`);
+    }
+    const after = await guideRow("glass_windows");
+    assert.equal(after.sample, before.sample, "hour and visit pros add nothing to the sample");
+    assert.equal(after.low_dop, before.low_dop);
+  });
+});
+
+await check("0115 price unit: job pros count toward the guide", async () => {
+  await withRollback(async () => {
+    const before = await guideRow("glass_windows");
+    for (const n of ["411", "412", "413"]) {
+      await seedGuidePro(`00000000-0000-4000-9000-000000000${n}`, "glass_windows", 1000, 2000);
+    }
+    const after = await guideRow("glass_windows");
+    assert.equal(after.sample, before.sample + 3);
+  });
+});
+
+await check("0115 price unit: the admin queue returns the unit; non-admins are refused", async () => {
+  await withRollback(async () => {
+    await asService(`update public.pros set verification_status = 'pending', price_unit = 'visit' where id = '${PRO}'`);
+    const r = await asUser(ADMIN, `select price_unit from public.admin_pending_pros() where id = '${PRO}'`);
+    assert.equal(r.rows[0].price_unit, "visit");
+    await expectCode(() => asUser(HOMEOWNER, "select * from public.admin_pending_pros()"), "P0001");
+  });
 });
 
 await db.close();

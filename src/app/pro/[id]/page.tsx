@@ -211,6 +211,7 @@ export default async function ProDetailPage({
           <b>
             {es.money.dop(pro.price_min_dop)} – {es.money.dop(pro.price_max_dop)}
           </b>
+          <span className="muted"> · {es.priceUnit.suffix[pro.price_unit]}</span>
         </div>
       </div>
 
