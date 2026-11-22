@@ -195,7 +195,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   })) if (v) urlParams[k] = v;
 
   const filterForm = (
-    <form className="stack search-form" method="get" action="/buscar">
+    <form id="search-filters" className="stack search-form" method="get" action="/buscar">
       <label className="field">
         <span>{es.search.nameLabel}</span>
         <input
@@ -264,9 +264,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         <span>{es.discover.when} <em className="muted">{es.discover.whenOptional}</em></span>
         <input type="date" name="date" defaultValue={date ?? ""} />
       </label>
-      <button className="button" type="submit">
-        {es.search.submit}
-      </button>
     </form>
   );
 
@@ -280,7 +277,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       {/* Sticky top bar: sort and the filters sheet. */}
       <div className="search-topbar">
         <SortSelect current={sort} params={urlParams} />
-        <FiltersSheet>{filterForm}</FiltersSheet>
+        <FiltersSheet formId="search-filters">{filterForm}</FiltersSheet>
       </div>
 
       <p className="muted">{es.filters.resultsIn(pros.length, municipality?.name ?? "todo el país")}</p>
