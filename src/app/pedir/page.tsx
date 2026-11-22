@@ -5,6 +5,7 @@ import { FixedBookingForm } from "./FixedBookingForm";
 import Link from "next/link";
 import { listProFixedServices } from "@/lib/data/fixed";
 import { FixedDiscovery } from "./FixedDiscovery";
+import { ModeTabs } from "./ModeTabs";
 import { listMunicipalities } from "@/lib/data/municipalities";
 import { getMunicipalities } from "@/lib/data/municipalities-server";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -111,6 +112,7 @@ export default async function RequestPage({
     return (
       <section className="stack">
         <BackBar href={backHref} />
+        <ModeTabs active="quote" />
         <h1>{es.jobs.requestTitle}</h1>
         <p className="muted">{es.jobs.noPro}</p>
       </section>
