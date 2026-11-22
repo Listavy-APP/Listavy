@@ -4858,6 +4858,15 @@ await check("0115 price unit: job pros count toward the guide", async () => {
   });
 });
 
+await check("0115 price unit: the admin queue returns the unit; non-admins are refused", async () => {
+  await withRollback(async () => {
+    await asService(`update public.pros set verification_status = 'pending', price_unit = 'visit' where id = '${PRO}'`);
+    const r = await asUser(ADMIN, `select price_unit from public.admin_pending_pros() where id = '${PRO}'`);
+    assert.equal(r.rows[0].price_unit, "visit");
+    await expectCode(() => asUser(HOMEOWNER, "select * from public.admin_pending_pros()"), "P0001");
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

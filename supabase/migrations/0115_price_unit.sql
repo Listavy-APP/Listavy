@@ -297,3 +297,40 @@ $$;
 
 revoke all on function public.get_price_guides() from public;
 grant execute on function public.get_price_guides() to anon, authenticated;
+
+-- 7. admin_pending_pros: 0110 body plus price_unit as the last column, so the queue shows the unit.
+-- Return type changes, so the function is dropped and recreated, then re-granted.
+drop function if exists public.admin_pending_pros(integer);
+create or replace function public.admin_pending_pros(p_limit integer default null)
+returns table (
+  id uuid,
+  trade text,
+  zone text,
+  city text,
+  price_min_dop integer,
+  price_max_dop integer,
+  created_at timestamptz,
+  pro_type text,
+  full_name text,
+  phone text,
+  custom_line text,
+  custom_line_resolution text,
+  price_unit text
+)
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if not public.is_admin() then raise exception 'No autorizado.'; end if;
+  return query
+    select p.id, p.trade, p.zone, p.city, p.price_min_dop, p.price_max_dop, p.created_at, p.pro_type,
+           pr.full_name, pr.phone, p.custom_line, p.custom_line_resolution, p.price_unit
+    from public.pros p
+    left join public.profiles pr on pr.id = p.id
+    where p.verification_status = 'pending' and p.closed_at is null
+    order by p.created_at desc
+    limit p_limit;
+end;
+$$;
+
+revoke all on function public.admin_pending_pros(integer) from public;
+grant execute on function public.admin_pending_pros(integer) to authenticated;

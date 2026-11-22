@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { PriceUnit } from "@/lib/domain/price-unit";
 import { getTradeMap } from "@/lib/data/trades-server";
 import { proLabelOf } from "@/lib/data/trades";
 import { notFound } from "next/navigation";
@@ -29,6 +30,7 @@ type PendingPro = {
   phone: string | null;
   custom_line: string | null;
   custom_line_resolution: string | null;
+  price_unit: PriceUnit;
 };
 
 type FileRow = { pro_id: string; kind: string; storage_path: string };
@@ -116,7 +118,7 @@ export default async function AdminPendingProsPage() {
             <dl className="stack">
               <div><dt className="muted">{es.adminPending.phone}</dt><dd>{pro.phone ?? "—"}</dd></div>
               <div><dt className="muted">{proLabelOf(tm, pro.trade)}</dt><dd>{pro.zone}, {pro.city}</dd></div>
-              <div><dt className="muted">{es.adminPending.price}</dt><dd>{dop(pro.price_min_dop)} – {dop(pro.price_max_dop)}</dd></div>
+              <div><dt className="muted">{es.adminPending.price}</dt><dd>{dop(pro.price_min_dop)} – {dop(pro.price_max_dop)} · {es.priceUnit.suffix[pro.price_unit]}</dd></div>
               <div><dt className="muted">{es.adminPending.applied}</dt><dd>{dateTime(pro.created_at)}</dd></div>
             </dl>
 
