@@ -8,6 +8,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type AdminPayment = {
   id: string;
   job_id: string;
+  /** Urgent fee (0117). Whole pesos; 0 when the job was not urgent. Paid in full to the pro. */
+  urgent_fee_dop: number;
+  urgent_fee_pro_dop: number;
   purpose: string;
   status: "pending" | "held" | "released" | "refunded" | "disputed";
   amount_minor: number;
@@ -46,7 +49,7 @@ export type OwedRecovery = {
 };
 
 const PAYMENT_COLUMNS =
-  "id, job_id, purpose, status, amount_minor, amount_dop, commission_dop, pro_payout_dop, keep_dop, keep_commission_dop, keep_pro_payout_dop, refunded_minor, stripe_payment_intent_id, stripe_transfer_id, release_after, released_at, created_at, recovery_netted_dop";
+  "id, job_id, purpose, status, amount_minor, amount_dop, commission_dop, pro_payout_dop, keep_dop, keep_commission_dop, keep_pro_payout_dop, refunded_minor, stripe_payment_intent_id, stripe_transfer_id, release_after, released_at, created_at, recovery_netted_dop, urgent_fee_dop, urgent_fee_pro_dop";
 
 export async function listAdminPayments(supabase: SupabaseClient, limit = 100): Promise<AdminPayment[]> {
   const { data, error } = await supabase

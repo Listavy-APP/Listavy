@@ -92,7 +92,7 @@ export default async function JobPage({
   });
 
   // What the homeowner will pay: the approved quote minus any paid diagnostic (D13).
-  let pay: { quoteDop: number; creditDop: number; fx: number } | null = null;
+  let pay: { quoteDop: number; creditDop: number; fx: number; urgentFeeDop: number } | null = null;
   if (role === "homeowner" && j.status === "accepted" && j.payment_status === "unpaid") {
     const approved = quotes.find((q) => q.id === j.approved_quote_id);
     if (approved?.amount_dop != null) {
@@ -108,7 +108,12 @@ export default async function JobPage({
           .maybeSingle();
         creditDop = credit?.amount_dop ?? 0;
       }
-      pay = { quoteDop: approved.amount_dop, creditDop, fx: Number(j.fx_rate_dop_per_usd) };
+      pay = {
+    quoteDop: approved.amount_dop,
+    creditDop,
+    fx: Number(j.fx_rate_dop_per_usd),
+    urgentFeeDop: j.urgent ? (j.urgent_fee_dop ?? 0) : 0,
+  };
     }
   }
   // Back from checkout. The webhook marks the job paid a moment later, so until then the pay
@@ -140,7 +145,7 @@ export default async function JobPage({
   const approvedAmount = quotes.find((q) => q.id === j.approved_quote_id)?.amount_dop ?? null;
   const { data: paymentRow } = await supabase
     .from("payments")
-    .select("status, amount_dop, pro_payout_dop, keep_pro_payout_dop, keep_dop, refunded_minor, fx_rate_dop_per_usd")
+    .select("status, amount_dop, pro_payout_dop, urgent_fee_pro_dop, keep_pro_payout_dop, keep_dop, refunded_minor, fx_rate_dop_per_usd")
     .eq("job_id", id)
     .in("purpose", ["job", "diagnostic"])
     .order("created_at", { ascending: false })
@@ -150,6 +155,7 @@ export default async function JobPage({
     status: string;
     amount_dop: number | null;
     pro_payout_dop: number | null;
+    urgent_fee_pro_dop: number | null;
     keep_pro_payout_dop: number | null;
     keep_dop: number | null;
     refunded_minor: number | null;
@@ -174,7 +180,10 @@ export default async function JobPage({
   // The pro sees what they keep (after any partial refund). The client sees what they paid.
   const payment = pr && pr.amount_dop !== null
     ? {
-        amount: role === "pro" ? (pr.keep_pro_payout_dop ?? pr.pro_payout_dop ?? 0) : pr.amount_dop,
+        // The pro's share includes the whole urgent fee (0117), except when a cancel fee is kept instead.
+        amount: role === "pro"
+          ? (pr.keep_pro_payout_dop ?? (pr.pro_payout_dop ?? 0) + (pr.urgent_fee_pro_dop ?? 0))
+          : pr.amount_dop,
         statusLabel: PAY_STATUS_LABEL[pr.status] ?? pr.status,
         refundedDop: role === "homeowner" ? refundedPesos(pr) : 0,
       }
@@ -201,6 +210,14 @@ export default async function JobPage({
       <h1>
         {proLabelOf(tm, j.trade)} · {j.zone}
       </h1>
+      {j.urgent ? (
+        <p>
+          <span className="badge">{es.urgent.badge}</span>{" "}
+          {role === "pro"
+            ? es.urgent.proEarn(j.urgent_fee_dop ?? 0)
+            : es.urgent.feeLine(j.urgent_fee_dop ?? 0)}
+        </p>
+      ) : null}
       <p>{j.description}</p>
       <dl className="job-facts">
         <div>

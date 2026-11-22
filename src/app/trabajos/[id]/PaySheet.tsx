@@ -28,8 +28,8 @@ async function serverMessage(fnError: unknown, fallback: string): Promise<string
  * database refuses an amount that does not match. Applying a code here only previews it (reserves nothing).
  * Tip percentages are of the agreed quote, the same base as the 20% cap.
  */
-export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: number; fx: number }) {
-  const { quoteDop, creditDop, fx } = props;
+export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: number; fx: number; urgentFeeDop: number }) {
+  const { quoteDop, creditDop, fx, urgentFeeDop } = props;
   const [pick, setPick] = useState<Pick>("none");
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState(false);
@@ -55,7 +55,8 @@ export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: nu
     tip = tipForPercentDop(quoteDop, Number(pick));
   }
 
-  const total = jobDop - promoDop + tip;
+  // Urgent fee (0117): on top of the charged part, never discounted. Before the tip, as the server adds it.
+  const total = jobDop - promoDop + urgentFeeDop + tip;
   const usdKnown = Number.isFinite(fx) && fx > 0;
   const usd = usdKnown ? (Math.round((total * 100) / fx) / 100).toFixed(2) : null;
 
@@ -133,6 +134,12 @@ export function PaySheet(props: { jobId: string; quoteDop: number; creditDop: nu
           <li className="credit">
             <span>{es.promo.discountLine(applied.code)}</span>
             <span>−{es.money.dop(applied.discountDop)}</span>
+          </li>
+        ) : null}
+        {urgentFeeDop > 0 ? (
+          <li>
+            <span>{es.urgent.feeLine(urgentFeeDop)}</span>
+            <span>{es.money.dop(urgentFeeDop)}</span>
           </li>
         ) : null}
         {tip > 0 ? (

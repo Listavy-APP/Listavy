@@ -26,6 +26,8 @@ export type PickerPro = {
   /** Verified icon kind (person or company), or null. */
   verified?: VerifiedKind | null;
   companyName?: string | null;
+  /** Opted in to urgent jobs (0117). Badge only. Availability still decides whether the pro is offered. */
+  urgentAvailable?: boolean;
 };
 
 const MAX = 3;
@@ -77,6 +79,11 @@ export function ProPicker({
               {p.name ?? "—"}
               {p.verified ? <> <VerifiedIcon kind={p.verified} /></> : null}
             </p>
+            {p.urgentAvailable && p.available ? (
+              <p>
+                <span className="badge">{es.urgent.proBadge}</span>
+              </p>
+            ) : null}
             <p className="muted">
               {p.tradeLabel} · {p.zone}
             </p>

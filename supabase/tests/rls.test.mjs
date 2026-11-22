@@ -5026,6 +5026,191 @@ await check("0116 fixed: with a municipality, the pro's own municipality is tier
   });
 });
 
+// 0117 urgent lane. The fee is snapshotted on the job by the function only, the opt-in is the pro's own,
+// and the split identity holds with the fee present.
+const URG_CLIENT = "00000000-0000-0000-0000-000000000071";
+const URG_TODAY = "(now() at time zone 'America/Santo_Domingo')::date";
+
+await check("0117 urgent: the function snapshots the fee; the client cannot change the flag or the fee", async () => {
+  await withRollback(async () => {
+    await seedFixture(`insert into auth.users (id, phone) values ('${URG_CLIENT}', '+18095559601');`);
+    const res = await asUser(URG_CLIENT, `select public.create_job_request('plumber','Naco','${desc}','repair',
+      array['${PRO}']::uuid[], array['${URG_CLIENT}/a.jpg']::text[], null, 'any', null, null, null, true) as job`);
+    const job = (await db.query(`select urgent, urgent_fee_dop from public.jobs where id = '${res.rows[0].job}'`)).rows[0];
+    assert.equal(job.urgent, true);
+    assert.equal(job.urgent_fee_dop, 500);
+    // Service role bypasses RLS but not triggers, so this checks the guard itself.
+    await expectCode(() => asService(`update public.jobs set urgent = false where id = '${res.rows[0].job}'`), "42501");
+    await expectCode(() => asService(`update public.jobs set urgent_fee_dop = 1 where id = '${res.rows[0].job}'`), "42501");
+  });
+});
+
+await check("0117 urgent: a future date is refused; today and ASAP are accepted; non-urgent is unchanged", async () => {
+  await withRollback(async () => {
+    await seedFixture(`insert into auth.users (id, phone) values ('${URG_CLIENT}', '+18095559602') on conflict do nothing;`);
+    const call = (date, win, urgent) => `select public.create_job_request('plumber','Naco','${desc}','repair',
+      array['${PRO}']::uuid[], array[gen_random_uuid()::text]::text[], null, 'any', ${date}, ${win}, null, ${urgent}) as job`;
+    const tenDays = `(now() at time zone 'America/Santo_Domingo')::date + 10`;
+    await expectCode(() => asUser(URG_CLIENT, call(tenDays, `'morning'`, true)), "22023");
+    const today = await asUser(URG_CLIENT, call(URG_TODAY, `'afternoon'`, true));
+    assert.equal((await db.query(`select urgent from public.jobs where id = '${today.rows[0].job}'`)).rows[0].urgent, true);
+    const plain = await asUser(URG_CLIENT, call(tenDays, `'morning'`, false));
+    const row = (await db.query(`select urgent, urgent_fee_dop from public.jobs where id = '${plain.rows[0].job}'`)).rows[0];
+    assert.equal(row.urgent, false);
+    assert.equal(row.urgent_fee_dop, null);
+  });
+});
+
+await check("0117 urgent: only the pro flips their own opt-in; the owner cannot write the column directly", async () => {
+  await withRollback(async () => {
+    // Direct write first: the pro_internal flag is transaction-local, so the RPC must come after this check.
+    await expectCode(() => asUser(PRO, `update public.pros set urgent_available = true where id = '${PRO}'`), "42501");
+    await expectCode(() => asUser(HOMEOWNER, `select public.pro_set_urgent_available(true)`), "42501");
+    await expectCode(() => asAnon(`select public.pro_set_urgent_available(true)`), "42501");
+    await asUser(PRO, `select public.pro_set_urgent_available(true)`);
+    assert.equal((await db.query(`select urgent_available from public.pros where id = '${PRO}'`)).rows[0].urgent_available, true);
+  });
+});
+
+await check("0117 urgent: the admin fee is super-admin only, bounded, and reason-required", async () => {
+  await withRollback(async () => {
+    assert.equal((await asUser(ADMIN, `select public.admin_get_urgent_fee() as f`)).rows[0].f, 500);
+    await expectCode(() => asUser(HOMEOWNER, `select public.admin_set_urgent_fee(600, 'Ajuste de prueba de tarifa')`), "42501");
+    await expectCode(() => asUser(ADMIN, `select public.admin_set_urgent_fee(50, 'Ajuste de prueba de tarifa')`), "22023");
+  });
+});
+
+await check("0117 urgent: payment split holds with the fee present; the fee is paid in full to the pro and not commissioned", async () => {
+  await withRollback(async () => {
+    const job = "10000000-0000-0000-0000-00000000c002";
+    const q = "30000000-0000-0000-0000-00000000c002";
+    await asOwner(HOMEOWNER, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, urgent, urgent_fee_dop)
+      values ('${job}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'TEST: pago urgente', 'accepted', 'repair', 'unpaid', true, 500)`));
+    await db.exec(`insert into public.quotes (id, job_id, pro_id, amount_dop, status) values ('${q}', '${job}', '${PRO}', 6000, 'accepted')`);
+    await db.exec(`update public.jobs set approved_quote_id = '${q}' where id = '${job}'`);
+    // Charged 6,000; fee 500; no tip. Commission 12% of 6,000 = 720; pro payout excludes the fee.
+    await asService(applyCall(job, { amountDop: 6500, commission: 720, payout: 5280 }));
+    const p = (await db.query(`select amount_dop, commission_dop, pro_payout_dop, urgent_fee_dop, urgent_fee_pro_dop, referral_discount_dop, discount_dop
+      from public.payments where job_id = '${job}'`)).rows[0];
+    assert.equal(p.urgent_fee_dop, 500);
+    assert.equal(p.urgent_fee_pro_dop, 500);
+    assert.equal(p.pro_payout_dop + p.commission_dop + p.urgent_fee_pro_dop, p.amount_dop + p.referral_discount_dop + p.discount_dop);
+  });
+});
+
+await check("0117 urgent: a pre-grace cancel shows the fee; the cancel fee excludes the urgent fee; the refund returns it", async () => {
+  await withRollback(async () => {
+    const job = "10000000-0000-0000-0000-00000000c003";
+    const q = "30000000-0000-0000-0000-00000000c003";
+    await asOwner(HOMEOWNER, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, urgent, urgent_fee_dop)
+      values ('${job}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'TEST: cancelación urgente', 'accepted', 'repair', 'unpaid', true, 500)`));
+    await db.exec(`insert into public.quotes (id, job_id, pro_id, amount_dop, status) values ('${q}', '${job}', '${PRO}', 6000, 'accepted')`);
+    await db.exec(`update public.jobs set approved_quote_id = '${q}' where id = '${job}'`);
+    await asService(applyCall(job, { event: "evt_urg_c", sessionId: "cs_urg_c", amountDop: 6500, commission: 720, payout: 5280 }));
+    const early = (await asUser(HOMEOWNER, `select public.cancellation_preview('${job}') as p`)).rows[0].p;
+    assert.equal(early.fee_applies, false);
+    assert.equal(early.urgent_fee_dop, 500);
+    await asService(`update public.payments set created_at = now() - interval '3 hours' where job_id = '${job}'`);
+    const late = (await asUser(HOMEOWNER, `select public.cancellation_preview('${job}') as p`)).rows[0].p;
+    assert.equal(late.fee_applies, true);
+    assert.equal(late.fee_dop, 300); // min(300, 6500 - 0 - 500)
+    assert.equal(late.refund_dop, 6200);
+  });
+});
+
+await check("0117 urgent: a completed urgent job pays the pro share plus the whole fee", async () => {
+  await withRollback(async () => {
+    const job = "10000000-0000-0000-0000-00000000c004";
+    const q = "30000000-0000-0000-0000-00000000c004";
+    await asOwner(HOMEOWNER, () => db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, urgent, urgent_fee_dop)
+      values ('${job}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'TEST: pago liberado urgente', 'accepted', 'repair', 'unpaid', true, 500)`));
+    await db.exec(`insert into public.quotes (id, job_id, pro_id, amount_dop, status) values ('${q}', '${job}', '${PRO}', 6000, 'accepted')`);
+    await db.exec(`update public.jobs set approved_quote_id = '${q}' where id = '${job}'`);
+    await asService(applyCall(job, { event: "evt_urg_r", sessionId: "cs_urg_r", amountDop: 6500, commission: 720, payout: 5280 }));
+    await asService(`update public.jobs set status = 'completed' where id = '${job}'`);
+    await asService(`update public.payments set release_after = now() - interval '1 hour' where job_id = '${job}'`);
+    const due = (await db.query(`select pro_payout_dop from public.claim_due_payments(50) where job_id = '${job}'`)).rows[0];
+    assert.equal(due.pro_payout_dop, 5780); // 5,280 + 500
+  });
+});
+
+// 0117 amendment: a dispute on an urgent payment. Partial keeps the fee; full refund returns it.
+async function seedUrgentDisputePayment() {
+  return asOwner(HOMEOWNER, async () => {
+    const job = randomUUID();
+    const payment = randomUUID();
+    await db.exec(`insert into public.jobs (id, homeowner_id, pro_id, trade, zone, description, status, job_type, payment_status, approved_at, urgent, urgent_fee_dop)
+                   values ('${job}', '${HOMEOWNER}', '${PRO}', 'plumber', 'Naco', 'Disputa urgente de prueba.', 'completed', 'repair', 'paid', now() - interval '1 hour', true, 500)`);
+    await db.exec(`insert into public.payments (id, job_id, provider, currency, amount_minor, fx_rate_dop_per_usd,
+                     amount_dop, commission_dop, pro_payout_dop, purpose, status, release_after, urgent_fee_dop, urgent_fee_pro_dop)
+                   values ('${payment}', '${job}', 'stripe', 'USD', 10000, 65, 6500, 720, 5280, 'job', 'held', now() + interval '23 hours', 500, 500)`);
+    return { job, payment };
+  });
+}
+
+await check("0117 dispute: partial keeps the urgent fee in the pro's kept share; refund excludes it; identities hold", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedUrgentDisputePayment();
+    await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
+    const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+    await closeWindows();
+    // A refund above amount - fee (6,000) would reach into the fee: refused.
+    await db.exec("savepoint urg_refused;");
+    await assert.rejects(db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 6001, 'Motivo de la decisión de prueba')`), /tarifa urgente/);
+    await db.exec("rollback to savepoint urg_refused;");
+    await closeWindows();
+    await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 4000, 'Motivo de la decisión de prueba')`);
+    const p = (await db.query(`select keep_dop, keep_minor, keep_pro_payout_dop, keep_commission_dop, amount_dop, pro_payout_dop,
+      commission_dop, urgent_fee_pro_dop, referral_discount_dop, discount_dop from public.payments where id = '${payment}'`)).rows[0];
+    // Kept cash 2,500 (includes the 500 fee). Kept charged 2,000 is commissioned at the 15% tier with the 400 minimum.
+    assert.equal(p.keep_dop, 2500);
+    assert.equal(p.keep_commission_dop, 400);
+    assert.equal(p.keep_pro_payout_dop, 2100); // 2,000 - 400 + 500 fee in full
+    assert.equal(p.keep_pro_payout_dop + p.keep_commission_dop, p.keep_dop + p.referral_discount_dop + p.discount_dop);
+    assert.equal(p.pro_payout_dop + p.commission_dop + p.urgent_fee_pro_dop, p.amount_dop + p.referral_discount_dop + p.discount_dop);
+    const rf = (await db.query(`select id, amount_dop, amount_minor from public.refunds where payment_id = '${payment}'`)).rows[0];
+    assert.equal(rf.amount_dop, 4000); // the fee is not in the refund
+    await db.query(`select public.mark_refund_succeeded('${rf.id}', 're_urg_partial')`);
+    const after = (await db.query(`select status, refunded_minor from public.payments where id = '${payment}'`)).rows[0];
+    assert.equal(after.status, "held");
+    assert.equal(after.refunded_minor, rf.amount_minor);
+    assert.equal(p.keep_minor, 10000 - rf.amount_minor);
+  });
+});
+
+await check("0117 dispute: partial keep pays the pro once: the claim uses the kept share without adding the fee again", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedUrgentDisputePayment();
+    await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
+    const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+    await closeWindows();
+    await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'partial_refund', 4000, 'Motivo de la decisión de prueba')`);
+    const rf = (await db.query(`select id from public.refunds where payment_id = '${payment}'`)).rows[0];
+    await db.query(`select public.mark_refund_succeeded('${rf.id}', 're_urg_claim')`);
+    await asService(`update public.payments set release_after = now() - interval '1 minute' where id = '${payment}'`);
+    const due = (await db.query(`select pro_payout_dop from public.claim_due_payments(50) where job_id = '${job}'`)).rows[0];
+    assert.equal(due.pro_payout_dop, 2100); // not 2,100 + 500
+  });
+});
+
+await check("0117 dispute: a full refund returns the urgent fee inside the refunded amount", async () => {
+  await withRollback(async () => {
+    const { job, payment } = await seedUrgentDisputePayment();
+    await asUser(HOMEOWNER, `select public.open_dispute('${job}', false, 'La fuga regresó al día siguiente')`);
+    const disp = await db.query(`select id from public.disputes where job_id = '${job}' and status = 'open'`);
+    await closeWindows();
+    await db.query(`select public.resolve_dispute('${disp.rows[0].id}', 'full_refund', null, 'Motivo de la decisión de prueba')`);
+    const rf = (await db.query(`select id, amount_dop, amount_minor, reason from public.refunds where payment_id = '${payment}'`)).rows[0];
+    assert.equal(rf.reason, "dispute_full");
+    assert.equal(rf.amount_dop, 6500); // charged 6,000 + urgent fee 500
+    assert.equal(rf.amount_minor, 10000);
+    await db.query(`select public.mark_refund_succeeded('${rf.id}', 're_urg_full')`);
+    const p = (await db.query(`select status, keep_dop from public.payments where id = '${payment}'`)).rows[0];
+    assert.equal(p.status, "refunded");
+    assert.equal(p.keep_dop, null);
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

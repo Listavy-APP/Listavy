@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { AdminManager } from "./AdminManager";
+import { UrgentFeeForm } from "./UrgentFeeForm";
 import { FirstJobSwitch, type FirstJobState } from "./FirstJobSwitch";
 import { BackBar } from "@/components/BackBar";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -28,6 +29,7 @@ export default async function AdminsPage() {
   }
 
   const { data: firstJob } = await supabase.rpc("admin_get_first_job_free");
+  const { data: urgentFee } = await supabase.rpc("admin_get_urgent_fee");
   const { data, error } = await supabase.rpc("admin_list_admins");
   const rows = error ? [] : (data ?? []);
 
@@ -37,6 +39,7 @@ export default async function AdminsPage() {
       <h1>Administradores</h1>
       {error ? <p role="alert">No se pudo cargar la lista.</p> : null}
       <FirstJobSwitch initial={(firstJob ?? null) as FirstJobState} />
+      <UrgentFeeForm initial={typeof urgentFee === "number" ? urgentFee : null} />
       <AdminManager currentUserId={profile.id} admins={rows} />
     </section>
   );

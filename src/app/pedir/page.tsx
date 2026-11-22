@@ -33,6 +33,8 @@ export default async function RequestPage({
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
+  // Urgent fee (0117). Null when the read fails: the urgent choice is then not offered, so no amount is guessed.
+  const { data: urgentFee } = await supabase.rpc("public_urgent_fee");
   const { pro, modo, servicio, oficio, mun } = await searchParams;
   if (!userData.user) {
     // Keep the chosen pros across sign-in: send the user back to this exact request.
@@ -155,6 +157,7 @@ export default async function RequestPage({
         guide={guide}
         trades={tm}
         municipalities={await getMunicipalities()}
+        urgentFeeDop={typeof urgentFee === "number" ? urgentFee : null}
       />
     )}
     </>
