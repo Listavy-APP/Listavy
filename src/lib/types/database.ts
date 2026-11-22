@@ -1,3 +1,4 @@
+import type { PriceUnit } from "@/lib/domain/price-unit";
 /**
  * Hand-written row types for the Sprint 0 schema (supabase/migrations/0001_init.sql).
  * Replace with generated types once the project is linked:
@@ -50,6 +51,8 @@ export interface Pro {
   zone: string;
   price_min_dop: number;
   price_max_dop: number;
+  /** Reference range unit (0115). Advertising only. */
+  price_unit: PriceUnit;
   verification_status: VerificationStatus;
   verified_at: string | null;
   /** Admin-only column (0086). Not readable by the owner; absent from getMyPro results. */
@@ -146,6 +149,8 @@ export interface ProCard {
   zone: string;
   price_min_dop: number;
   price_max_dop: number;
+  /** Reference range unit (0115). Advertising only. */
+  price_unit: PriceUnit;
   plan: ProPlan;
   verified_at: string | null;
   /** Approved profile photo path in the pro-avatars bucket, or null. */

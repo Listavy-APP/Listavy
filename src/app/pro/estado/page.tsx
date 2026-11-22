@@ -152,7 +152,12 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
       {pro.verification_status === "approved" && (
         <AvailabilityToggle proId={pro.id} initial={(pro as { available?: boolean }).available ?? true} />
       )}
-      <PricingZoneForm initialMin={pro.price_min_dop} initialMax={pro.price_max_dop} initialZone={pro.zone} />
+      <PricingZoneForm
+        initialMin={pro.price_min_dop}
+        initialMax={pro.price_max_dop}
+        initialZone={pro.zone}
+        initialUnit={pro.price_unit}
+      />
       {pro.verification_status === "approved" && tm[pro.trade]?.specialties.length ? (
         <SpecialtiesForm
           initial={(pro as { specialties?: string[] }).specialties ?? []}

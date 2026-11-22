@@ -7,6 +7,7 @@ import {
 } from "@/lib/storage/proFiles";
 import type { ProCard, ProFile, Pro, ProType, Trade } from "@/lib/types/database";
 import { DEFAULT_CITY, type City } from "@/lib/domain/catalog";
+import type { PriceUnit } from "@/lib/domain/price-unit";
 
 /**
  * Data-access layer for pros. UI code calls these functions, never raw queries.
@@ -28,6 +29,8 @@ export interface ProApplicationInput {
   municipalityId: string;
   priceMinDop: number;
   priceMaxDop: number;
+  /** Unit of the reference range (0115). Defaults to per job. */
+  priceUnit: PriceUnit;
   idDocument: Blob;
   workPhotos: Blob[];
   proType: ProType;
@@ -41,7 +44,7 @@ export interface ProApplicationInput {
 
 /** Columns the signed-in pro may read directly. Private columns come from get_my_pro_status(). */
 const OWN_PRO_COLUMNS =
-  "id, trade, zone, price_min_dop, price_max_dop, verification_status, verified_at, plan, pro_type, created_at, bio, available, is_demo, specialties";
+  "id, trade, zone, price_min_dop, price_max_dop, price_unit, verification_status, verified_at, plan, pro_type, created_at, bio, available, is_demo, specialties";
 
 /** Returns the signed-in user's pro application, or null. */
 export async function getMyPro(supabase: SupabaseClient): Promise<Pro | null> {
@@ -115,6 +118,7 @@ export async function createProApplication(
     p_avatar_path: avatarPath,
     p_custom_line: input.proType === "company" ? input.customLine ?? null : null,
     p_municipality_id: input.municipalityId,
+    p_price_unit: input.priceUnit,
   });
   if (error) throw error;
 }

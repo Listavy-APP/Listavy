@@ -16,7 +16,7 @@ export function ProMiniCard({ pro, tradeLabel, avatarSrc, verified }: { pro: Pro
           {verified ? <> <VerifiedIcon kind={verified} /></> : null}
         </span>
         <span className="muted">{tradeLabel} · {pro.zone}</span>
-        <span className="muted">{es.search.priceRange}: {es.money.dop(pro.price_min_dop)} – {es.money.dop(pro.price_max_dop)}</span>
+        <span className="muted">{es.search.priceRange}: {es.money.dop(pro.price_min_dop)} – {es.money.dop(pro.price_max_dop)} · {es.priceUnit.suffix[pro.price_unit]}</span>
       </span>
     </Link>
   );
