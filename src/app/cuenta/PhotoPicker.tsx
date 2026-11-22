@@ -116,7 +116,7 @@ export function PhotoPicker(props: {
               </button>
             ) : null}
             <button type="button" className="sheet-action" onClick={() => setSheetOpen(false)}>
-              {es.addresses.cancel}
+              {es.properties.cancel}
             </button>
           </div>
         </div>
