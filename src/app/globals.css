@@ -1454,3 +1454,13 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
 .about-foot h2 { font-size: 13px; font-weight: 600; margin: 8px 0 0; color: #334155; }
 .about-foot p { margin: 0; }
 .about-pill { display: inline-block; padding: 6px 12px; border-radius: 999px; border: 1px solid #E2E8F0; background: #fff; color: #334155; }
+
+/* Ajustes cleanup (2026-11-22): tiny delete entry and text-link action. Dialogs keep normal size. */
+.delete-entry-block { margin-top: 24px; padding-top: 12px; border-top: 1px solid #E2E8F0; }
+.delete-entry-title { font-size: 12px; font-weight: 600; color: #334155; margin: 0 0 4px; }
+.delete-entry { gap: 2px; align-items: flex-start; }
+.delete-entry-warn { margin: 0; font-size: 12px; line-height: 1.45; color: #64748B; }
+.delete-entry-warn b { color: #334155; font-weight: 600; }
+.delete-entry-link { min-height: 44px; padding: 0; background: none; border: 0; font-size: 12px; color: #B91C1C; text-decoration: underline; cursor: pointer; text-align: left; }
+.settings-text-link { min-height: 44px; padding: 0; background: none; border: 0; font-size: 13px; color: #1D4ED8; text-decoration: underline; cursor: pointer; text-align: left; align-self: flex-start; }
+.settings-text-link:disabled { color: #64748B; text-decoration: none; cursor: default; }

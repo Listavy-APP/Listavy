@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AdminPushButton } from "@/components/AdminPushButton";
+import { DeviceSwitch } from "./DeviceSwitch";
 import { Switch } from "@/components/Switch";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -72,9 +72,7 @@ export function NotificationSettings({
       {error ? <p className="error" role="alert">{error}</p> : null}
       {saved ? <p className="muted" role="status">{t.saved}</p> : null}
 
-      <h3>{t.deviceTitle}</h3>
-      <p className="muted">{t.deviceHint}</p>
-      <AdminPushButton />
+      <DeviceSwitch />
     </div>
   );
 }

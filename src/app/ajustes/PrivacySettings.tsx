@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getAnalyticsConsent, setAnalyticsConsent } from "@/lib/analytics/consent";
 import { buildMyDataExport } from "@/lib/data/export";
@@ -64,13 +63,11 @@ export function PrivacySettings({ userId }: { userId: string }) {
       <div className="stack">
         <h3>{es.settings.exportTitle}</h3>
         <p className="muted">{es.settings.exportHint}</p>
-        <button className="button secondary" type="button" disabled={busy} onClick={downloadData}>
+        <button className="settings-text-link" type="button" disabled={busy} onClick={downloadData}>
           {busy ? es.settings.exporting : es.settings.exportButton}
         </button>
         {error ? <p className="error" role="alert">{error}</p> : null}
       </div>
-
-      <p className="muted"><Link href="/privacidad">{es.settings.privacyLink}</Link></p>
     </section>
   );
 }

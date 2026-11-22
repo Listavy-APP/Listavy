@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { PrivacySettings } from "./PrivacySettings";
 import { NotificationSettings } from "./NotificationSettings";
+import { DeleteAccount } from "./DeleteAccount";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { es } from "@/lib/i18n/es";
 import { BackBar } from "@/components/BackBar";
@@ -34,8 +34,10 @@ export default async function SettingsPage() {
         emailVerified={!!me?.email_verified_at}
       />
       <PrivacySettings userId={userData.user.id} />
-      <Link className="button secondary" href="/cuenta">{es.settings.accountLink}</Link>
-      <Link className="settings-quiet-link" href="/cuenta#eliminar">{es.settings.deleteLink}</Link>
+      <div className="delete-entry-block">
+        <h3 className="delete-entry-title">{es.profile.deleteTitle}</h3>
+        <DeleteAccount />
+      </div>
     </section>
   );
 }
