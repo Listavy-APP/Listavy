@@ -1,35 +1,36 @@
 import Image from "next/image";
 import { es } from "@/lib/i18n/es";
 import { BackBar } from "@/components/BackBar";
+import { HomeIcon } from "@/components/home/HomeIcons";
 
 export default function AboutPage() {
   return (
     <section className="stack about">
       <BackBar href="/" />
-      <div className="about-section">
+      <div className="about-hero">
         <Image src="/brand/listavy-logo-full.png" alt="Listavy. Verified pros. A better home." width={498} height={150} className="about-logo" priority />
         <h1>{es.legal.aboutTitle}</h1>
         <p className="lead">{es.legal.aboutBody}</p>
       </div>
-      <div className="about-section">
-        <h2>{es.legal.howTitle}</h2>
-        <p>{es.legal.howBody}</p>
-      </div>
-      <div className="about-section">
-        <h2>{es.legal.verifiedTitle}</h2>
-        <p>{es.legal.verifiedBody}</p>
-      </div>
-      <div className="about-section">
-        <h2>{es.legal.forProsTitle}</h2>
-        <p>{es.legal.forProsBody}</p>
-      </div>
-      <div className="about-section">
-        <p>{es.legal.operator}</p>
-      </div>
-      <div className="about-section">
+      <ul className="why-grid about-cards">
+        <li className="why-item">
+          <HomeIcon name="list-checks" size={22} />
+          <div><strong>{es.legal.howTitle}</strong><span>{es.legal.howBody}</span></div>
+        </li>
+        <li className="why-item">
+          <HomeIcon name="shield-check" size={22} />
+          <div><strong>{es.legal.verifiedTitle}</strong><span>{es.legal.verifiedBody}</span></div>
+        </li>
+        <li className="why-item">
+          <HomeIcon name="briefcase" size={22} />
+          <div><strong>{es.legal.forProsTitle}</strong><span>{es.legal.forProsBody}</span></div>
+        </li>
+      </ul>
+      <div className="about-foot">
+        <p className="about-pill">{es.legal.operator}</p>
         <h2>{es.legal.contactTitle}</h2>
-        <p>{es.legal.contactEmail}</p>
-        <p>{es.legal.supportEmail}</p>
+        <p className="about-pill">{es.legal.contactEmail}</p>
+        <p className="about-pill">{es.legal.supportEmail}</p>
       </div>
     </section>
   );

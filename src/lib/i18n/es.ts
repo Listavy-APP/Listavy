@@ -1501,7 +1501,7 @@ export const es = {
   legal: {
     operator: "Listavy es operado por Espiga Capital LLC.",
     aboutTitle: "Acerca de Listavy",
-    aboutBody: "Listavy conecta a propietarios en toda República Dominicana con profesionales verificados para los trabajos del hogar: plomería, electricidad, aire acondicionado, pintura, limpieza, construcción y más — 18 líneas de servicio en un solo lugar.",
+    aboutBody: "Listavy conecta a propietarios en toda República Dominicana con profesionales verificados para los trabajos del hogar: plomería, electricidad, aire acondicionado, pintura, limpieza, construcción y más: 18 líneas de servicio en un solo lugar.",
     howTitle: "Cómo funciona",
     howBody: "Publica lo que necesitas y recibe cotizaciones de profesionales verificados cerca de ti. Tú comparas y eliges. El pago se hace dentro de la app y queda retenido de forma segura hasta que el trabajo esté terminado y tú lo apruebes: sin efectivo y sin sorpresas.",
     verifiedTitle: "Profesionales verificados",
