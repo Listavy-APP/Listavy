@@ -27,7 +27,6 @@ export default function AboutPage() {
         </li>
       </ul>
       <div className="about-foot">
-        <p className="about-pill">{es.legal.operator}</p>
         <h2>{es.legal.contactTitle}</h2>
         <p className="about-pill">{es.legal.contactEmail}</p>
         <p className="about-pill">{es.legal.supportEmail}</p>
