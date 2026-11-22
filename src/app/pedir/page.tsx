@@ -1,6 +1,7 @@
 import { getTradeMap } from "@/lib/data/trades-server";
 import { redirect } from "next/navigation";
 import { RequestForm } from "./RequestForm";
+import { listMyProperties } from "@/lib/data/properties";
 import { FixedBookingForm } from "./FixedBookingForm";
 import Link from "next/link";
 import { listProFixedServices } from "@/lib/data/fixed";
@@ -157,6 +158,7 @@ export default async function RequestPage({
         guide={guide}
         trades={tm}
         municipalities={await getMunicipalities()}
+        properties={await listMyProperties(supabase)}
         urgentFeeDop={typeof urgentFee === "number" ? urgentFee : null}
       />
     )}

@@ -58,13 +58,14 @@ export async function liveRecurringForJob(supabase: SupabaseClient, jobId: strin
 
 export async function createRecurringBooking(
   supabase: SupabaseClient,
-  input: { sourceJobId: string; frequency: RecurringFrequency; anchor: number; window: string },
+  input: { sourceJobId: string; frequency: RecurringFrequency; anchor: number; window: string; propertyId?: string | null },
 ): Promise<string> {
   const { data, error } = await supabase.rpc("create_recurring_booking", {
     p_source_job: input.sourceJobId,
     p_frequency: input.frequency,
     p_anchor: input.anchor,
     p_window: input.window,
+    p_property_id: input.propertyId ?? null,
   });
   if (error) throw new Error(error.message);
   return data as string;
