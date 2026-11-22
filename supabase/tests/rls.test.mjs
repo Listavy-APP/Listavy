@@ -4754,6 +4754,32 @@ await check("0112 admin list: province filter returns only that province; non-ad
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0113 · Nationwide search source (additive). Same visibility as the ladder.
+// ---------------------------------------------------------------------------
+await check("0113 nationwide: lists approved, non-demo pros with their municipality; trade filter applies", async () => {
+  await withRollback(async () => {
+    await db.exec(`update public.pros set municipality_id = (select id from public.municipalities where legacy_city = 'santo_domingo') where id = '${PRO}'`);
+    const all = (await asAnon("select pro_id, municipality_name, province, total_count from public.search_pros_nationwide(null, 100)")).rows;
+    const mine = all.find((x) => x.pro_id === PRO);
+    assert.ok(mine, "approved pro is listed");
+    assert.equal(mine.municipality_name, "Santo Domingo de Guzmán");
+    assert.equal(mine.province, "Distrito Nacional");
+    assert.equal(all[0].total_count, all.length, "total_count is the full match count");
+    const pending = (await asAnon(`select pro_id from public.search_pros_nationwide(null, 100) where pro_id = '${PENDING_PRO}'`)).rows;
+    assert.equal(pending.length, 0, "pending pros are not listed");
+    const plumb = (await asAnon("select pro_id from public.search_pros_nationwide('plumber', 100)")).rows;
+    const trades = (await db.query(`select id, trade from public.pros where id = any($1::uuid[])`, [plumb.map((x) => x.pro_id)])).rows;
+    assert.ok(trades.every((t) => t.trade === "plumber"), "every row matches the trade");
+  });
+});
+
+await check("0113 nationwide: the limit caps rows and total_count still reports the full count", async () => {
+  const r = (await asAnon("select pro_id, total_count from public.search_pros_nationwide(null, 1)")).rows;
+  assert.ok(r.length <= 1);
+  if (r.length) assert.ok(Number(r[0].total_count) >= 1);
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.
