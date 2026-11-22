@@ -33,6 +33,18 @@ export default function LegalHubPage() {
           </li>
         ))}
       </ul>
+      <div className="legal-credits">
+        <h2>{es.legal.creditsTitle}</h2>
+        <ul className="muted">
+          <li>{es.legal.creditPlumber}</li>
+          <li>{es.legal.creditElectrician}</li>
+          <li>{es.legal.creditAc}</li>
+          <li>{es.legal.creditPainter}</li>
+          <li>{es.legal.creditLocksmith}</li>
+          <li>{es.legal.creditCarpenter}</li>
+          <li>{es.legal.creditBlacksmith}</li>
+        </ul>
+      </div>
     </section>
   );
 }
