@@ -5,6 +5,7 @@ import { approxDistance, groupByProvince, TIER_LABEL, type Municipality } from "
 import { proLabelOf, type CatalogTrade } from "@/lib/data/trades";
 import type { FixedServiceRow } from "@/lib/domain/fixed-service";
 import { es } from "@/lib/i18n/es";
+import { ModeTabs } from "./ModeTabs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -33,19 +34,14 @@ export async function FixedDiscovery({
   const chosen: FixedServiceRow | null = servicio ? (all.find((s) => s.id === servicio) ?? null) : null;
   const chosenMun = mun && municipalities.some((m) => m.id === mun) ? mun : null;
 
-  const tabs = (
-    <nav className="row" aria-label={es.fixed.modeQuote}>
-      <Link className="button secondary" href="/pedir">{es.fixed.modeQuote}</Link>
-      <Link className="button" href="/pedir?modo=fijo" aria-current="page">{es.fixed.modePrice}</Link>
-    </nav>
-  );
+  const tabs = <ModeTabs active="fixed" />;
 
   if (all.length === 0) {
     return (
       <section className="stack">
         {tabs}
         <h1>{es.fixed.modePrice}</h1>
-        <p className="muted">{es.fixed.admin.empty}</p>
+        <p className="muted">{es.fixed.emptyClient}</p>
       </section>
     );
   }

@@ -1328,6 +1328,7 @@ export const es = {
     noServices: "Este profesional no ofrece servicios a precio fijo por ahora.",
     pickService: "Elige el servicio",
     pickTrade: "Elige el oficio",
+    emptyClient: "Aún no hay servicios a precio fijo todavía.",
     changeTrade: "Cambiar oficio",
     changeService: "Cambiar servicio",
     placeLabel: "Tu municipio (opcional)",
