@@ -6,7 +6,8 @@ import { es } from "@/lib/i18n/es";
 import { useDialog } from "@/components/useDialog";
 
 /** Mobile-first bottom sheet for the search filters. The children are the server-rendered filter form. */
-export function FiltersSheet({ children }: { children: ReactNode }) {
+/** `formId` is the filter form this sheet submits. The primary button submits it; there is no other submit. */
+export function FiltersSheet({ children, formId }: { children: ReactNode; formId: string }) {
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialog(open, () => setOpen(false), dialogRef);
@@ -36,7 +37,7 @@ export function FiltersSheet({ children }: { children: ReactNode }) {
               </button>
             </div>
             {children}
-            <button className="button" type="button" onClick={() => setOpen(false)}>{es.filters.apply}</button>
+            <button className="button" type="submit" form={formId}>{es.filters.apply}</button>
           </div>
         </div>,
         document.body,
