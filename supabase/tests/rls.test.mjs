@@ -4873,6 +4873,7 @@ await check("0115 price unit: the admin queue returns the unit; non-admins are r
 
 const FX_CLIENT = "00000000-0000-4000-9000-000000000501";
 const DEMO_FX_PRO = "00000000-0000-4000-9000-000000000502";
+const DEMO_FX_PRO2 = "00000000-0000-4000-9000-000000000503";
 let fxSeq = 0;
 async function seedService({ trade = "plumber", price = 2500, active = true } = {}) {
   fxSeq += 1;
@@ -4978,6 +4979,51 @@ await check("0116 fixed: the client-sent-quote notice skips fixed jobs; the acce
   assert.match(a, /fixed_service_id is not null/);
   const b = (await db.query(`select pg_get_functiondef('public.notify_on_quote_accepted'::regproc) as d`)).rows[0].d;
   assert.doesNotMatch(b, /fixed_service_id/);
+});
+
+await check("0116 fixed: the invitation notice skips fixed jobs; the normal invite notice is unchanged", async () => {
+  const d = (await db.query(`select pg_get_functiondef('public.notify_on_quote_invited'::regproc) as d`)).rows[0].d;
+  assert.match(d, /fixed_service_id is not null/);
+  assert.match(d, /request_invite/);
+});
+
+await check("0116 fixed: service-first list shows only opted, available, approved, non-demo pros of the trade", async () => {
+  await withRollback(async () => {
+    const svc = await seedService({ trade: "plumber" });
+    await asUser(PRO, `select public.pro_set_fixed_services(array['${svc}']::uuid[])`);
+    await asService(`insert into public.pro_fixed_services (pro_id, fixed_service_id) values ('${PRO2}', '${svc}') on conflict do nothing`);
+    const rows = (await asAnon(`select pro_id, tier, municipality_name from public.list_fixed_service_pros('${svc}', null)`)).rows;
+    assert.ok(rows.map((r) => r.pro_id).includes(PRO), "opted pro listed");
+    // Not opted in: never listed.
+    const other = await seedService({ trade: "plumber" });
+    const none = (await asAnon(`select pro_id from public.list_fixed_service_pros('${other}', null)`)).rows;
+    assert.equal(none.length, 0);
+    // Without a municipality every row is tier 4 with no distance (no pro shown as local).
+    assert.ok(rows.every((r) => r.tier === 4));
+    // Demo pro, opted in: excluded.
+    await seedGuidePro(DEMO_FX_PRO2, "plumber", 1000, 2000, { demo: true });
+    await asService(`insert into public.pro_fixed_services (pro_id, fixed_service_id) values ('${DEMO_FX_PRO2}', '${svc}')`);
+    const after = (await asAnon(`select pro_id from public.list_fixed_service_pros('${svc}', null)`)).rows.map((r) => r.pro_id);
+    assert.ok(!after.includes(DEMO_FX_PRO2), "demo pro excluded");
+    // Inactive service: nothing.
+    await asService(`update public.fixed_services set active = false where id = '${svc}'`);
+    assert.equal((await asAnon(`select pro_id from public.list_fixed_service_pros('${svc}', null)`)).rows.length, 0);
+  });
+});
+
+await check("0116 fixed: with a municipality, the pro's own municipality is tier 1 and the place is the pro's real one", async () => {
+  await withRollback(async () => {
+    const svc = await seedService({ trade: "plumber" });
+    await asUser(PRO, `select public.pro_set_fixed_services(array['${svc}']::uuid[])`);
+    const mine = (await db.query(`select municipality_id from public.pros where id = '${PRO}'`)).rows[0].municipality_id;
+    const rows = (await asAnon(`select pro_id, tier, municipality_id, municipality_name from public.list_fixed_service_pros('${svc}', '${mine}'::uuid)`)).rows;
+    const mineRow = rows.find((r) => r.pro_id === PRO);
+    assert.ok(mineRow, "pro listed");
+    assert.equal(mineRow.tier, 1);
+    assert.equal(mineRow.municipality_id, mine, "real municipality, not the client's");
+    assert.equal(rows[0].tier, 1, "same-municipality pros come first");
+    await expectCode(() => asAnon(`select * from public.list_fixed_service_pros('${svc}', '00000000-0000-4000-9000-00000000ffff'::uuid)`), "22023");
+  });
 });
 
 await db.close();

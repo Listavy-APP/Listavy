@@ -111,3 +111,38 @@ export async function adminUpsertFixedService(
   });
   if (error) throw error;
 }
+
+/** Active catalog services for every trade, for service-first discovery. Public read (RLS). */
+export async function listActiveFixedServices(supabase: SupabaseClient): Promise<FixedServiceRow[]> {
+  const { data, error } = await supabase
+    .from("fixed_services")
+    .select(SERVICE_COLUMNS)
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error(`No se pudo cargar el catálogo: ${error.message}`);
+  return (data ?? []) as FixedServiceRow[];
+}
+
+/** One row per pro for a service, with the ladder place (0116 section 9). Tier 1 and 2 first, then 3 and 4. */
+export type FixedServicePro = {
+  pro_id: string;
+  tier: 1 | 2 | 3 | 4;
+  municipality_id: string;
+  municipality_name: string;
+  province: string;
+  approx_km: number | null;
+};
+
+export async function listFixedServicePros(
+  supabase: SupabaseClient,
+  serviceId: string,
+  municipalityId: string | null,
+): Promise<FixedServicePro[]> {
+  const { data, error } = await supabase.rpc("list_fixed_service_pros", {
+    p_service_id: serviceId,
+    p_municipality_id: municipalityId,
+    p_limit: 60,
+  });
+  if (error) throw new Error(`No se pudieron cargar los profesionales: ${error.message}`);
+  return (data ?? []) as FixedServicePro[];
+}

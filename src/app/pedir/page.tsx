@@ -4,6 +4,8 @@ import { RequestForm } from "./RequestForm";
 import { FixedBookingForm } from "./FixedBookingForm";
 import Link from "next/link";
 import { listProFixedServices } from "@/lib/data/fixed";
+import { FixedDiscovery } from "./FixedDiscovery";
+import { listMunicipalities } from "@/lib/data/municipalities";
 import { getMunicipalities } from "@/lib/data/municipalities-server";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { getProCard } from "@/lib/data/pros";
@@ -23,14 +25,14 @@ export const instant = false;
 export default async function RequestPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pro?: string; modo?: string; servicio?: string }>;
+  searchParams: Promise<{ pro?: string; modo?: string; servicio?: string; oficio?: string; mun?: string }>;
 }) {
     // Per-request render: the session is read at request time.
   const tm = await getTradeMap();
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
-  const { pro, modo, servicio } = await searchParams;
+  const { pro, modo, servicio, oficio, mun } = await searchParams;
   if (!userData.user) {
     // Keep the chosen pros across sign-in: send the user back to this exact request.
     const back = `/pedir${pro ? `?pro=${encodeURIComponent(pro)}` : ""}`;
@@ -85,6 +87,23 @@ export default async function RequestPage({
           <p>{esTrust.suspended.body}</p>
         </div>
       </section>
+    );
+  }
+
+  // Service-first (0116 amendment): fixed mode with no pro chosen.
+  if (modo === "fijo" && ids.length === 0) {
+    return (
+      <>
+        <BackBar href={backHref} />
+        <FixedDiscovery
+          supabase={supabase}
+          trades={tm}
+          municipalities={await listMunicipalities(supabase)}
+          oficio={oficio ?? null}
+          servicio={servicio ?? null}
+          mun={mun ?? null}
+        />
+      </>
     );
   }
 

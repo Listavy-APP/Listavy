@@ -324,3 +324,90 @@ $$;
 
 revoke all on function public.create_fixed_booking(uuid, uuid, text, text, date, text, uuid) from public, anon;
 grant execute on function public.create_fixed_booking(uuid, uuid, text, text, date, text, uuid) to authenticated;
+
+-- 9. list_fixed_service_pros: service-first discovery (amendment, PR #39) -----------
+-- Candidates are only the pros opted into this service, approved, not closed, not demo, available,
+-- of the service's trade. Place honesty follows search_pros_ladder: with a municipality, the same
+-- municipality is tier 1, the same province tier 2, and tiers 3 (within 60 km) and 4 (farther)
+-- appear only when tiers 1 and 2 hold fewer than 5 pros. Each row carries the pro's real municipality.
+-- Without a municipality every row is tier 4 with no distance, so no pro is shown as local.
+-- Ranking within a tier: distance (nulls first), then pro id. Limit 1 to 50, default 60.
+create or replace function public.list_fixed_service_pros(
+  p_service_id uuid,
+  p_municipality_id uuid default null,
+  p_limit integer default 60)
+returns table (pro_id uuid, tier integer, municipality_id uuid, municipality_name text, province text, approx_km numeric)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if p_municipality_id is not null and not exists (select 1 from public.municipalities where id = p_municipality_id) then
+    raise exception 'Municipio no válido.' using errcode = '22023';
+  end if;
+  if not exists (select 1 from public.fixed_services fs where fs.id = p_service_id and fs.active) then
+    return;
+  end if;
+  return query
+  with cands as (
+    select p.id as pro_id, m.id as mid, m.name as mname, m.province as mprov, m.lat, m.lng
+      from public.pro_fixed_services pfs
+      join public.fixed_services fs on fs.id = pfs.fixed_service_id and fs.active and fs.id = p_service_id
+      join public.pros p on p.id = pfs.pro_id and p.trade = fs.trade
+      join public.municipalities m on m.id = p.municipality_id
+     where p.verification_status = 'approved'
+       and p.closed_at is null
+       and not p.is_demo
+       and p.available
+  ),
+  origin as (
+    select m.id, m.province, m.lat, m.lng from public.municipalities m where m.id = p_municipality_id
+  ),
+  scored as (
+    select c.pro_id, c.mid, c.mname, c.mprov,
+           case when o.id is null then 0
+                when c.mid = o.id then 1
+                when c.mprov = o.province then 2
+                else 0 end as near,
+           case when o.id is null then null
+                else round((12742 * asin(sqrt(least(1,
+                  power(sin(radians(c.lat - o.lat) / 2), 2)
+                  + cos(radians(o.lat)) * cos(radians(c.lat)) * power(sin(radians(c.lng - o.lng) / 2), 2)
+                ))))::numeric, 1) end as km
+      from cands c left join origin o on true
+  ),
+  near_set as (
+    select s.*, case when s.near = 1 then 1 else 2 end as t from scored s where s.near > 0
+  ),
+  far_set as (
+    select s.*, case when s.km is not null and s.km <= 60 then 3 else 4 end as t from scored s where s.near = 0
+  ),
+  widened as (
+    select f.* from far_set f where (select count(*) from near_set) < 5
+  ),
+  ladder as (
+    select * from near_set union all select * from widened
+  )
+  select l.pro_id, l.t, l.mid, l.mname, l.mprov,
+         case when l.t <= 2 then null else l.km end
+    from ladder l
+   order by l.t, l.km nulls first, l.pro_id
+   limit greatest(1, least(coalesce(p_limit, 60), 50));
+end;
+$$;
+
+revoke all on function public.list_fixed_service_pros(uuid, uuid, integer) from public;
+grant execute on function public.list_fixed_service_pros(uuid, uuid, integer) to anon, authenticated;
+
+-- 10. One notice, not two: no invitation push for a fixed booking (amendment, PR #39) ----
+-- The fixed job's pro gets one creation notice: quote_accepted (notify_on_quote_accepted, unchanged).
+-- Body is the 0091 version plus the fixed-job skip. The normal quote flow is unchanged.
+create or replace function public.notify_on_quote_invited() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if exists (select 1 from public.jobs j where j.id = new.job_id and j.fixed_service_id is not null) then return new; end if;
+  perform public.notify_user_push(new.pro_id, 'request_invite', 'Nueva solicitud',
+    'Un cliente pidió una cotización. Revisa el horario y las fotos.', '/pro/solicitudes', false);
+  return new;
+end; $$;
