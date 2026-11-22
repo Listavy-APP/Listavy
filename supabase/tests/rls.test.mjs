@@ -4584,18 +4584,18 @@ await check("0110 specialties: a resolved trade change clears the old specialtie
 // ---------------------------------------------------------------------------
 // 0111 · Municipalities. Place is the municipality; city is legacy-only; sector is free text.
 // ---------------------------------------------------------------------------
-await check("0111 municipalities: 158 municipalities across 32 provinces, four legacy markets mapped", async () => {
+await check("0111 municipalities: 160 municipalities across 32 provinces, four legacy markets mapped", async () => {
   const r = (await db.query(`select count(*)::int as n, count(distinct province)::int as p,
                                     count(*) filter (where legacy_city is not null)::int as legacy
                                from public.municipalities`)).rows[0];
-  assert.equal(r.n, 158);
+  assert.equal(r.n, 160);
   assert.equal(r.p, 32);
   assert.equal(r.legacy, 4);
 });
 
 await check("0111 municipalities: anon and clients read the list; nobody writes it directly", async () => {
   const anon = await asAnon("select count(*)::int as n from public.municipalities");
-  assert.equal(anon.rows[0].n, 158);
+  assert.equal(anon.rows[0].n, 160);
   await withRollback(async () => {
     await assert.rejects(
       asUser(HOMEOWNER, `insert into public.municipalities (province, name, display_name, lat, lng)
@@ -4778,6 +4778,17 @@ await check("0113 nationwide: the limit caps rows and total_count still reports 
   const r = (await asAnon("select pro_id, total_count from public.search_pros_nationwide(null, 1)")).rows;
   assert.ok(r.length <= 1);
   if (r.length) assert.ok(Number(r[0].total_count) >= 1);
+});
+
+await check("0114 seed fix: La Caleta and La Victoria are in Santo Domingo province, with no legacy city", async () => {
+  const r = (await db.query(`select name, province, legacy_city from public.municipalities where name in ('La Caleta','La Victoria') order by name`)).rows;
+  assert.equal(r.length, 2);
+  for (const row of r) {
+    assert.equal(row.province, "Santo Domingo");
+    assert.equal(row.legacy_city, null);
+  }
+  const provinces = (await db.query(`select count(distinct province)::int as p from public.municipalities`)).rows[0].p;
+  assert.equal(provinces, 32);
 });
 
 await db.close();
