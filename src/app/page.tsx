@@ -15,7 +15,6 @@ import { getMunicipalities } from "@/lib/data/municipalities-server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { ProMiniCard } from "@/components/home/ProMiniCard";
-import { InstallBanner } from "@/components/home/InstallBanner";
 import { DateField } from "@/components/home/DateField";
 import { HomeIcon } from "@/components/home/HomeIcons";
 import type { ProCard } from "@/lib/types/database";
@@ -197,7 +196,7 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
           <li>{es.discover.step2}</li>
           <li>{es.discover.step3}</li>
         </ol>
-        <Link className="button secondary" href="/ayuda">{es.discover.howMore}</Link>
+        <Link className="text-link" href="/ayuda">{es.discover.howMore}</Link>
       </section>
 
       {/* 8. Referral strip. Only when the referral flag is on. */}
@@ -217,16 +216,27 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
       {/* 9. Why Listavy. */}
       <section className="home-sec">
         <h2>{es.discover.whyTitle}</h2>
-        <ul className="why-list">
-          <li>{es.discover.whyVerified}</li>
-          <li>{es.discover.whyPay}</li>
-          <li>{es.discover.whyPrice}</li>
-          <li>{es.discover.whySupport}</li>
+        <ul className="why-grid">
+          <li className="why-item">
+            <HomeIcon name="shield-check" size={22} />
+            <div><strong>{es.discover.whyVerifiedLead}</strong><span>{es.discover.whyVerified}</span></div>
+          </li>
+          <li className="why-item">
+            <HomeIcon name="lock" size={22} />
+            <div><strong>{es.discover.whyPayLead}</strong><span>{es.discover.whyPay}</span></div>
+          </li>
+          <li className="why-item">
+            <HomeIcon name="tag" size={22} />
+            <div><strong>{es.discover.whyPriceLead}</strong><span>{es.discover.whyPrice}</span></div>
+          </li>
+          <li className="why-item">
+            <HomeIcon name="headset" size={22} />
+            <div><strong>{es.discover.whySupportLead}</strong><span>{es.discover.whySupport}</span></div>
+          </li>
         </ul>
       </section>
 
-      {/* 10. App install banner. */}
-      <InstallBanner />
+      {/* 10. App install: not on the home page. Stores are the install path before launch. */}
 
       {/* 11. Pro recruitment: navy card, distinct from the sections above. */}
       <section className="pro-cta" aria-labelledby="pro-cta-title">

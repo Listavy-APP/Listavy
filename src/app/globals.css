@@ -1124,13 +1124,19 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .mini-name { font-weight: 700; }
 .verified-badge { align-self: flex-start; background: #DBEAFE; color: #1D4ED8; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
 .empty-block { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
-.steps, .why-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.why-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.why-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border: 1px solid #E2E8F0; border-radius: 14px; background: #fff; }
+.why-item .home-icon { flex: 0 0 auto; color: #1D4ED8; margin-top: 2px; }
+.why-item div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.why-item strong { color: #0B132B; font-size: 15px; }
+.why-item span { color: #334155; font-size: 14px; line-height: 1.45; }
+.text-link { align-self: flex-start; color: #1D4ED8; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; min-height: 44px; display: inline-flex; align-items: center; }
+@media (min-width: 720px) { .why-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .pro-cta { background: #0B132B; color: #F8FAFC; border-radius: 16px; padding: 28px 22px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
 .pro-cta h2 { margin: 0; color: #F8FAFC; font-size: 22px; line-height: 1.25; }
 .pro-cta p { margin: 0; color: #CBD5E1; line-height: 1.5; }
 .pro-cta .pro-cta-button { background: #F8FAFC; color: #0B132B; margin-top: 4px; }
-.install-banner { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; border: 1px solid #94A3B8; border-radius: 14px; padding: 14px; }
-.install-banner p { margin: 4px 0 0; }
 .legal-hub { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .legal-hub a { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid #E2E8F0; border-radius: 12px; text-decoration: none; color: #0B132B; }
 .header-links { display: flex; gap: 12px; align-items: center; }
