@@ -1,6 +1,9 @@
 import { getTradeMap } from "@/lib/data/trades-server";
 import { redirect } from "next/navigation";
 import { RequestForm } from "./RequestForm";
+import { FixedBookingForm } from "./FixedBookingForm";
+import Link from "next/link";
+import { listProFixedServices } from "@/lib/data/fixed";
 import { getMunicipalities } from "@/lib/data/municipalities-server";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { getProCard } from "@/lib/data/pros";
@@ -20,14 +23,14 @@ export const instant = false;
 export default async function RequestPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pro?: string }>;
+  searchParams: Promise<{ pro?: string; modo?: string; servicio?: string }>;
 }) {
     // Per-request render: the session is read at request time.
   const tm = await getTradeMap();
   await connection();
   const supabase = await createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
-  const { pro } = await searchParams;
+  const { pro, modo, servicio } = await searchParams;
   if (!userData.user) {
     // Keep the chosen pros across sign-in: send the user back to this exact request.
     const back = `/pedir${pro ? `?pro=${encodeURIComponent(pro)}` : ""}`;
@@ -104,13 +107,60 @@ export default async function RequestPage({
           <p>{es.standing.warningBody(standing.low_count)}</p>
         </div>
       ) : null}
-    <RequestForm
-      userId={userData.user.id}
-      pros={cards.map((c) => ({ id: c.id, name: c.full_name, trade: c.trade, zone: c.zone, pro_type: c.pro_type }))}
-      guide={guide}
-      trades={tm}
-      municipalities={await getMunicipalities()}
-    />
+    {cards.length === 1 ? (
+      <nav className="row" aria-label={es.fixed.modeQuote}>
+        <Link className={modo === "fijo" ? "button secondary" : "button"} href={`/pedir?pro=${cards[0].id}`} aria-current={modo === "fijo" ? undefined : "page"}>
+          {es.fixed.modeQuote}
+        </Link>
+        <Link className={modo === "fijo" ? "button" : "button secondary"} href={`/pedir?pro=${cards[0].id}&modo=fijo`} aria-current={modo === "fijo" ? "page" : undefined}>
+          {es.fixed.modePrice}
+        </Link>
+      </nav>
+    ) : null}
+    {modo === "fijo" ? (
+      cards.length !== 1 ? (
+        <p className="muted">{es.fixed.chooseProFirst}</p>
+      ) : (
+        <FixedPath
+          pro={cards[0]}
+          preselectedId={servicio ?? null}
+          municipalities={await getMunicipalities()}
+        />
+      )
+    ) : (
+      <RequestForm
+        userId={userData.user.id}
+        pros={cards.map((c) => ({ id: c.id, name: c.full_name, trade: c.trade, zone: c.zone, pro_type: c.pro_type }))}
+        guide={guide}
+        trades={tm}
+        municipalities={await getMunicipalities()}
+      />
+    )}
     </>
+  );
+}
+
+/** Loads the pro's opted-in fixed services, then renders the fixed booking form. */
+async function FixedPath({
+  pro,
+  preselectedId,
+  municipalities,
+}: {
+  pro: { id: string; full_name: string | null; zone: string };
+  preselectedId: string | null;
+  municipalities: Awaited<ReturnType<typeof getMunicipalities>>;
+}) {
+  const supabase = await createSupabaseServerClient();
+  const services = await listProFixedServices(supabase, pro.id);
+  if (services.length === 0) {
+    return <p className="muted">{es.fixed.noServices}</p>;
+  }
+  return (
+    <FixedBookingForm
+      pro={{ id: pro.id, name: pro.full_name, zone: pro.zone }}
+      services={services}
+      preselectedId={services.some((x) => x.id === preselectedId) ? preselectedId : null}
+      municipalities={municipalities}
+    />
   );
 }

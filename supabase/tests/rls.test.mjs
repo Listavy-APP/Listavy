@@ -4867,6 +4867,119 @@ await check("0115 price unit: the admin queue returns the unit; non-admins are r
   });
 });
 
+// ---- 0116 fixed-price instant booking ----------------------------------------------
+// The catalog ships empty; these tests create their own services. Money path: create_fixed_booking
+// inserts one quote and approves it through approve_quote, so the job is accepted at creation.
+
+const FX_CLIENT = "00000000-0000-4000-9000-000000000501";
+const DEMO_FX_PRO = "00000000-0000-4000-9000-000000000502";
+let fxSeq = 0;
+async function seedService({ trade = "plumber", price = 2500, active = true } = {}) {
+  fxSeq += 1;
+  const slug = `test-fx-${fxSeq}-${Date.now().toString(36)}`;
+  const r = await asService(`insert into public.fixed_services (trade, slug, name_es, includes_es, price_dop, active)
+    values ('${trade}', '${slug}', 'Servicio prueba ${fxSeq}', 'Alcance de prueba para el servicio ${fxSeq}.', ${price}, ${active})
+    returning id`);
+  return r.rows[0].id;
+}
+
+await check("0116 fixed: public reads active services only; admins also read inactive", async () => {
+  await withRollback(async () => {
+    const on = await seedService({ active: true });
+    const off = await seedService({ active: false });
+    const anon = await asAnon(`select id from public.fixed_services where id in ('${on}', '${off}')`);
+    assert.deepEqual(anon.rows.map((r) => r.id), [on]);
+    const client = await asUser(HOMEOWNER, `select id from public.fixed_services where id in ('${on}', '${off}')`);
+    assert.deepEqual(client.rows.map((r) => r.id), [on]);
+    const admin = await asUser(ADMIN, `select id from public.fixed_services where id in ('${on}', '${off}') order by id`);
+    assert.equal(admin.rows.length, 2);
+  });
+});
+
+await check("0116 fixed: clients cannot write the catalog or the opt-in table directly", async () => {
+  await withRollback(async () => {
+    const svc = await seedService({ price: 2500 });
+    // RLS filters the update to zero rows: the price does not change.
+    await asUser(HOMEOWNER, `update public.fixed_services set price_dop = 1 where id = '${svc}'`);
+    const price = (await db.query(`select price_dop from public.fixed_services where id = '${svc}'`)).rows[0].price_dop;
+    assert.equal(price, 2500);
+    await expectCode(() => asUser(PRO, `insert into public.pro_fixed_services (pro_id, fixed_service_id) values ('${PRO}', '${svc}')`), "42501");
+  });
+});
+
+await check("0116 fixed: opt-in accepts same-trade active services and rejects wrong trade and inactive", async () => {
+  await withRollback(async () => {
+    const ok = await seedService({ trade: "plumber" });
+    const wrongTrade = await seedService({ trade: "electrician" });
+    const inactive = await seedService({ trade: "plumber", active: false });
+    await asUser(PRO, `select public.pro_set_fixed_services(array['${ok}']::uuid[])`);
+    const mine = (await db.query(`select fixed_service_id from public.pro_fixed_services where pro_id = '${PRO}'`)).rows;
+    assert.deepEqual(mine.map((r) => r.fixed_service_id), [ok]);
+    await expectCode(() => asUser(PRO, `select public.pro_set_fixed_services(array['${wrongTrade}']::uuid[])`), "22023");
+    await expectCode(() => asUser(PRO, `select public.pro_set_fixed_services(array['${inactive}']::uuid[])`), "22023");
+    await asUser(PRO, `select public.pro_set_fixed_services('{}'::uuid[])`);
+    const after = (await db.query(`select count(*)::int as n from public.pro_fixed_services where pro_id = '${PRO}'`)).rows[0].n;
+    assert.equal(after, 0);
+  });
+});
+
+await check("0116 fixed: the public list shows only active opt-ins of approved, non-demo pros", async () => {
+  await withRollback(async () => {
+    const svc = await seedService({ trade: "plumber" });
+    await asUser(PRO, `select public.pro_set_fixed_services(array['${svc}']::uuid[])`);
+    const r = await asAnon(`select id from public.list_pro_fixed_services('${PRO}')`);
+    assert.deepEqual(r.rows.map((x) => x.id), [svc]);
+    await asService(`update public.fixed_services set active = false where id = '${svc}'`);
+    const hidden = await asAnon(`select id from public.list_pro_fixed_services('${PRO}')`);
+    assert.equal(hidden.rows.length, 0);
+  });
+});
+
+await check("0116 fixed: booking creates an accepted job and a quote at the catalog price", async () => {
+  await withRollback(async () => {
+    await seedFixture(`insert into auth.users (id, phone) values ('${FX_CLIENT}', '+18095559501');`);
+    const svc = await seedService({ trade: "plumber", price: 3100 });
+    await asUser(PRO, `select public.pro_set_fixed_services(array['${svc}']::uuid[])`);
+    const res = await asUser(FX_CLIENT, `select public.create_fixed_booking('${svc}', '${PRO}', 'Naco', 'Instalación en el baño principal.', null, null, null) as job`);
+    const jobId = res.rows[0].job;
+    const job = (await db.query(`select status, pro_id, fixed_service_id, approved_quote_id from public.jobs where id = '${jobId}'`)).rows[0];
+    assert.equal(job.status, "accepted");
+    assert.equal(job.pro_id, PRO);
+    assert.equal(job.fixed_service_id, svc);
+    const q = (await db.query(`select amount_dop, status from public.quotes where id = '${job.approved_quote_id}'`)).rows[0];
+    assert.equal(q.amount_dop, 3100);
+    assert.equal(q.status, "accepted");
+  });
+});
+
+await check("0116 fixed: booking guards refuse self-hire, non-opted pros, demo pros, inactive services, bad scheduling", async () => {
+  await withRollback(async () => {
+    await seedFixture(`insert into auth.users (id, phone) values ('${FX_CLIENT}', '+18095559502');`);
+    const svc = await seedService({ trade: "plumber" });
+    await asUser(PRO, `select public.pro_set_fixed_services(array['${svc}']::uuid[])`);
+    const book = (pro, sid, date = null, win = null) =>
+      `select public.create_fixed_booking('${sid}', '${pro}', 'Naco', 'Descripción de prueba.', ${date ? `'${date}'` : "null"}, ${win ? `'${win}'` : "null"}, null)`;
+    await expectCode(() => asUser(PRO, book(PRO, svc)), "P0001"); // self-hire
+    await expectCode(() => asUser(FX_CLIENT, book(PRO2, svc)), "22023"); // PRO2 did not opt in
+    await asService(`update public.fixed_services set active = false where id = '${svc}'`);
+    await expectCode(() => asUser(FX_CLIENT, book(PRO, svc)), "22023"); // inactive service
+    await asService(`update public.fixed_services set active = true where id = '${svc}'`);
+    // A demo pro, opted in: the demo gate refuses it.
+    await seedGuidePro(DEMO_FX_PRO, "plumber", 1000, 2000, { demo: true });
+    await asService(`insert into public.pro_fixed_services (pro_id, fixed_service_id) values ('${DEMO_FX_PRO}', '${svc}')`);
+    await expectCode(() => asUser(FX_CLIENT, book(DEMO_FX_PRO, svc)), "P0001"); // demo pro
+    await expectCode(() => asUser(FX_CLIENT, book(PRO, svc, null, "morning")), "P0001"); // window without date
+    await expectCode(() => asUser(FX_CLIENT, book(PRO, svc, "2099-01-01", "morning")), "P0001"); // beyond 60 days
+  });
+});
+
+await check("0116 fixed: the client-sent-quote notice skips fixed jobs; the accepted notice is unchanged", async () => {
+  const a = (await db.query(`select pg_get_functiondef('public.notify_on_quote_sent'::regproc) as d`)).rows[0].d;
+  assert.match(a, /fixed_service_id is not null/);
+  const b = (await db.query(`select pg_get_functiondef('public.notify_on_quote_accepted'::regproc) as d`)).rows[0].d;
+  assert.doesNotMatch(b, /fixed_service_id/);
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

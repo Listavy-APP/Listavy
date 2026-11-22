@@ -25,6 +25,7 @@ import { listSavedProIds } from "@/lib/data/saved";
 import { getProReviewSummary, listDemoReviews, listMyAuthoredReviewIds, listMyFlaggedReviewIds, listProReviews } from "@/lib/data/reviews";
 import { ReviewReport } from "@/components/ReviewReport";
 import { isUuid } from "@/lib/domain/uuid";
+import { listProFixedServices } from "@/lib/data/fixed";
 
 /**
  * Metadata from public facts only: name, trade, zone, and the approved photo. Bio and everything
@@ -70,6 +71,8 @@ export default async function ProDetailPage({
   const pro = await getProCard(supabase, id);
   // Weekly hours and today's day-off flag. Informational only: it blocks nothing (0090).
   const schedule = pro ? await getProSchedule(supabase, pro.id) : null;
+  // Fixed-price services the pro opted into (0116). Public: active, approved, not demo.
+  const fixedServices = pro ? await listProFixedServices(supabase, pro.id) : [];
 
   if (!pro) {
     return (
@@ -204,6 +207,25 @@ export default async function ProDetailPage({
         <h2>{es.proBio.title}</h2>
         {pro.bio ? <p>{pro.bio}</p> : <p className="muted">{es.proBio.empty}</p>}
       </div>
+
+      {fixedServices.length > 0 ? (
+        <div className="pro-section stack">
+          <h2>{es.fixed.proSection.title}</h2>
+          {fixedServices.map((s) => (
+            <div key={s.id} className="panel stack">
+              <b>
+                {s.name_es} · {es.money.dop(s.price_dop)}
+              </b>
+              <span className="muted">
+                {es.fixed.includesLabel}: {s.includes_es}
+              </span>
+              <Link className="button secondary" href={`/pedir?pro=${pro.id}&modo=fijo&servicio=${s.id}`}>
+                {es.fixed.proSection.book}
+              </Link>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="pro-section">
         <div className="price-block">

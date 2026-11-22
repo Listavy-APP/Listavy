@@ -9,6 +9,8 @@ import { ProPlanPanel } from "./ProPlanPanel";
 import { ManagePlanButton } from "./ManagePlanButton";
 import { BioForm } from "./BioForm";
 import { SpecialtiesForm } from "./SpecialtiesForm";
+import { FixedServicesForm } from "./FixedServicesForm";
+import { listMyFixedOptIns, listTradeFixedServices } from "@/lib/data/fixed";
 import { getTradeMap } from "@/lib/data/trades-server";
 import { PricingZoneForm } from "./PricingZoneForm";
 import { AvailabilityToggle } from "@/components/AvailabilityToggle";
@@ -158,6 +160,12 @@ export default async function ProStatusPage({ searchParams }: { searchParams: Pr
         initialZone={pro.zone}
         initialUnit={pro.price_unit}
       />
+      {pro.verification_status === "approved" ? (
+        <FixedServicesForm
+          catalog={await listTradeFixedServices(supabase, pro.trade)}
+          initial={await listMyFixedOptIns(supabase)}
+        />
+      ) : null}
       {pro.verification_status === "approved" && tm[pro.trade]?.specialties.length ? (
         <SpecialtiesForm
           initial={(pro as { specialties?: string[] }).specialties ?? []}

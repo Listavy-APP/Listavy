@@ -127,6 +127,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/verificaciones", label: esVerification.admin.navLabel, icon: "badge", badge: "verificaciones" },
       { href: "/admin/administradores", label: "Administradores", icon: "key", superOnly: true },
+      { href: "/admin/servicios-fijos", label: es.fixed.admin.title, icon: "grid", superOnly: true },
     ],
   },
 ];
