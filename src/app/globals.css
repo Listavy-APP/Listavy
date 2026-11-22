@@ -1439,3 +1439,8 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
   vertical-align: -3px;
   flex: none;
 }
+
+/* Photo credits on /legal: quiet, secondary to the document list (Item: About redo, 2026-11-22). */
+.legal-credits { margin-top: 24px; font-size: 13px; }
+.legal-credits h2 { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+.legal-credits ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
