@@ -5,14 +5,12 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { SignOutButton } from "./SignOutButton";
 import { PhotoPicker } from "./PhotoPicker";
-import { DeleteAccount } from "./DeleteAccount";
 import { ClaimReferral } from "@/components/ClaimReferral";
 import { ReferralSection } from "@/components/ReferralSection";
 import { referralProgramEnabled } from "@/lib/data/referrals";
 import { esVerification } from "@/lib/i18n/verification";
 import { listMyVerifications } from "@/lib/data/verification";
 import { stagesFor, summarizeVerifications } from "@/lib/domain/verification";
-import { HashScroll } from "@/components/HashScroll";
 import { Icon } from "@/components/Icon";
 import { JobCard } from "@/components/JobCard";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -326,10 +324,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       <div className="hub-group">
       <hr className="account-rule" />
       <SignOutButton />
-      <h2 id="eliminar">{es.profile.deleteTitle}</h2>
-      <DeleteAccount />
       </div>
-      <HashScroll id="eliminar" />
     </section>
   );
 }

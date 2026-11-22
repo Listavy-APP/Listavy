@@ -45,13 +45,12 @@ export function DeleteAccount() {
   }
 
   return (
-    <div className="stack">
-      <div className="panel stack delete-warning" role="note">
-        <b>{es.profile.deleteWarningTitle}</b>
-        <p>{es.profile.deleteWarningBody}</p>
-      </div>
+    <div className="stack delete-entry">
+      <p className="delete-entry-warn">
+        <b>{es.profile.deleteWarningTitle}</b> {es.profile.deleteWarningBody}
+      </p>
       {error ? <p className="error" role="alert">{error}</p> : null}
-      <button type="button" className="button danger" onClick={() => setConfirming(true)}>
+      <button type="button" className="delete-entry-link" onClick={() => setConfirming(true)}>
         {es.profile.deleteStart}
       </button>
 
