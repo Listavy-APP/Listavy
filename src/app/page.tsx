@@ -28,6 +28,7 @@ const CAT_PHOTO: Record<string, string> = {
   painter: "/categories/pintor.jpg",
   locksmith: "/categories/cerrajero.jpg",
   carpenter: "/categories/carpintero.jpg",
+  cleaning: "/categories/limpieza.jpg",
   blacksmith: "/categories/herrero.jpg",
 };
 
