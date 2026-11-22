@@ -166,7 +166,13 @@ export const es = {
     installIos: "En Safari: toca Compartir y luego Agregar a pantalla de inicio.",
     citiesTitle: "Ciudades",
     proCta: "¿Eres profesional? Únete a Listavy",
+    proCtaTitle: "¿Eres profesional?",
+    proCtaBenefit: "Tu primer trabajo es 100 % sin comisión, por la promoción de lanzamiento.",
     proCtaButton: "Únete como profesional",
+    whereNeed: "¿Dónde lo necesitas?",
+    allCountry: "Todo el país",
+    seeAllServices: "Ver todos los servicios",
+    howMore: "Ver más en Ayuda",
     login: "Entrar con tu teléfono",
   },
   filters: {

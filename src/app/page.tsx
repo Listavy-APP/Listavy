@@ -5,17 +5,19 @@ import { es } from "@/lib/i18n/es";
 import { pageMetadata } from "@/lib/seo/metadata";
 
 export const metadata = pageMetadata({ title: es.seo.homeTitle, description: es.seo.homeDescription, path: "/" });
-import { DEFAULT_CITY, CITIES, isCity, type City } from "@/lib/domain/catalog";
 import { getTradeCatalog } from "@/lib/data/trades-server";
 import { proLabelOf, tradeMap } from "@/lib/data/trades";
 import { getMyReferralCode, referralProgramEnabled } from "@/lib/data/referrals";
-import { listProCards } from "@/lib/data/pros";
+import { getProCardsByIds } from "@/lib/data/pros";
 import { verifiedKindsByPro } from "@/lib/data/verifiedFlags";
+import { searchNationwide } from "@/lib/data/municipalities";
+import { getMunicipalities } from "@/lib/data/municipalities-server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { avatarUrl } from "@/lib/storage/proFiles";
-import { CityZoneSelect } from "@/components/CityZoneSelect";
 import { ProMiniCard } from "@/components/home/ProMiniCard";
 import { InstallBanner } from "@/components/home/InstallBanner";
+import { DateField } from "@/components/home/DateField";
+import { HomeIcon } from "@/components/home/HomeIcons";
 import type { ProCard } from "@/lib/types/database";
 
 /** Representative category photos only. They do not show a specific pro. */
@@ -32,12 +34,14 @@ const CAT_PHOTO: Record<string, string> = {
 
 const RAIL_LIMIT = 8;
 const NEW_LIMIT = 6;
+/** First trades by catalog sort order (the seven originals, then limpieza). */
+const SERVICE_LIMIT = 8;
+/** Upper bound of search_pros_nationwide (0113). */
+const NATIONWIDE_LIMIT = 100;
 
-export default function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ city?: string }>;
-}) {
+type HomeParams = { city?: string; m?: string };
+
+export default function HomePage({ searchParams }: { searchParams: Promise<HomeParams> }) {
   return (
     <Suspense fallback={<div className="home" aria-busy="true" />}>
       <HomeContent searchParams={searchParams} />
@@ -45,25 +49,28 @@ export default function HomePage({
   );
 }
 
-async function HomeContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ city?: string }>;
-}) {
-  // Read the session, the city, and the referral flag at request time.
+async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams> }) {
+  // Read the session, the place, and the referral flag at request time.
   await connection();
   const params = await searchParams;
-  const city: City = params.city && isCity(params.city) ? params.city : DEFAULT_CITY;
 
   const supabase = await createSupabaseServerClient();
-  const catalog = await getTradeCatalog();
+  const [catalog, municipalities] = await Promise.all([getTradeCatalog(), getMunicipalities()]);
   const tm = tradeMap(catalog);
   const referralOn = await referralProgramEnabled(supabase);
   const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id ?? null;
   const code = referralOn && userData.user ? await getMyReferralCode(supabase) : null;
 
-  // Approved, available-or-not pros in this city. The demo pro is excluded by the query.
-  const pros: ProCard[] = await listProCards(supabase, { city });
+  // Place control: preselect only. Backward compatibility: ?city=<legacy key> preselects its municipality (same as /buscar).
+  const requestedId = params.m && municipalities.some((x) => x.id === params.m) ? params.m : null;
+  const legacyId = !requestedId && params.city ? (municipalities.find((x) => x.legacyCity === params.city)?.id ?? null) : null;
+  const preselectId = requestedId ?? legacyId ?? "";
+
+  // Nationwide pros (0113). Ids first, then cards by id. The viewer never sees their own card.
+  const nationwide = await searchNationwide(supabase, { trade: null, limit: NATIONWIDE_LIMIT });
+  const ids = [...new Set(nationwide.map((r) => r.pro_id))];
+  const pros: ProCard[] = (await getProCardsByIds(supabase, ids)).filter((p) => p.id !== userId);
 
   // Lowest price per trade and overall, from real approved pros only. Missing trade means no price shown.
   const minByTrade = new Map<string, number>();
@@ -85,12 +92,13 @@ async function HomeContent({
     railIds.map((p) => ({ id: p.id, isCompany: p.pro_type === "company" })),
   );
   const avatarFor = (p: ProCard) => avatarUrl(supabase, p.avatar_path);
+  const services = catalog.slice(0, SERVICE_LIMIT);
 
   return (
     <div className="home">
       {/* 1. Header: AppHeader in the root layout. */}
 
-      {/* 2. Hero with the 3-field search pill. Submits to /buscar with params in the URL. */}
+      {/* 2. Hero with the search pill. Submits to /buscar with params in the URL. */}
       <section className="hero-block">
         <h1>{es.discover.heroTitle}</h1>
         <form className="search-pill" role="search" action="/buscar" method="get">
@@ -103,11 +111,20 @@ async function HomeContent({
               ))}
             </select>
           </label>
-          <CityZoneSelect cityName="city" zoneName="zone" zoneLabel={es.search.zone} defaultCity={city} allZonesLabel={es.search.allZones} />
           <label className="pill-field">
-            <span>{es.discover.when} <em className="muted">{es.discover.whenOptional}</em></span>
-            <input type="date" name="date" />
+            <span>{es.discover.whereNeed}</span>
+            <select name="m" defaultValue={preselectId} style={{ minHeight: 44 }}>
+              <option value="">{es.discover.allCountry}</option>
+              {[...new Set(municipalities.map((x) => x.province))].map((prov) => (
+                <optgroup key={prov} label={prov}>
+                  {municipalities.filter((x) => x.province === prov).map((x) => (
+                    <option key={x.id} value={x.id}>{x.name}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </label>
+          <DateField id="home-date" name="date" label={<>{es.discover.when} <em className="muted">{es.discover.whenOptional}</em></>} />
           <button className="button" type="submit">{es.discover.search}</button>
         </form>
         {/* Sign-in link only for visitors. A signed-in user has the account tab. */}
@@ -120,21 +137,23 @@ async function HomeContent({
 
       {/* 3. Trust strip. Qualitative only: no pro or review counts. */}
       <ul className="trust-strip" aria-label={es.discover.trustVerified}>
-        <li>✓ {es.discover.trustVerified}</li>
-        {overallMin !== null ? <li>{es.discover.trustPrice(overallMin)}</li> : null}
-        <li>{es.discover.trustSecure}</li>
-        <li>{es.discover.trustGuarantee}</li>
+        <li className="trust-item"><HomeIcon name="shield-check" /><span>{es.discover.trustVerified}</span></li>
+        {overallMin !== null ? (
+          <li className="trust-item"><HomeIcon name="tag" /><span>{es.discover.trustPrice(overallMin)}</span></li>
+        ) : null}
+        <li className="trust-item"><HomeIcon name="lock" /><span>{es.discover.trustSecure}</span></li>
+        <li className="trust-item"><HomeIcon name="ribbon" /><span>{es.discover.trustGuarantee}</span></li>
       </ul>
 
-      {/* 4. Trade tiles. "Desde" only when an approved pro in that trade has a price. */}
+      {/* 4. Service grid: first trades by catalog order. "Desde" only when an approved pro in that trade has a price. */}
       <section id="oficios" className="home-sec">
         <h2>{es.discover.tilesTitle}</h2>
         <div className="tile-grid">
-          {catalog.map((t) => {
+          {services.map((t) => {
             const min = minByTrade.get(t.key);
             const photo = CAT_PHOTO[t.key];
             return (
-              <Link key={t.key} className="tile" href={`/buscar?trade=${t.key}&city=${city}`}>
+              <Link key={t.key} className="tile" href={`/buscar?trade=${t.key}`}>
                 {photo ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img className="tile-photo" src={photo} alt="" loading="lazy" />
@@ -147,36 +166,28 @@ async function HomeContent({
             );
           })}
         </div>
+        <Link className="button secondary" href="/buscar">{es.discover.seeAllServices}</Link>
       </section>
 
-      {/* 5. Verified pros near you. Empty state when there are none. */}
-      <section className="home-sec">
-        <h2>{es.discover.nearTitle}</h2>
-        {nearby.length === 0 ? (
-          <div className="empty-block">
-            <p className="muted">{es.discover.emptyPros}</p>
-            <a className="button secondary" href="#oficios">{es.discover.browseTrades}</a>
-          </div>
-        ) : (
+      {/* 5. Verified pros. Rendered only when there are pros. */}
+      {nearby.length > 0 ? (
+        <section className="home-sec">
+          <h2>{es.discover.nearTitle}</h2>
           <div className="rail">
             {nearby.map((p) => <ProMiniCard key={p.id} pro={p} tradeLabel={proLabelOf(tm, p.trade)} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
-      {/* 6. New on Listavy: newest approved first. Same empty state. */}
-      <section className="home-sec">
-        <h2>{es.discover.newTitle}</h2>
-        {newest.length === 0 ? (
-          <div className="empty-block">
-            <p className="muted">{es.discover.emptyPros}</p>
-          </div>
-        ) : (
+      {/* 6. New on Listavy: newest approved first. Rendered only when there are pros. */}
+      {newest.length > 0 ? (
+        <section className="home-sec">
+          <h2>{es.discover.newTitle}</h2>
           <div className="rail">
             {newest.map((p) => <ProMiniCard key={p.id} pro={p} tradeLabel={proLabelOf(tm, p.trade)} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       {/* 7. How it works. */}
       <section className="home-sec">
@@ -186,6 +197,7 @@ async function HomeContent({
           <li>{es.discover.step2}</li>
           <li>{es.discover.step3}</li>
         </ol>
+        <Link className="button secondary" href="/ayuda">{es.discover.howMore}</Link>
       </section>
 
       {/* 8. Referral strip. Only when the referral flag is on. */}
@@ -216,23 +228,14 @@ async function HomeContent({
       {/* 10. App install banner. */}
       <InstallBanner />
 
-      {/* 11. Cities. */}
-      <section className="home-sec">
-        <h2>{es.discover.citiesTitle}</h2>
-        <div className="city-row">
-          {CITIES.map((c) => (
-            <Link key={c} className="chip" href={`/buscar?city=${c}`}>{es.cities[c]}</Link>
-          ))}
-        </div>
+      {/* 11. Pro recruitment: navy card, distinct from the sections above. */}
+      <section className="pro-cta" aria-labelledby="pro-cta-title">
+        <h2 id="pro-cta-title">{es.discover.proCtaTitle}</h2>
+        <p>{es.discover.proCtaBenefit}</p>
+        <Link className="button pro-cta-button" href="/pro/registro">{es.discover.proCtaButton}</Link>
       </section>
 
-      {/* 12. Pro recruitment. */}
-      <section className="pro-cta">
-        <p>{es.discover.proCta}</p>
-        <Link className="button" href="/pro/registro">{es.discover.proCtaButton}</Link>
-      </section>
-
-      {/* 13. Footer: LegalFooter in the root layout. */}
+      {/* 12. Footer: LegalFooter in the root layout. */}
     </div>
   );
 }
