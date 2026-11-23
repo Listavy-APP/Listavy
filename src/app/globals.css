@@ -1100,6 +1100,8 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .search-pill { background: #fff; color: #0B132B; border: 1px solid #E2E8F0; box-shadow: 0 8px 24px rgba(2, 6, 23, .25); border-radius: 14px; padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; box-sizing: border-box; width: 100%; max-width: 100%; }
 .search-pill .date-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .search-pill .date-row input { flex: 1 1 auto; min-width: 0; }
+.field-date-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.field-date-row input { flex: 1 1 auto; min-width: 0; }
 .date-icon { flex: 0 0 44px; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--field-line); border-radius: 10px; background: #fff; color: #0B132B; cursor: pointer; padding: 0; }
 .search-pill > *, .search-pill .field, .search-pill .pill-field { min-width: 0; max-width: 100%; }
 .search-pill input[type=date] { display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; }
