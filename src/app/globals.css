@@ -1098,16 +1098,18 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 .hero-block h1 { color: #F8FAFC; margin: 0; font-size: 28px; line-height: 1.2; }
 .hero-block a { color: #93C5FD; }
 .search-pill { background: #fff; color: #0B132B; border: 1px solid #E2E8F0; box-shadow: 0 8px 24px rgba(2, 6, 23, .25); border-radius: 14px; padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; box-sizing: border-box; width: 100%; max-width: 100%; }
-/* Date field: one shell, one icon inside the border, borderless input. Sized per context (see below). */
-.date-shell { display: flex; align-items: center; gap: 8px; box-sizing: border-box; width: 100%; min-width: 0; min-height: 56px; padding: 0 var(--s2); border: 1px solid var(--field-line); border-radius: var(--radius-control); background: var(--paper); color: var(--ink); cursor: pointer; }
-.search-pill .date-shell { min-height: 44px; padding: 0 10px; border-radius: 10px; background: #fff; color: #0B132B; }
-.date-shell-icon { flex: 0 0 auto; display: grid; place-items: center; color: inherit; }
+/* Date field: the native date input is the tap surface and covers the fixed-height shell.
+   Native appearance is kept (no appearance:none), so each browser keeps its own picker, placeholder and taps.
+   The calendar icon is an overlay with pointer-events:none. Heights are fixed per context so iOS cannot stretch them. */
+.date-shell { position: relative; box-sizing: border-box; width: 100%; min-width: 0; height: 56px; overflow: hidden; border: 1px solid var(--field-line); border-radius: var(--radius-control); background: var(--paper); color: var(--ink); }
+.search-pill .date-shell { height: 44px; border-radius: 10px; background: #fff; color: #0B132B; }
 .date-shell:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
-.date-shell input.date-input[type=date] { flex: 1 1 auto; width: 100%; min-width: 0; max-width: 100%; min-height: 0; height: auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; font-size: 16px; box-sizing: border-box; -webkit-appearance: none; appearance: none; }
-.date-shell input.date-input[type=date]::-webkit-calendar-picker-indicator { display: none; -webkit-appearance: none; }
+.date-shell .date-shell-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; color: inherit; pointer-events: none; }
+.date-shell input.date-input[type=date] { position: absolute; inset: 0; box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0 12px 0 42px; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; font-size: 16px; cursor: pointer; }
 .date-shell input.date-input[type=date]:focus { outline: none; }
+.date-shell input.date-input[type=date]::-webkit-calendar-picker-indicator { opacity: 0; }
 .search-pill > *, .search-pill .field, .search-pill .pill-field { min-width: 0; max-width: 100%; }
-.search-pill input[type=date] { display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; }
+.search-pill input[type=date] { display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; }
 .search-pill select, .search-pill input { width: 100%; min-height: 44px; border: 1px solid var(--field-line); border-radius: 10px; padding: 8px 10px; background: #fff; color: #0B132B; font: inherit; }
 .pill-field { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
 .trust-strip { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; font-size: 14px; color: #0B132B; }
