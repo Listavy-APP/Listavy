@@ -4,10 +4,10 @@ import { useRef, type ReactNode } from "react";
 import { HomeIcon } from "./HomeIcons";
 
 /**
- * Date field: one bordered shell with a calendar icon inside, and a borderless date input.
- * Tapping the shell (icon or input area) opens the picker. showPicker() needs a user gesture; where it
- * is missing or throws, the native input still works. The native picker indicator is hidden in CSS.
- * Sizing matches the sibling fields in each context (.search-pill on home, .field on /buscar).
+ * Date field built on the native <input type="date">, which is the tap surface. The browser keeps its
+ * own picker, placeholder and tap behavior. The calendar icon is decorative and does not take taps.
+ * showPicker() on the input's own click is an enhancement only: if it is absent or throws, the native
+ * control still works. Sizing is fixed per context by CSS (.search-pill on home, .field on /buscar).
  */
 export function DateField({
   id,
@@ -31,18 +31,26 @@ export function DateField({
     try {
       el.showPicker();
     } catch {
-      // Not allowed in this context. The user can still use the native control.
+      // Not allowed in this context (no user gesture, or unsupported). The native control still works.
     }
   }
 
   return (
     <div className={variant === "field" ? "field" : "pill-field"}>
       <label htmlFor={id}>{label}</label>
-      <div className="date-shell" onClick={openPicker}>
+      <div className="date-shell">
+        <input
+          ref={ref}
+          id={id}
+          className="date-input"
+          type="date"
+          name={name}
+          defaultValue={defaultValue}
+          onClick={openPicker}
+        />
         <span className="date-shell-icon" aria-hidden="true">
           <HomeIcon name="calendar" size={20} />
         </span>
-        <input ref={ref} id={id} className="date-input" type="date" name={name} defaultValue={defaultValue} />
       </div>
     </div>
   );
