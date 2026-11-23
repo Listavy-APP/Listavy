@@ -14,6 +14,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listSavedProIds } from "@/lib/data/saved";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { ProPicker } from "./ProPicker";
+import { DateField } from "@/components/home/DateField";
 import { FiltersSheet } from "./FiltersSheet";
 import { SortSelect } from "./SortSelect";
 
@@ -261,10 +262,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         </div>
       </div>
 
-      <label className="field">
-        <span>{es.discover.when} <em className="muted">{es.discover.whenOptional}</em></span>
-        <input type="date" name="date" defaultValue={date ?? ""} />
-      </label>
+      <DateField
+        id="buscar-date"
+        name="date"
+        variant="field"
+        defaultValue={date ?? ""}
+        label={<>{es.discover.when} <em className="muted">{es.discover.whenOptional}</em></>}
+      />
     </form>
   );
 
