@@ -4,8 +4,10 @@ import { useRef, type ReactNode } from "react";
 import { HomeIcon } from "./HomeIcons";
 
 /**
- * Date field with a visible calendar button. The button and the field both open the picker.
- * showPicker() needs a user gesture; where it is missing or throws, the native input still works.
+ * Date field: one bordered shell with a calendar icon inside, and a borderless date input.
+ * Tapping the shell (icon or input area) opens the picker. showPicker() needs a user gesture; where it
+ * is missing or throws, the native input still works. The native picker indicator is hidden in CSS.
+ * Sizing matches the sibling fields in each context (.search-pill on home, .field on /buscar).
  */
 export function DateField({
   id,
@@ -36,11 +38,11 @@ export function DateField({
   return (
     <div className={variant === "field" ? "field" : "pill-field"}>
       <label htmlFor={id}>{label}</label>
-      <div className={variant === "field" ? "field-date-row" : "date-row"}>
-        <button type="button" className="date-icon" onClick={openPicker} aria-label="Abrir calendario">
+      <div className="date-shell" onClick={openPicker}>
+        <span className="date-shell-icon" aria-hidden="true">
           <HomeIcon name="calendar" size={20} />
-        </button>
-        <input ref={ref} id={id} type="date" name={name} defaultValue={defaultValue} onClick={openPicker} />
+        </span>
+        <input ref={ref} id={id} className="date-input" type="date" name={name} defaultValue={defaultValue} />
       </div>
     </div>
   );
