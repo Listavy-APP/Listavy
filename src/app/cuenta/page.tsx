@@ -10,7 +10,7 @@ import { ReferralSection } from "@/components/ReferralSection";
 import { referralProgramEnabled } from "@/lib/data/referrals";
 import { esVerification } from "@/lib/i18n/verification";
 import { listMyVerifications } from "@/lib/data/verification";
-import { stagesFor, summarizeVerifications } from "@/lib/domain/verification";
+import { requiredStagesFor, summarizeVerifications } from "@/lib/domain/verification";
 import { Icon } from "@/components/Icon";
 import { JobCard } from "@/components/JobCard";
 import { getCurrentProfile } from "@/lib/data/profiles";
@@ -67,7 +67,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const tourMode = shouldShowClientTour(profile, jobs.length > 0) ? "first" : como === "1" && clientView ? "replay" : null;
   const myPro = isPro ? await getMyPro(supabase) : null;
   const verificationRows = myPro ? await listMyVerifications(supabase, profile.id) : [];
-  const verification = myPro ? summarizeVerifications(stagesFor(myPro.pro_type, myPro.trade), verificationRows) : null;
+  const verification = myPro ? summarizeVerifications(requiredStagesFor(myPro.pro_type), verificationRows) : null;
   const verificationText = !verification ? null : (() => {
     const v = esVerification.summary;
     switch (verification.state) {
