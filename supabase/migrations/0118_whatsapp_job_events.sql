@@ -34,17 +34,17 @@ insert into public.platform_settings (key, value) values ('whatsapp_templates', 
   "ui_enabled": false,
   "messaging_service_sid": "MG3207aabe65c67f1b480f6ba7c8b6b55c",
   "kinds": {
-    "job_quote_received":   {"sid": "HX61fd01bafcaeaee12d10b29477818a25", "language": "es_MX", "vars": ["first_name", "trade", "amount"]},
-    "job_accepted":         {"sid": "HXeb5f0c4550613e98ec9cb415d66f5b5a", "language": "es_MX", "vars": ["first_name", "trade", "zone"]},
-    "job_arrived":          {"sid": "HXdbc26e939fc8f469fefc800c4ca2b8dc", "language": "es_MX", "vars": ["first_name", "trade"]},
-    "job_started":          {"sid": "HXf6e3949e2f2e255887125a36e24729ac", "language": "es_MX", "vars": ["first_name", "trade"]},
-    "job_completed":        {"sid": "HX6d5d8e1aaa526808f61077cc2f81c933", "language": "es_MX", "vars": ["first_name", "trade"]},
-    "receipt":              {"sid": "HXc98811ec4a3412c54beac039a1438cbf", "language": "es_MX", "vars": ["first_name", "amount", "trade"]},
+    "job_quote_received":   {"sid": "HX61fd01bafcaeaee12d10b29477818a25", "language": "es_MX", "vars": ["first_name", "pro_name", "trade", "amount"]},
+    "job_accepted":         {"sid": "HXeb5f0c4550613e98ec9cb415d66f5b5a", "language": "es_MX", "vars": ["first_name", "trade", "pro_name", "schedule"]},
+    "job_arrived":          {"sid": "HXdbc26e939fc8f469fefc800c4ca2b8dc", "language": "es_MX", "vars": ["first_name", "pro_name", "trade"]},
+    "job_started":          {"sid": "HXf6e3949e2f2e255887125a36e24729ac", "language": "es_MX", "vars": ["first_name", "pro_name", "trade"]},
+    "job_completed":        {"sid": "HX6d5d8e1aaa526808f61077cc2f81c933", "language": "es_MX", "vars": ["first_name", "pro_name", "trade"]},
+    "receipt":              {"sid": "HXc98811ec4a3412c54beac039a1438cbf", "language": "es_MX", "vars": ["amount", "trade", "pro_name"]},
     "job_cancelled_refund": {"sid": "HXdf87df4c9f7bbbb4c8881135b98d352f", "language": "es_MX", "vars": ["first_name", "trade", "refund"]},
-    "dispute_decided":      {"sid": "HXb51020aea17ec657e4ea9beb2bc360a5", "language": "es_MX", "vars": ["first_name", "outcome"]},
-    "request_invite":       {"sid": "HX7d2c737fe4c49a72f29414ea0948b8fa", "language": "es_MX", "vars": ["first_name", "trade", "zone"]},
-    "quote_accepted":       {"sid": "HXf61587352398faad29276111d9c95959", "language": "es_MX", "vars": ["first_name", "trade"]},
-    "payout_released":      {"sid": "HX24552f24b4204eadc08854ed50f5fe99", "language": "es_MX", "vars": ["first_name", "trade"]}
+    "dispute_decided":      {"sid": "HXb51020aea17ec657e4ea9beb2bc360a5", "language": "es_MX", "vars": ["first_name", "trade"]},
+    "request_invite":       {"sid": "HX7d2c737fe4c49a72f29414ea0948b8fa", "language": "es_MX", "vars": ["first_name", "trade", "municipality", "zone"]},
+    "quote_accepted":       {"sid": "HXf61587352398faad29276111d9c95959", "language": "es_MX", "vars": ["first_name", "client_name", "trade", "amount"]},
+    "payout_released":      {"sid": "HX24552f24b4204eadc08854ed50f5fe99", "language": "es_MX", "vars": ["first_name", "amount", "trade"]}
   }
 }'::jsonb)
 on conflict (key) do nothing;
@@ -125,7 +125,7 @@ begin
     'Revisa el precio y el alcance antes de decidir.', '/trabajos/' || new.job_id, false);
   perform public.notify_user_email(v_ho, 'job_quote_received',
     jsonb_build_object('job_id', new.job_id, 'trade', v_trade, 'zone', v_zone, 'amount_dop', new.amount_dop), false, true);
-  perform public.notify_user_whatsapp(v_ho, 'job_quote_received', jsonb_build_object('job_id', new.job_id), false);
+  perform public.notify_user_whatsapp(v_ho, 'job_quote_received', jsonb_build_object('job_id', new.job_id, 'pro_id', new.pro_id, 'amount_dop', new.amount_dop), false);
   return new;
 end; $$;
 
@@ -146,7 +146,7 @@ language plpgsql security definer set search_path = '' as $$
 begin
   perform public.notify_user_push(new.pro_id, 'quote_accepted', 'Tu cotización fue aceptada',
     'El cliente aceptó tu cotización. Revisa el trabajo.', '/trabajos/' || new.job_id, false);
-  perform public.notify_user_whatsapp(new.pro_id, 'quote_accepted', jsonb_build_object('job_id', new.job_id), false);
+  perform public.notify_user_whatsapp(new.pro_id, 'quote_accepted', jsonb_build_object('job_id', new.job_id, 'amount_dop', new.amount_dop), false);
   return new;
 end; $$;
 
@@ -187,7 +187,7 @@ begin
     jsonb_build_object('job_id', new.job_id, 'trade', v_trade, 'zone', v_zone), false, true);
   perform public.notify_user_push(v_pro, 'payout_released', 'Pago liberado para ti',
     'Tu pago de este trabajo fue liberado.', '/trabajos/' || new.job_id, false);
-  perform public.notify_user_whatsapp(v_pro, 'payout_released', jsonb_build_object('job_id', new.job_id), false);
+  perform public.notify_user_whatsapp(v_pro, 'payout_released', jsonb_build_object('job_id', new.job_id, 'amount_dop', new.pro_payout_dop), false);
   return new;
 end; $$;
 

@@ -1,5 +1,6 @@
 // Run: node --experimental-strip-types supabase/tests/whatsapp-template.test.mjs
-// Covers the pure variable mapping used by send-whatsapp (0118). The settings seed is checked against the 11 SIDs.
+// Pins the variable count and order per kind against the approved Meta bodies (5b, 2026-11-24).
+// The check reads the seed from migration 0118, so the migration and this list cannot drift apart.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
@@ -7,36 +8,87 @@ import {
   firstName,
   formatDop,
   kindConfig,
-  outcomeText,
+  scheduleLabel,
 } from "../functions/_shared/whatsapp-template.ts";
 
 let passed = 0;
 const check = (name, fn) => { fn(); passed += 1; console.log(`ok - ${name}`); };
 
-const cfg = { messaging_service_sid: "MG3207aabe65c67f1b480f6ba7c8b6b55c", kinds: {
-  job_quote_received: { sid: "HX61fd01bafcaeaee12d10b29477818a25", language: "es_MX", vars: ["first_name", "trade", "amount"] },
-} };
+// Approved order per kind. Position n in ContentVariables is the nth entry here.
+const APPROVED = {
+  job_quote_received: ["first_name", "pro_name", "trade", "amount"],
+  job_accepted: ["first_name", "trade", "pro_name", "schedule"],
+  job_arrived: ["first_name", "pro_name", "trade"],
+  job_started: ["first_name", "pro_name", "trade"],
+  job_completed: ["first_name", "pro_name", "trade"],
+  receipt: ["amount", "trade", "pro_name"],
+  job_cancelled_refund: ["first_name", "trade", "refund"],
+  dispute_decided: ["first_name", "trade"],
+  request_invite: ["first_name", "trade", "municipality", "zone"],
+  quote_accepted: ["first_name", "client_name", "trade", "amount"],
+  payout_released: ["first_name", "amount", "trade"],
+};
 
-check("variables are positional from 1, in configured order", () => {
-  const out = buildContentVariables(["first_name", "trade", "amount"], { first_name: "Ana", trade: "Plomero", amount: "RD$1,500" });
-  assert.deepEqual(out, { "1": "Ana", "2": "Plomero", "3": "RD$1,500" });
+const sql = readFileSync(new URL("../migrations/0118_whatsapp_job_events.sql", import.meta.url), "utf8");
+const seedJson = sql.match(/values \('whatsapp_templates', '([\s\S]*?)'::jsonb\)/)?.[1];
+assert.ok(seedJson, "seed row not found in 0118");
+const seed = JSON.parse(seedJson);
+
+check("the seed covers exactly the 11 approved kinds", () => {
+  assert.deepEqual(Object.keys(seed.kinds).sort(), Object.keys(APPROVED).sort());
 });
 
-check("a missing configured value refuses the send instead of sending a blank", () => {
+for (const kind of Object.keys(APPROVED)) {
+  check(`${kind}: ${APPROVED[kind].length} variables in the approved order`, () => {
+    assert.deepEqual(seed.kinds[kind].vars, APPROVED[kind]);
+    assert.equal(seed.kinds[kind].vars.length, APPROVED[kind].length);
+  });
+}
+
+check("dispute_decided carries no outcome variable (the result stays in-app)", () => {
+  assert.ok(!seed.kinds.dispute_decided.vars.includes("outcome"));
+});
+
+check("receipt has no greeting variable", () => {
+  assert.ok(!seed.kinds.receipt.vars.includes("first_name"));
+});
+
+check("every kind is es_MX with a Twilio content SID", () => {
+  for (const [kind, k] of Object.entries(seed.kinds)) {
+    assert.equal(k.language, "es_MX", kind);
+    assert.ok(/^HX[0-9a-f]{32}$/.test(k.sid), `${kind} sid`);
+  }
+});
+
+check("the 11 SIDs are the approved ones, one each", () => {
+  const sids = Object.values(seed.kinds).map((k) => k.sid);
+  assert.equal(new Set(sids).size, 11);
+});
+
+const cfg = { messaging_service_sid: seed.messaging_service_sid, kinds: seed.kinds };
+
+check("variables are positional from 1, in the configured order", () => {
+  const out = buildContentVariables(seed.kinds.job_quote_received.vars, {
+    first_name: "Ana", pro_name: "Juan", trade: "Plomero", amount: "RD$1,500",
+  });
+  assert.deepEqual(out, { "1": "Ana", "2": "Juan", "3": "Plomero", "4": "RD$1,500" });
+});
+
+check("a missing configured value refuses the send", () => {
   assert.equal(buildContentVariables(["first_name", "amount"], { first_name: "Ana" }), null);
 });
 
-check("an empty name is allowed (sent as an empty string), not dropped", () => {
+check("a blank pro name refuses the send (only the first name may be blank)", () => {
+  assert.equal(buildContentVariables(["first_name", "pro_name"], { first_name: "Ana", pro_name: "" }), null);
+});
+
+check("a blank first name is allowed", () => {
   assert.deepEqual(buildContentVariables(["first_name"], { first_name: "" }), { "1": "" });
 });
 
 check("kindConfig returns a configured kind and refuses an unknown one", () => {
-  assert.equal(kindConfig(cfg, "job_quote_received").language, "es_MX");
+  assert.equal(kindConfig(cfg, "job_accepted").language, "es_MX");
   assert.equal(kindConfig(cfg, "unknown_kind"), null);
-});
-
-check("kindConfig refuses a SID that is not a Twilio content SID", () => {
-  assert.equal(kindConfig({ kinds: { x: { sid: "bad", language: "es_MX", vars: [] } } }, "x"), null);
 });
 
 check("formatDop matches the app's peso format and rejects non-numbers", () => {
@@ -50,27 +102,21 @@ check("firstName takes the first word and tolerates no name", () => {
   assert.equal(firstName(null), "");
 });
 
-check("outcomeText uses the email wording and has a fallback", () => {
-  assert.equal(outcomeText("resolved_pro"), "El caso se resolvió a favor del profesional.");
-  assert.equal(outcomeText("other"), "Se tomó una decisión sobre la disputa.");
+check("scheduleLabel gives day, date and period in Santo Domingo time", () => {
+  // 2026-11-28 is a Saturday. UTC-4 year-round.
+  assert.equal(scheduleLabel("2026-11-28T13:00:00Z"), "sábado 28 de noviembre, en la mañana"); // 09:00
+  assert.equal(scheduleLabel("2026-11-28T19:00:00Z"), "sábado 28 de noviembre, en la tarde"); // 15:00
+  assert.equal(scheduleLabel("2026-11-29T01:00:00Z"), "sábado 28 de noviembre, en la noche"); // 21:00
 });
 
-check("settings seed holds all 11 approved SIDs, each tagged es_MX", () => {
-  const sql = readFileSync(new URL("../migrations/0118_whatsapp_job_events.sql", import.meta.url), "utf8");
-  const sids = [
-    "HX61fd01bafcaeaee12d10b29477818a25", "HXeb5f0c4550613e98ec9cb415d66f5b5a", "HXdbc26e939fc8f469fefc800c4ca2b8dc",
-    "HXf6e3949e2f2e255887125a36e24729ac", "HX6d5d8e1aaa526808f61077cc2f81c933", "HXc98811ec4a3412c54beac039a1438cbf",
-    "HXdf87df4c9f7bbbb4c8881135b98d352f", "HXb51020aea17ec657e4ea9beb2bc360a5", "HX7d2c737fe4c49a72f29414ea0948b8fa",
-    "HXf61587352398faad29276111d9c95959", "HX24552f24b4204eadc08854ed50f5fe99",
-  ];
-  for (const sid of sids) assert.ok(sql.includes(sid), `missing ${sid}`);
-  assert.equal((sql.match(/"language": "es_MX"/g) ?? []).length, 11);
-  assert.equal((sql.match(/"sid": "HX/g) ?? []).length, 11);
+check("scheduleLabel is empty for no window or a bad date", () => {
+  assert.equal(scheduleLabel(null), "");
+  assert.equal(scheduleLabel("not a date"), "");
 });
 
-check("the settings seed is in the migration, and the repo holds no template body text", () => {
+check("the sender holds no template wording", () => {
   const fn = readFileSync(new URL("../functions/send-whatsapp/index.ts", import.meta.url), "utf8");
-  assert.ok(!/Hola|Recibiste una cotización/.test(fn), "template wording must not be in the function");
+  assert.ok(!/Hola|Recibiste una cotización/.test(fn));
 });
 
 console.log(`${passed} passed`);

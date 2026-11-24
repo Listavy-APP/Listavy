@@ -16,7 +16,7 @@ import {
   firstName,
   formatDop,
   kindConfig,
-  outcomeText,
+  scheduleLabel,
   type WhatsAppConfig,
 } from "../_shared/whatsapp-template.ts";
 
@@ -79,12 +79,25 @@ Deno.serve(async (req: Request) => {
     return json({ error: "El envío de WhatsApp no está configurado." }, 503);
   }
 
+  // Every name and place comes from the records, never from the caller. The caller sends ids and amounts only.
   let trade: string | undefined;
   let zone: string | undefined;
+  let proId: string | undefined = typeof data.pro_id === "string" ? data.pro_id : undefined;
+  let clientId: string | undefined;
+  let municipalityId: string | null = null;
+  let approvedQuoteId: string | null = null;
   if (typeof data.job_id === "string") {
-    const { data: job } = await admin.from("jobs").select("trade, zone").eq("id", data.job_id).maybeSingle();
+    const { data: job } = await admin
+      .from("jobs")
+      .select("trade, zone, pro_id, homeowner_id, municipality_id, approved_quote_id")
+      .eq("id", data.job_id)
+      .maybeSingle();
     trade = job?.trade ?? undefined;
     zone = job?.zone ?? undefined;
+    proId = proId ?? job?.pro_id ?? undefined;
+    clientId = job?.homeowner_id ?? undefined;
+    municipalityId = job?.municipality_id ?? null;
+    approvedQuoteId = job?.approved_quote_id ?? null;
   }
   let tradeLabel: string | undefined;
   if (trade) {
@@ -92,13 +105,27 @@ Deno.serve(async (req: Request) => {
     tradeLabel = (t?.pro_label_es as string | null) ?? (t?.label_es as string | undefined) ?? undefined;
   }
 
+  const [{ data: proProfile }, { data: clientProfile }, { data: muni }, { data: quote }] = await Promise.all([
+    proId ? admin.from("profiles").select("full_name").eq("id", proId).maybeSingle() : Promise.resolve({ data: null }),
+    clientId ? admin.from("profiles").select("full_name").eq("id", clientId).maybeSingle() : Promise.resolve({ data: null }),
+    municipalityId
+      ? admin.from("municipalities").select("display_name").eq("id", municipalityId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    approvedQuoteId
+      ? admin.from("quotes").select("window_start").eq("id", approvedQuoteId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
   const values: Record<string, string> = {
     first_name: firstName(profile.full_name),
+    pro_name: proProfile?.full_name ? firstName(proProfile.full_name) : "",
+    client_name: clientProfile?.full_name ? firstName(clientProfile.full_name) : "",
     trade: tradeName(trade, tradeLabel),
     zone: zone ?? "",
+    municipality: (muni?.display_name as string | undefined) ?? "",
+    schedule: scheduleLabel(quote?.window_start as string | undefined),
     amount: formatDop(data.amount_dop),
     refund: formatDop(data.refund_dop),
-    outcome: outcomeText(data.outcome),
   };
   const contentVariables = buildContentVariables(entry.vars, values);
   if (!contentVariables) {

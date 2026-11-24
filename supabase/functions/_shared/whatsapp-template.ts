@@ -21,16 +21,6 @@ export function firstName(name: string | null | undefined): string {
   return name ? name.trim().split(/\s+/)[0] ?? "" : "";
 }
 
-const OUTCOMES: Record<string, string> = {
-  resolved_homeowner: "El caso se resolvió a favor del cliente.",
-  resolved_pro: "El caso se resolvió a favor del profesional.",
-};
-
-/** Same wording as the email copy for a dispute decision. */
-export function outcomeText(outcome: unknown): string {
-  return (typeof outcome === "string" && OUTCOMES[outcome]) || "Se tomó una decisión sobre la disputa.";
-}
-
 /**
  * Builds Twilio ContentVariables from the variable names configured for a kind. Position n (1-based)
  * takes the value of the n-th name. Returns null when a configured value is missing, so the send is
@@ -40,10 +30,33 @@ export function buildContentVariables(vars: string[], values: WhatsAppValues): R
   const out: Record<string, string> = {};
   for (let i = 0; i < vars.length; i++) {
     const v = values[vars[i]];
-    if (v === undefined) return null;
+    // Only the first name may be blank (a profile can lack a name). Every other value is required.
+    if (v === undefined || (v === "" && vars[i] !== "first_name")) return null;
     out[String(i + 1)] = v;
   }
   return out;
+}
+
+/**
+ * Schedule label for the job's accepted quote window, in Santo Domingo time:
+ * "sábado 29 de noviembre, en la mañana". Empty when there is no window.
+ */
+export function scheduleLabel(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("es-DO", {
+    timeZone: "America/Santo_Domingo",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const hour = Number(get("hour"));
+  const period = hour < 12 ? "mañana" : hour < 17 ? "tarde" : "noche";
+  return `${get("weekday")} ${get("day")} de ${get("month")}, en la ${period}`;
 }
 
 /** A kind is sendable only when its SID and at least one variable mapping are configured. */
