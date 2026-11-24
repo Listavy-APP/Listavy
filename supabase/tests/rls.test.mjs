@@ -3876,6 +3876,69 @@ await check("0102 verified flags: no rows for an empty list, and no direct read 
 });
 
 // ---------------------------------------------------------------------------
+// 0118 · WhatsApp job events (item 5b). Skip paths only: no network call is made in these checks.
+// ---------------------------------------------------------------------------
+await check("0118 whatsapp: the toggle off writes one skipped_preference row and no send", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_preferences (user_id, job_whatsapp) values ('${HOMEOWNER}', false)
+                   on conflict (user_id) do update set job_whatsapp = false`);
+    await db.exec(`select public.notify_user_whatsapp('${HOMEOWNER}'::uuid, 'job_started', '{}'::jsonb, false)`);
+    const r = await db.query(`select status, channel from public.notification_log where user_id = '${HOMEOWNER}' and channel = 'whatsapp'`);
+    assert.equal(r.rows.length, 1, "exactly one row");
+    assert.equal(r.rows[0].status, "skipped_preference");
+  });
+});
+
+await check("0118 whatsapp: a record message (always) is not skipped by the toggle", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_preferences (user_id, job_whatsapp) values ('${HOMEOWNER}', false)
+                   on conflict (user_id) do update set job_whatsapp = false`);
+    await db.exec(`select public.notify_user_whatsapp('${HOMEOWNER}'::uuid, 'receipt', '{}'::jsonb, true)`);
+    const r = await db.query(`select count(*)::int as n from public.notification_log where user_id = '${HOMEOWNER}' and channel = 'whatsapp' and status = 'skipped_preference'`);
+    assert.equal(r.rows[0].n, 0, "no preference skip for a record message");
+  });
+});
+
+await check("0118 whatsapp: a profile without a phone logs skipped_no_phone and sends nothing", async () => {
+  await withRollback(async () => {
+    await db.exec(`update public.profiles set phone = null where id = '${HOMEOWNER}'`);
+    await db.exec(`select public.notify_user_whatsapp('${HOMEOWNER}'::uuid, 'job_started', '{}'::jsonb, false)`);
+    const r = await db.query(`select status from public.notification_log where user_id = '${HOMEOWNER}' and channel = 'whatsapp'`);
+    assert.equal(r.rows.length, 1);
+    assert.equal(r.rows[0].status, "skipped_no_phone");
+  });
+});
+
+await check("0118 whatsapp: the log accepts the whatsapp channel and skipped_no_phone", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_log (user_id, channel, kind, status) values ('${HOMEOWNER}', 'whatsapp', 'job_started', 'sent')`);
+    await db.exec(`insert into public.notification_log (user_id, channel, kind, status) values ('${HOMEOWNER}', 'whatsapp', 'job_started', 'skipped_no_phone')`);
+  });
+});
+
+await check("0118 whatsapp: the sender is not callable by anon or signed-in clients", async () => {
+  await withRollback(async () => {
+    await expectCode(() => asAnon(`select public.notify_user_whatsapp('${HOMEOWNER}'::uuid, 'job_started', '{}'::jsonb, false)`), "42501");
+    await expectCode(() => asUser(HOMEOWNER, `select public.notify_user_whatsapp('${HOMEOWNER}'::uuid, 'job_started', '{}'::jsonb, false)`), "42501");
+  });
+});
+
+await check("0118 whatsapp: the ajustes flag is off by default and clients cannot read the settings row", async () => {
+  await withRollback(async () => {
+    const r = await asUser(HOMEOWNER, "select public.job_whatsapp_available() as ok");
+    assert.equal(r.rows[0].ok, false, "hidden until ui_enabled is set");
+    // Clients see no settings rows: either no privilege (42501) or RLS filters everything out.
+    let visible = 0;
+    try {
+      visible = (await asUser(HOMEOWNER, "select count(*)::int as n from public.platform_settings where key = 'whatsapp_templates'")).rows[0].n;
+    } catch (e) {
+      assert.equal(e.code, "42501", "a denied read is the permission error");
+    }
+    assert.equal(visible, 0, "the template settings row is not visible to a client");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 0121 · Buena conducta is valid one year from issue (policy 2026-11-24).
 // ---------------------------------------------------------------------------
 await check("0121 buena conducta: admin approval sets expiry to one year after issue", async () => {
