@@ -102,23 +102,40 @@ check("firstName takes the first word and tolerates no name", () => {
   assert.equal(firstName(null), "");
 });
 
-check("scheduleLabel gives day, date and period in Santo Domingo time", () => {
-  // 2026-11-28 is a Saturday. UTC-4 year-round.
-  assert.equal(scheduleLabel("2026-11-28T13:00:00Z"), "sábado 28 de noviembre, en la mañana"); // 09:00
-  assert.equal(scheduleLabel("2026-11-28T19:00:00Z"), "sábado 28 de noviembre, en la tarde"); // 15:00
-  assert.equal(scheduleLabel("2026-11-29T01:00:00Z"), "sábado 28 de noviembre, en la noche"); // 21:00
+check("scheduleLabel maps morning, afternoon and evening to mañana, tarde and noche", () => {
+  // 2026-11-24 is a Tuesday (computed by Intl, not hard-coded from the weekday).
+  assert.equal(scheduleLabel("2026-11-24", "morning"), "martes 24 de noviembre, en la mañana");
+  assert.equal(scheduleLabel("2026-11-24", "afternoon"), "martes 24 de noviembre, en la tarde");
+  assert.equal(scheduleLabel("2026-11-24", "evening"), "martes 24 de noviembre, en la noche");
 });
 
-check("scheduleLabel is empty for no window or a bad date", () => {
-  assert.equal(scheduleLabel(null), "");
-  assert.equal(scheduleLabel("not a date"), "");
+check("scheduleLabel keeps the calendar day (no time-zone shift)", () => {
+  assert.equal(scheduleLabel("2026-11-30", "morning"), "lunes 30 de noviembre, en la mañana");
 });
 
-check("pro_name is the full name; first_name and client_name stay first-name only", () => {
+check("scheduleLabel is empty when the date or window is missing or invalid", () => {
+  assert.equal(scheduleLabel(null, "morning"), "");
+  assert.equal(scheduleLabel("2026-11-24", null), "");
+  assert.equal(scheduleLabel("2026-11-24", "night"), "");
+  assert.equal(scheduleLabel("not a date", "morning"), "");
+});
+
+check("the sender reads the job's date and window, not the quote", () => {
   const fn = readFileSync(new URL("../functions/send-whatsapp/index.ts", import.meta.url), "utf8");
-  assert.match(fn, /pro_name: proProfile\?\.full_name\?\.trim\(\) \?\? ""/);
-  assert.match(fn, /client_name: clientProfile\?\.full_name \? firstName\(clientProfile\.full_name\) : ""/);
-  assert.match(fn, /first_name: firstName\(profile\.full_name\)/);
+  assert.match(fn, /scheduled_date, scheduled_window/);
+  assert.match(fn, /scheduleLabel\(scheduledDate, scheduledWindow\)/);
+  assert.ok(!/window_start|approved_quote_id/.test(fn), "no quote window read");
+});
+
+check("ASAP skip: a schedule template with no scheduled date is skipped, not failed", () => {
+  const fn = readFileSync(new URL("../functions/send-whatsapp/index.ts", import.meta.url), "utf8");
+  assert.match(fn, /entry\.vars\.includes\("schedule"\) && !values\.schedule/);
+  assert.match(fn, /log\("skipped_no_schedule"\)/);
+});
+
+check("0122 adds skipped_no_schedule to the log status check", () => {
+  const sql = readFileSync(new URL("../migrations/0122_whatsapp_skip_no_schedule.sql", import.meta.url), "utf8");
+  assert.match(sql, /'skipped_no_schedule'\)/);
 });
 
 check("the sender holds no template wording", () => {

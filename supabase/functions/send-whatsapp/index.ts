@@ -85,11 +85,12 @@ Deno.serve(async (req: Request) => {
   let proId: string | undefined = typeof data.pro_id === "string" ? data.pro_id : undefined;
   let clientId: string | undefined;
   let municipalityId: string | null = null;
-  let approvedQuoteId: string | null = null;
+  let scheduledDate: string | null = null;
+  let scheduledWindow: string | null = null;
   if (typeof data.job_id === "string") {
     const { data: job } = await admin
       .from("jobs")
-      .select("trade, zone, pro_id, homeowner_id, municipality_id, approved_quote_id")
+      .select("trade, zone, pro_id, homeowner_id, municipality_id, scheduled_date, scheduled_window")
       .eq("id", data.job_id)
       .maybeSingle();
     trade = job?.trade ?? undefined;
@@ -97,7 +98,8 @@ Deno.serve(async (req: Request) => {
     proId = proId ?? job?.pro_id ?? undefined;
     clientId = job?.homeowner_id ?? undefined;
     municipalityId = job?.municipality_id ?? null;
-    approvedQuoteId = job?.approved_quote_id ?? null;
+    scheduledDate = job?.scheduled_date ?? null;
+    scheduledWindow = job?.scheduled_window ?? null;
   }
   let tradeLabel: string | undefined;
   if (trade) {
@@ -105,14 +107,11 @@ Deno.serve(async (req: Request) => {
     tradeLabel = (t?.pro_label_es as string | null) ?? (t?.label_es as string | undefined) ?? undefined;
   }
 
-  const [{ data: proProfile }, { data: clientProfile }, { data: muni }, { data: quote }] = await Promise.all([
+  const [{ data: proProfile }, { data: clientProfile }, { data: muni }] = await Promise.all([
     proId ? admin.from("profiles").select("full_name").eq("id", proId).maybeSingle() : Promise.resolve({ data: null }),
     clientId ? admin.from("profiles").select("full_name").eq("id", clientId).maybeSingle() : Promise.resolve({ data: null }),
     municipalityId
       ? admin.from("municipalities").select("display_name").eq("id", municipalityId).maybeSingle()
-      : Promise.resolve({ data: null }),
-    approvedQuoteId
-      ? admin.from("quotes").select("window_start").eq("id", approvedQuoteId).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -123,10 +122,17 @@ Deno.serve(async (req: Request) => {
     trade: tradeName(trade, tradeLabel),
     zone: zone ?? "",
     municipality: (muni?.display_name as string | undefined) ?? "",
-    schedule: scheduleLabel(quote?.window_start as string | undefined),
+    schedule: scheduleLabel(scheduledDate, scheduledWindow),
     amount: formatDop(data.amount_dop),
     refund: formatDop(data.refund_dop),
   };
+  // ASAP jobs have no scheduled date, so a template that prints a schedule has nothing to print.
+  // That is a deliberate skip, not a failure. Push, email and in-app still send for the same event.
+  if (entry.vars.includes("schedule") && !values.schedule) {
+    await log("skipped_no_schedule");
+    return json({ sent: false, reason: "no_schedule" });
+  }
+
   const contentVariables = buildContentVariables(entry.vars, values);
   if (!contentVariables) {
     await log("failed", "variable sin valor");
