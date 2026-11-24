@@ -1,5 +1,5 @@
 import { currentVerifications } from "@/lib/data/verification";
-import { companyVerified, individualVerified, type CurrentStage } from "@/lib/domain/verification";
+import { companyVerified, identityVerified, type CurrentStage } from "@/lib/domain/verification";
 import { esVerification as t } from "@/lib/i18n/verification";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -32,8 +32,7 @@ export async function VerificationBadges({
   const current = await currentVerifications(supabase, proId);
   const lines = current.map(label).filter((l): l is string => l !== null);
   const identity = current.find((c) => c.stage === "identity");
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Santo_Domingo" });
-  if (identity && individualVerified(current, today)) lines.unshift(t.badge.identity(date(identity.verified_at)));
+  if (identity && identityVerified(current)) lines.unshift(t.badge.identity(date(identity.verified_at)));
   const company = isCompany && companyVerified(current);
   if (lines.length === 0 && !company) return null;
   return (
