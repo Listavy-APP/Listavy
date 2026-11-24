@@ -38,24 +38,19 @@ export function buildContentVariables(vars: string[], values: WhatsAppValues): R
 }
 
 /**
- * Schedule label for the job's accepted quote window, in Santo Domingo time:
- * "sábado 29 de noviembre, en la mañana". Empty when there is no window.
+ * Schedule label for a job's date and window, e.g. "martes 24 de noviembre, en la mañana".
+ * The date is a calendar date (no time zone), so it is formatted in UTC at noon to keep the day fixed.
+ * Window: morning, afternoon, evening (migration 0090). Empty when either part is missing.
  */
-export function scheduleLabel(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
+export function scheduleLabel(date: string | null | undefined, window: string | null | undefined): string {
+  if (!date || !window) return "";
+  const d = new Date(`${date}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return "";
-  const parts = new Intl.DateTimeFormat("es-DO", {
-    timeZone: "America/Santo_Domingo",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    hour: "numeric",
-    hourCycle: "h23",
-  }).formatToParts(d);
+  const period = ({ morning: "mañana", afternoon: "tarde", evening: "noche" } as Record<string, string>)[window];
+  if (!period) return "";
+  const parts = new Intl.DateTimeFormat("es-DO", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" })
+    .formatToParts(d);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  const hour = Number(get("hour"));
-  const period = hour < 12 ? "mañana" : hour < 17 ? "tarde" : "noche";
   return `${get("weekday")} ${get("day")} de ${get("month")}, en la ${period}`;
 }
 
