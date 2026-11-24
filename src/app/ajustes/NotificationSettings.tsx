@@ -6,17 +6,19 @@ import { Switch } from "@/components/Switch";
 import { es } from "@/lib/i18n/es";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-type Prefs = { job_push: boolean; job_email: boolean };
+type Prefs = { job_push: boolean; job_email: boolean; job_whatsapp: boolean };
 
 /** Job-event push and email toggles (0091). Defaults ON. Receipts and dispute emails always send. */
 export function NotificationSettings({
   userId,
   initial,
   emailVerified,
+  whatsappAvailable,
 }: {
   userId: string;
   initial: Prefs;
   emailVerified: boolean;
+  whatsappAvailable: boolean;
 }) {
   const t = es.notifSettings;
   const [prefs, setPrefs] = useState<Prefs>(initial);
@@ -69,6 +71,20 @@ export function NotificationSettings({
       </div>
       <p className="muted">{t.jobEmailHint}</p>
       {!emailVerified ? <p className="muted">{t.unverified}</p> : null}
+      {whatsappAvailable ? (
+        <>
+          <div className="settings-row">
+            <span>{t.jobWhatsappLabel}</span>
+            <Switch
+              checked={prefs.job_whatsapp}
+              onChange={(v) => change({ ...prefs, job_whatsapp: v })}
+              label={t.jobWhatsappLabel}
+              disabled={busy}
+            />
+          </div>
+          <p className="muted">{t.jobWhatsappHint}</p>
+        </>
+      ) : null}
       {error ? <p className="error" role="alert">{error}</p> : null}
       {saved ? <p className="muted" role="status">{t.saved}</p> : null}
 

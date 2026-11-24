@@ -1061,7 +1061,7 @@ export const es = {
     unread: "Nuevo",
     unreadCount: "Sin leer",
     notDelivered: "no se pudo entregar",
-    channel: { push: "En la app", email: "Correo" },
+    channel: { push: "En la app", email: "Correo", whatsapp: "WhatsApp" },
     fallbackKind: "Aviso de Listavy",
     kinds: {
       welcome: "Bienvenida",
@@ -1528,6 +1528,8 @@ export const es = {
     jobPushHint: "Cotizaciones, cambios en tu trabajo y pagos. Apagarlo detiene los avisos que envía Listavy. Para dejar de recibir notificaciones del navegador, desactívalas en la configuración del navegador o del dispositivo.",
     jobEmailLabel: "Correos de trabajo",
     jobEmailHint: "Te escribimos al correo verificado cuando cambie tu trabajo. Los recibos y los avisos de disputa siempre se envían.",
+    jobWhatsappLabel: "WhatsApp",
+    jobWhatsappHint: "Los avisos de tus trabajos llegan por WhatsApp.",
     unverified: "Verifica tu correo para recibir correos de Listavy.",
     deviceTitle: "Este dispositivo",
     deviceHint: "Activa los avisos en este navegador para recibirlos en el teléfono o la computadora.",

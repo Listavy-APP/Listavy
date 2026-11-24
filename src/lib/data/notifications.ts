@@ -11,7 +11,7 @@ export type InboxEntry = {
   kind: string;
   link: string | null;
   last_at: string;
-  channels: ("push" | "email")[];
+  channels: ("push" | "email" | "whatsapp")[];
   /** Attempt outcomes for the event. Preference skips never appear. */
   statuses: string[];
   delivered: boolean;
@@ -26,7 +26,7 @@ type GroupRow = {
   first_at: string;
   last_at: string;
   row_ids: string[];
-  channels: ("push" | "email")[];
+  channels: ("push" | "email" | "whatsapp")[];
   statuses: string[];
   delivered: boolean;
   unread: boolean;

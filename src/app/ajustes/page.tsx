@@ -19,9 +19,11 @@ export default async function SettingsPage() {
   if (!userData.user) redirect("/login?next=%2Fajustes");
 
   // Preferences default ON when no row exists (0091). The verified email gates the email toggle.
-  const [{ data: prefRow }, { data: me }] = await Promise.all([
-    supabase.from("notification_preferences").select("job_push, job_email").eq("user_id", userData.user.id).maybeSingle(),
+  const [{ data: prefRow }, { data: me }, { data: waOn }] = await Promise.all([
+    supabase.from("notification_preferences").select("job_push, job_email, job_whatsapp").eq("user_id", userData.user.id).maybeSingle(),
     supabase.from("profiles").select("email_verified_at").eq("id", userData.user.id).maybeSingle(),
+    // The WhatsApp toggle ships only after the channel is proven (0118 ui_enabled). Hidden until then.
+    supabase.rpc("job_whatsapp_available"),
   ]);
 
   return (
@@ -30,8 +32,13 @@ export default async function SettingsPage() {
       <h1>{es.settings.title}</h1>
       <NotificationSettings
         userId={userData.user.id}
-        initial={{ job_push: prefRow?.job_push ?? true, job_email: prefRow?.job_email ?? true }}
+        initial={{
+          job_push: prefRow?.job_push ?? true,
+          job_email: prefRow?.job_email ?? true,
+          job_whatsapp: prefRow?.job_whatsapp ?? true,
+        }}
         emailVerified={!!me?.email_verified_at}
+        whatsappAvailable={waOn === true}
       />
       <PrivacySettings userId={userData.user.id} />
       <div className="delete-entry-block">
