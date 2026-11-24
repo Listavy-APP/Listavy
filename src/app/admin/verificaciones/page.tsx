@@ -7,7 +7,7 @@ import { getCurrentProfile } from "@/lib/data/profiles";
 import { listPendingVerifications } from "@/lib/data/verification";
 import { BUCKETS, signedUrl } from "@/lib/storage/proFiles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { needsExpiryInput, needsIssueInput } from "@/lib/domain/verification";
+import { isSupporting, needsExpiryInput, needsIssueInput } from "@/lib/domain/verification";
 import { esVerification as t } from "@/lib/i18n/verification";
 
 export const metadata = { title: t.admin.title };
@@ -33,7 +33,10 @@ export default async function AdminVerificationsPage() {
       {cards.map(({ row, url }) => (
         <article key={row.id} className="panel stack">
           <h2>{row.pro_name ?? "—"}</h2>
-          <p><span className="badge">{t.stageLabels[row.stage]}</span></p>
+          <p>
+            <span className="badge">{t.stageLabels[row.stage]}</span>
+            {isSupporting(row.stage) ? <span className="badge">{t.optional}</span> : null}
+          </p>
           <p className="muted">{new Date(row.created_at).toLocaleString("es-DO", { timeZone: "America/Santo_Domingo" })}</p>
           {url ? <p><a href={url} target="_blank" rel="noreferrer">{t.admin.document}</a></p> : null}
           <p><Link href={`/pro/${row.pro_id}`}>Ver perfil</Link></p>

@@ -4,7 +4,7 @@ import { BackBar } from "@/components/BackBar";
 import { getCurrentProfile } from "@/lib/data/profiles";
 import { getMyPro } from "@/lib/data/pros";
 import { listMyVerifications, type VerificationRow } from "@/lib/data/verification";
-import { stagesFor, type Stage } from "@/lib/domain/verification";
+import { isSupporting, stagesFor, type Stage } from "@/lib/domain/verification";
 import { esVerification as t } from "@/lib/i18n/verification";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { VerificationForm } from "./VerificationForm";
@@ -40,6 +40,8 @@ export default async function ProVerificationPage() {
       <BackBar href="/cuenta" />
       <h1>{t.pageTitle}</h1>
       <p className="muted">{t.intro}</p>
+      <p className="muted">{t.badgeRule}</p>
+      <p className="muted">{t.supportingNote}</p>
 
       <ul className="stack">
         {stages.map((s) => {
@@ -47,6 +49,7 @@ export default async function ProVerificationPage() {
           return (
             <li key={s} className="panel stack">
               <b>{t.stageLabels[s]}</b>
+              {isSupporting(s) ? <span className="badge">{t.optional}</span> : null}
               <span className="muted">{statusText(r)}</span>
               {r?.status === "rejected" && r.reason ? <span className="error" role="alert">{t.rejectedReason} {r.reason}</span> : null}
               {r?.status === "approved" && r.verified_at ? (

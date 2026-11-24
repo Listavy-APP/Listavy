@@ -3876,6 +3876,26 @@ await check("0102 verified flags: no rows for an empty list, and no direct read 
 });
 
 // ---------------------------------------------------------------------------
+// 0121 · Buena conducta is valid one year from issue (policy 2026-11-24).
+// ---------------------------------------------------------------------------
+await check("0121 buena conducta: admin approval sets expiry to one year after issue", async () => {
+  await withRollback(async () => {
+    const ins = await db.query(
+      `insert into public.pro_verifications (pro_id, stage, status, consent_version)
+       values ('${PRO}', 'buena_conducta', 'pending', 'test-v1') returning id::text as id`,
+    );
+    const id = ins.rows[0].id;
+    await asUser(ADMIN, `select public.admin_review_verification('${id}', 'approved', null, current_date, null, '{}'::jsonb)`);
+    const r = await db.query(
+      `select (expires_at - issue_date)::int as days, expires_at = (issue_date + interval '1 year')::date as one_year
+         from public.pro_verifications where id = '${id}'`,
+    );
+    assert.equal(r.rows[0].one_year, true, "expiry is issue date plus one year");
+    assert.ok(r.rows[0].days === 365 || r.rows[0].days === 366, "span is one calendar year (365 or 366 days)");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 0104 · Public profile fetch by id works outside the default city. City search still filters.
 // ---------------------------------------------------------------------------
 await check("0104 pro cards: a by-id fetch returns a pro in another city, and city search still filters", async () => {

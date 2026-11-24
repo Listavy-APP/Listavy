@@ -18,6 +18,9 @@ export const esVerification = {
     approved: (t: number, d: string) => `${t} de ${t} aprobados · al ${d}`,
   },
   rejectedReason: "Motivo:",
+  optional: "Opcional",
+  supportingNote: "Los documentos de apoyo son opcionales. Fortalecen tu perfil, pero no son obligatorios para aprobar tu cuenta ni para tu insignia.",
+  badgeRule: "La insignia de verificado requiere tu cédula, tu selfie y un certificado de buena conducta vigente. El certificado se renueva cada año. Si vence, la insignia se retira hasta que lo renueves. Puedes seguir trabajando.",
   stageLabels: {
     identity: "Cédula (foto)",
     selfie: "Selfie",
