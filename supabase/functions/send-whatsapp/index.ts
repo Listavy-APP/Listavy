@@ -118,7 +118,7 @@ Deno.serve(async (req: Request) => {
 
   const values: Record<string, string> = {
     first_name: firstName(profile.full_name),
-    pro_name: proProfile?.full_name ? firstName(proProfile.full_name) : "",
+    pro_name: proProfile?.full_name?.trim() ?? "",
     client_name: clientProfile?.full_name ? firstName(clientProfile.full_name) : "",
     trade: tradeName(trade, tradeLabel),
     zone: zone ?? "",

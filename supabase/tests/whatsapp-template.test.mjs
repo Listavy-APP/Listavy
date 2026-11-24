@@ -114,6 +114,13 @@ check("scheduleLabel is empty for no window or a bad date", () => {
   assert.equal(scheduleLabel("not a date"), "");
 });
 
+check("pro_name is the full name; first_name and client_name stay first-name only", () => {
+  const fn = readFileSync(new URL("../functions/send-whatsapp/index.ts", import.meta.url), "utf8");
+  assert.match(fn, /pro_name: proProfile\?\.full_name\?\.trim\(\) \?\? ""/);
+  assert.match(fn, /client_name: clientProfile\?\.full_name \? firstName\(clientProfile\.full_name\) : ""/);
+  assert.match(fn, /first_name: firstName\(profile\.full_name\)/);
+});
+
 check("the sender holds no template wording", () => {
   const fn = readFileSync(new URL("../functions/send-whatsapp/index.ts", import.meta.url), "utf8");
   assert.ok(!/Hola|Recibiste una cotización/.test(fn));
