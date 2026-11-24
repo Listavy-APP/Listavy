@@ -127,6 +127,17 @@ check("the sender reads the job's date and window, not the quote", () => {
   assert.ok(!/window_start|approved_quote_id/.test(fn), "no quote window read");
 });
 
+check("ASAP skip: a schedule template with no scheduled date is skipped, not failed", () => {
+  const fn = readFileSync(new URL("../functions/send-whatsapp/index.ts", import.meta.url), "utf8");
+  assert.match(fn, /entry\.vars\.includes\("schedule"\) && !values\.schedule/);
+  assert.match(fn, /log\("skipped_no_schedule"\)/);
+});
+
+check("0122 adds skipped_no_schedule to the log status check", () => {
+  const sql = readFileSync(new URL("../migrations/0122_whatsapp_skip_no_schedule.sql", import.meta.url), "utf8");
+  assert.match(sql, /'skipped_no_schedule'\)/);
+});
+
 check("the sender holds no template wording", () => {
   const fn = readFileSync(new URL("../functions/send-whatsapp/index.ts", import.meta.url), "utf8");
   assert.ok(!/Hola|Recibiste una cotización/.test(fn));

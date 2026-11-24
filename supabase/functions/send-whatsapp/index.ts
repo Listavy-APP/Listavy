@@ -126,6 +126,13 @@ Deno.serve(async (req: Request) => {
     amount: formatDop(data.amount_dop),
     refund: formatDop(data.refund_dop),
   };
+  // ASAP jobs have no scheduled date, so a template that prints a schedule has nothing to print.
+  // That is a deliberate skip, not a failure. Push, email and in-app still send for the same event.
+  if (entry.vars.includes("schedule") && !values.schedule) {
+    await log("skipped_no_schedule");
+    return json({ sent: false, reason: "no_schedule" });
+  }
+
   const contentVariables = buildContentVariables(entry.vars, values);
   if (!contentVariables) {
     await log("failed", "variable sin valor");

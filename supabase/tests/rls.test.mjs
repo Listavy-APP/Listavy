@@ -3916,6 +3916,12 @@ await check("0118 whatsapp: the log accepts the whatsapp channel and skipped_no_
   });
 });
 
+await check("0122 whatsapp: the log accepts skipped_no_schedule", async () => {
+  await withRollback(async () => {
+    await db.exec(`insert into public.notification_log (user_id, channel, kind, status) values ('${HOMEOWNER}', 'whatsapp', 'job_accepted', 'skipped_no_schedule')`);
+  });
+});
+
 await check("0118 whatsapp: the sender is not callable by anon or signed-in clients", async () => {
   await withRollback(async () => {
     await expectCode(() => asAnon(`select public.notify_user_whatsapp('${HOMEOWNER}'::uuid, 'job_started', '{}'::jsonb, false)`), "42501");
