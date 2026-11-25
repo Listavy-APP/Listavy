@@ -12,7 +12,7 @@ export function FilePick(props: {
   hint?: string;
   buttonLabel: string;
   accept: string;
-  capture?: "environment";
+  capture?: "environment" | "user";
   multiple?: boolean;
   disabled?: boolean;
   files: File[];
