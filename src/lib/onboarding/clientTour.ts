@@ -6,6 +6,8 @@
 export const CLIENT_TOUR_STEPS = [
   {
     id: "pide",
+    image: "/tour/tour-step1.jpg",
+    alt: "Clienta pidiendo un plomero desde su celular",
     kicker: "TU LISTA DE PENDIENTES EMPIEZA AQUÍ",
     title: "Cuéntanos qué necesitas.",
     subtitle: "Grande o pequeño, empezar es fácil.",
@@ -13,6 +15,8 @@ export const CLIENT_TOUR_STEPS = [
   },
   {
     id: "compara",
+    image: "/tour/tour-step2.jpg",
+    alt: "Profesional de Listavy saludando a una clienta",
     kicker: "ENCUENTRA A TU PERSONA",
     title: "Buena gente. Buen trabajo.",
     subtitle: "La ayuda correcta está más cerca de lo que crees.",
@@ -20,6 +24,8 @@ export const CLIENT_TOUR_STEPS = [
   },
   {
     id: "paga",
+    image: "/tour/tour-step3.jpg",
+    alt: "Clienta feliz mostrando un servicio completado en su celular",
     kicker: "ES UNA MENOS",
     title: "Hecho. Qué bien se siente.",
     subtitle: "Dedica tiempo a lo que importa.",
