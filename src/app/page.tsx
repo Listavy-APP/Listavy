@@ -199,7 +199,7 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
       ) : null}
 
       {/* 5. Cómo funciona: timeline. Rows 1–2 done, row 3 current, rows 4–6 upcoming. */}
-      <section className="landing-sec">
+      <section id="como-funciona" className="landing-sec">
         <p className="eyebrow-pill">{es.discover.howEyebrow}</p>
         <h2 className="section-center">{es.discover.howTitle}</h2>
         <ol className="timeline">
