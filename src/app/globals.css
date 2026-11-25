@@ -1043,7 +1043,7 @@ body:has(.pick-bar) .page { padding-bottom: 160px; }
 }
 
 /* Page header with a centred title and a gear control at the right (UI phase §2/§4). */
-.page-head { position: relative; text-align: center; }
+.page-head { position: relative; text-align: center; min-height: 40px; display: flex; align-items: center; justify-content: center; }
 .page-head h1 { margin: 0; }
 .gear-btn {
   position: absolute;
@@ -1528,7 +1528,9 @@ body:has(.landing) .legal-footer { display: none !important; }
 
 .landing-footer { margin-top: 40px; background: var(--ink); color: #CBD5E1; padding: 32px 16px 20px; }
 .landing-footer-grid { max-width: 1120px; margin: 0 auto; display: grid; gap: 24px; grid-template-columns: repeat(2, 1fr); }
-.landing-footer h2 { margin: 0 0 10px; font-size: 13px; color: #fff; letter-spacing: 0.06em; text-transform: uppercase; }
+.landing-footer h2 { margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); font-size: 13px; color: #fff; letter-spacing: 0.06em; text-transform: uppercase; }
+.landing-footer-icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -12px; color: #CBD5E1; }
+.landing-footer-icon:hover, .landing-footer-icon:focus-visible { color: #fff; }
 .landing-footer nav, .landing-footer div { display: flex; flex-direction: column; gap: 8px; }
 .landing-footer a { color: #CBD5E1; font-size: 14px; text-decoration: none; }
 .landing-footer a:hover, .landing-footer a:focus-visible { color: #fff; text-decoration: underline; }
