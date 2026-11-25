@@ -12,9 +12,9 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 /** One brand icon per step, framed the same way on all three. */
 const STEP_ICON: Record<(typeof CLIENT_TOUR_STEPS)[number]["id"], HomeIconName> = {
-  pide: "clipboard",
-  compara: "list-checks",
-  paga: "shield-check",
+  pide: "notebook-pen",
+  compara: "handshake",
+  paga: "party-popper",
 };
 
 /** Horizontal travel (px) that counts as a swipe, and how much it must beat vertical travel. */
@@ -101,22 +101,35 @@ export function ClientTour({ mode }: { mode: "first" | "replay" }) {
 
         {/* Keyed by step so each change replays the slide-in. Reduced motion turns the slide off in CSS. */}
         <div key={step.id} className={`tour-stage ${dir === "next" ? "tour-slide-next" : "tour-slide-back"}`}>
-          <div className="tour-panel" aria-hidden="true">
-            <HomeIcon name={STEP_ICON[step.id]} size={96} />
+          <div className="tour-content">
+            {index === 0 ? (
+              <div className="tour-intro">
+                <span className="tour-wordmark">{CLIENT_TOUR_STRINGS.introWordmark}</span>
+                <p className="tour-intro-line">{CLIENT_TOUR_STRINGS.introLine}</p>
+              </div>
+            ) : null}
+            <div className="tour-panel" aria-hidden="true">
+              <HomeIcon name={STEP_ICON[step.id]} size={88} />
+            </div>
+            <p className="tour-kicker">{step.kicker}</p>
+            <h2 id="tour-title">{step.title}</h2>
+            <p className="tour-subtitle">{step.subtitle}</p>
+            <p id="tour-body" className="tour-body">{step.body}</p>
           </div>
-          <h2 id="tour-title">{step.title}</h2>
-          <p id="tour-body">{step.body}</p>
         </div>
 
-        {last ? (
-          <Link className="button tour-cta" href="/pedir" onClick={(e) => { e.preventDefault(); close("pedir"); }}>
-            {CLIENT_TOUR_STRINGS.finish}
-          </Link>
-        ) : (
-          <button type="button" className="button tour-cta" onClick={() => go(index + 1)}>
-            {CLIENT_TOUR_STRINGS.next}
-          </button>
-        )}
+        <div className="tour-bottom">
+          {last ? (
+            <Link className="button tour-cta" href="/pedir" onClick={(e) => { e.preventDefault(); close("pedir"); }}>
+              {CLIENT_TOUR_STRINGS.finish}
+            </Link>
+          ) : (
+            <button type="button" className="button tour-cta" onClick={() => go(index + 1)}>
+              {CLIENT_TOUR_STRINGS.next}
+            </button>
+          )}
+          <p className="tour-footer">{CLIENT_TOUR_STRINGS.footer}</p>
+        </div>
       </div>
     </div>
   );

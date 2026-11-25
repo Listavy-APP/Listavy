@@ -1440,11 +1440,21 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
 .tour-step { margin: 0; font-size: 13px; white-space: nowrap; }
 .tour-skip { min-height: 44px; min-width: 44px; padding: 0 var(--s1); border: 0; background: none; font: inherit; font-weight: 600; color: var(--ink-2); cursor: pointer; }
 .tour-skip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
-.tour-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s3); text-align: center; overflow-y: auto; padding: var(--s3) 0; }
-.tour-panel { width: min(100%, 300px); aspect-ratio: 1 / 1; border-radius: 32px; background: #E8F0FE; display: grid; place-items: center; color: var(--accent); }
+.tour-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; padding: var(--s2) 0; }
+/* margin auto centres short content and lets tall content scroll from the top. */
+.tour-content { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: var(--s2); text-align: center; }
+.tour-intro { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tour-wordmark { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.tour-intro-line { margin: 0; max-width: 30ch; font-size: 14px; line-height: 1.4; color: var(--ink-2); }
+/* Same size on all three steps. The height follows the screen, so small phones keep the text in view. */
+.tour-panel { width: min(100%, 320px); height: clamp(132px, 26dvh, 220px); border-radius: 24px; background: #E8F0FE; display: grid; place-items: center; color: var(--accent); }
+.tour-kicker { margin: var(--s1) 0 0; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: #1D4ED8; }
 .tour-stage h2 { margin: 0; font-size: 26px; line-height: 1.2; }
-.tour-stage p { margin: 0; max-width: 34ch; font-size: 16px; line-height: 1.5; color: var(--ink-2); }
+.tour-subtitle { margin: 0; max-width: 34ch; font-size: 17px; font-weight: 600; line-height: 1.35; color: var(--ink); }
+.tour-body { margin: 0; max-width: 34ch; font-size: 16px; line-height: 1.5; color: var(--ink-2); }
+.tour-bottom { display: flex; flex-direction: column; align-items: center; gap: var(--s1); }
 .tour-cta { width: 100%; min-height: 56px; border-radius: 999px; }
+.tour-footer { margin: 0; font-size: 13px; color: var(--ink-2); opacity: 0.8; text-align: center; }
 .tour-slide-next { animation: tour-in-right 0.28s ease both; }
 .tour-slide-back { animation: tour-in-left 0.28s ease both; }
 @keyframes tour-in-right { from { opacity: 0; transform: translateX(32px); } to { opacity: 1; transform: none; } }
@@ -1456,7 +1466,7 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
 @media (min-width: 720px) {
   .tour-backdrop { align-items: center; padding: var(--s3); }
   .tour-sheet { max-width: 520px; height: auto; max-height: min(760px, calc(100dvh - 48px)); border-radius: 24px; padding: var(--s3) var(--s4, 24px) var(--s4, 24px); }
-  .tour-stage { flex: none; padding: var(--s4, 24px) 0; }
+  .tour-stage { flex: none; padding: var(--s3) 0; }
 }
 
 /* Verified icon (check-seal), sized to the name text. Shown only for identity or company verified pros. */
