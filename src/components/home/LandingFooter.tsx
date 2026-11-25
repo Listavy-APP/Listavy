@@ -10,31 +10,18 @@ import { HomeIcon } from "@/components/home/HomeIcons";
 const APP_BADGES_ENABLED = false;
 
 /**
- * Landing-only footer, light (Thumbtack pattern). The shared LegalFooter is hidden on this page.
- * Every link here points to an existing route.
+ * Landing-only footer, light. Two rows: the main band (lockup, links, Instagram) and the bottom bar
+ * (copyright, contact, legal). Each link appears once. The shared LegalFooter is hidden on this page.
  */
 export function LandingFooter() {
   const year = new Date().getFullYear();
   return (
     <footer className="landing-footer">
-      <div className="landing-footer-grid">
+      <div className="landing-footer-row landing-footer-main">
         <div className="landing-footer-brand">
           <Link href="/" aria-label="Listavy" className="landing-footer-logo">
             <Image src="/brand/listavy-lockup-horizontal.png" alt="Listavy" width={460} height={149} />
           </Link>
-          <p className="landing-footer-tagline">{es.discover.footerTagline}</p>
-          <a className="landing-footer-mail" href="mailto:hola@listavy.com">hola@listavy.com</a>
-          <div className="landing-footer-social">
-            <a
-              href="https://www.instagram.com/listavy"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Instagram"
-              className="landing-footer-icon"
-            >
-              <HomeIcon name="instagram" size={20} />
-            </a>
-          </div>
           {APP_BADGES_ENABLED ? (
             <div className="landing-footer-apps">
               <p className="landing-footer-applabel">{es.discover.footerAppLabel}</p>
@@ -50,39 +37,40 @@ export function LandingFooter() {
           ) : null}
         </div>
 
-        <nav aria-label={es.discover.footerClients}>
-          <h2>{es.discover.footerClients}</h2>
+        <nav className="landing-footer-links" aria-label="Listavy">
           <Link href="/buscar">{es.discover.footerSearch}</Link>
-          <Link href="/#como-funciona">{es.discover.footerHow}</Link>
           <Link href="/precios">{es.discover.footerPrices}</Link>
-          <Link href="/login">{es.discover.footerSignup}</Link>
+          <Link href="/pro/registro">{es.discover.footerForPros}</Link>
+          <Link href="/ayuda">{es.discover.footerHelp}</Link>
+          <Link href="/acerca">{es.legal.aboutLink}</Link>
         </nav>
 
-        <nav aria-label={es.discover.footerPros}>
-          <h2>{es.discover.footerPros}</h2>
-          <Link href="/pro/registro">{es.discover.footerJoin}</Link>
-          <Link href="/pro/terminos">{es.discover.footerProTerms}</Link>
-          <Link href="/ayuda">{es.discover.footerHelp}</Link>
-        </nav>
+        <a
+          href="https://www.instagram.com/listavy"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Instagram"
+          className="landing-footer-icon"
+        >
+          <HomeIcon name="instagram" size={20} />
+        </a>
+      </div>
 
-        <nav aria-label={es.discover.footerSupport}>
-          <h2>{es.discover.footerSupport}</h2>
-          <Link href="/ayuda">{es.discover.footerHelp}</Link>
+      <div className="landing-footer-row landing-footer-bar">
+        <p className="landing-footer-copy">
+          <span>© Listavy {year}</span>
+          <span aria-hidden="true">·</span>
+          <a href="mailto:hola@listavy.com">hola@listavy.com</a>
+        </p>
+        <nav className="landing-footer-legal" aria-label={es.discover.footerTerms}>
           <Link href="/terminos">{es.discover.footerTerms}</Link>
           <Link href="/privacidad">{es.discover.footerPrivacy}</Link>
           <Link href="/cancelacion">{es.discover.footerCancel}</Link>
+          <Link href="/ayuda" className="landing-footer-guarantee">
+            <HomeIcon name="shield-check" size={18} />
+            <span>{es.discover.footerGuarantee}</span>
+          </Link>
         </nav>
-      </div>
-
-      <div className="landing-footer-bar">
-        <p className="landing-footer-copy">
-          <Image src="/icon-192.png" alt="" width={20} height={20} />
-          <span>© Listavy {year}</span>
-        </p>
-        <Link href="/ayuda" className="landing-footer-guarantee">
-          <HomeIcon name="shield-check" size={18} />
-          <span>{es.discover.footerGuarantee}</span>
-        </Link>
       </div>
     </footer>
   );
