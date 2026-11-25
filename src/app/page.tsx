@@ -100,7 +100,7 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
 
   return (
     <div className="home landing">
-      {/* 1. Hero: eyebrow, H1, search pill (unchanged), trust strip, phone image on a pale-blue panel. */}
+      {/* 1. Hero: eyebrow, H1, search pill (unchanged), visitor login. */}
       <section className="landing-hero">
         <div className="landing-hero-copy">
           <p className="landing-eyebrow">{es.discover.heroEyebrow}</p>
@@ -136,23 +136,18 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
               <Link href="/login">{es.discover.login}</Link>
             </p>
           )}
-          <ul className="trust-strip" aria-label={es.discover.trustVerified}>
-            <li className="trust-item"><HomeIcon name="shield-check" /><span>{es.discover.trustVerified}</span></li>
-            {overallMin !== null ? (
-              <li className="trust-item"><HomeIcon name="tag" /><span>{es.discover.trustPrice(overallMin)}</span></li>
-            ) : null}
-            <li className="trust-item"><HomeIcon name="lock" /><span>{es.discover.trustSecure}</span></li>
-            <li className="trust-item"><HomeIcon name="ribbon" /><span>{es.discover.trustGuarantee}</span></li>
-          </ul>
-        </div>
-        <div className="landing-hero-visual">
-          <div className="landing-panel">
-            {/* Decorative. The real search above is the interactive element. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="landing-hero-phone" src="/landing-hero-phone.jpg" alt="" width={1024} height={1536} />
-          </div>
         </div>
       </section>
+
+      {/* Trust strip. Same items and data as before. */}
+      <ul className="trust-strip" aria-label={es.discover.trustVerified}>
+        <li className="trust-item"><HomeIcon name="shield-check" /><span>{es.discover.trustVerified}</span></li>
+        {overallMin !== null ? (
+          <li className="trust-item"><HomeIcon name="tag" /><span>{es.discover.trustPrice(overallMin)}</span></li>
+        ) : null}
+        <li className="trust-item"><HomeIcon name="lock" /><span>{es.discover.trustSecure}</span></li>
+        <li className="trust-item"><HomeIcon name="ribbon" /><span>{es.discover.trustGuarantee}</span></li>
+      </ul>
 
       {/* 2. Services: restyled photo cards with chevron. Same data and links. */}
       <section id="oficios" className="landing-sec">

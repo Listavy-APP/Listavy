@@ -159,7 +159,7 @@ export const es = {
     timeline: [
       { who: "tu", text: "Describe el trabajo, elige tu municipio y cuándo lo necesitas." },
       { who: "listavy", text: "Te mostramos profesionales verificados cerca de ti, con precio de referencia." },
-      { who: "tu", text: "Compara las cotizaciones lado a lado y eliges la tuya." },
+      { who: "tu", text: "Compara las cotizaciones lado a lado y elige la tuya." },
       { who: "listavy", text: "Cada profesional pasó verificación de identidad antes de poder cotizarte." },
       { who: "tu", text: "Apruebas el trabajo cuando esté terminado." },
       { who: "listavy", text: "Tu pago queda protegido en la app y solo se libera con tu aprobación. Si algo sale mal, abres una disputa y te apoyamos." },

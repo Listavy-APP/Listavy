@@ -1491,13 +1491,9 @@ body:has(.landing) .legal-footer { display: none !important; }
 .landing-hero h1 { margin: 0 0 20px; font-size: 34px; line-height: 1.12; }
 .landing-login { margin: 12px 0 0; font-size: 14px; }
 .landing-login a { color: #1D4ED8; font-weight: 600; }
-.landing .landing-hero .trust-strip { margin: 20px 0 0; padding: 0; justify-content: flex-start; }
-.landing-hero-visual { display: flex; justify-content: center; }
-.landing-panel { width: 100%; max-width: 380px; padding: 24px; border-radius: 20px; background: #E8F0FE; display: flex; justify-content: center; }
-.landing-hero-phone { display: block; width: 100%; max-width: 320px; height: auto; border-radius: 18px; }
 
 .trust-item { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--line); font-size: 13px; color: var(--ink-2); }
-.landing .trust-strip { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; }
+.landing .trust-strip { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 auto; padding: 14px 16px; max-width: 1120px; justify-content: center; }
 
 .landing .tile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
 .landing .tile { display: block; border-radius: 16px; overflow: hidden; background: #fff; border: 1px solid var(--line); text-decoration: none; color: inherit; }
