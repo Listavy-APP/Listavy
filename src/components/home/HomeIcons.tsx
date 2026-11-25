@@ -55,6 +55,41 @@ const PATHS = {
       <path d="M3 10h18" />
     </>
   ),
+  "chevron-right": (
+    <path d="m9 18 6-6-6-6" />
+  ),
+  "file-text": (
+    <>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M16 13H8" />
+      <path d="M16 17H8" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </>
+  ),
+  handshake: (
+    <path d="m11 17 2 2a1 1 0 1 0 3-3M14 14l2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4M21 3v5h-5M3 21v-5h5M3 3l5 5" />
+  ),
+  check: (
+    <path d="M20 6 9 17l-5-5" />
+  ),
+  "check-circle": (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  card: (
+    <>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="M2 10h20" />
+    </>
+  ),
 } as const;
 
 export type HomeIconName = keyof typeof PATHS;

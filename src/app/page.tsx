@@ -16,7 +16,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { ProMiniCard } from "@/components/home/ProMiniCard";
 import { DateField } from "@/components/home/DateField";
-import { HomeIcon } from "@/components/home/HomeIcons";
+import { HomeIcon, type HomeIconName } from "@/components/home/HomeIcons";
+import { LandingFooter } from "@/components/home/LandingFooter";
 import type { ProCard } from "@/lib/types/database";
 import { isJobUnit } from "@/lib/domain/price-unit";
 
@@ -98,47 +99,47 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
   const services = catalog.slice(0, SERVICE_LIMIT);
 
   return (
-    <div className="home">
-      {/* 1. Header: AppHeader in the root layout. */}
-
-      {/* 2. Hero with the search pill. Submits to /buscar with params in the URL. */}
-      <section className="hero-block">
-        <h1>{es.discover.heroTitle}</h1>
-        <form className="search-pill" role="search" action="/buscar" method="get">
-          <label className="pill-field">
-            <span>{es.discover.whatNeed}</span>
-            <select name="trade" defaultValue="">
-              <option value="">{es.search.all}</option>
-              {catalog.map((t) => (
-                <option key={t.key} value={t.key}>{t.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="pill-field">
-            <span>{es.discover.whereNeed}</span>
-            <select name="m" defaultValue={preselectId} style={{ minHeight: 44 }}>
-              <option value="">{es.discover.allCountry}</option>
-              {[...new Set(municipalities.map((x) => x.province))].map((prov) => (
-                <optgroup key={prov} label={prov}>
-                  {municipalities.filter((x) => x.province === prov).map((x) => (
-                    <option key={x.id} value={x.id}>{x.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-          <DateField id="home-date" name="date" label={<>{es.discover.when} <em className="muted">{es.discover.whenOptional}</em></>} />
-          <button className="button" type="submit">{es.discover.search}</button>
-        </form>
-        {/* Sign-in link only for visitors. A signed-in user has the account tab. */}
-        {userData.user ? null : (
-          <p className="muted">
-            <Link href="/login">{es.discover.login}</Link>
-          </p>
-        )}
+    <div className="home landing">
+      {/* 1. Hero: eyebrow, H1, search pill (unchanged), visitor login. */}
+      <section className="landing-hero">
+        <div className="landing-hero-copy">
+          <p className="landing-eyebrow">{es.discover.heroEyebrow}</p>
+          <h1>{es.discover.heroTitle}</h1>
+          <form className="search-pill" role="search" action="/buscar" method="get">
+            <label className="pill-field">
+              <span>{es.discover.whatNeed}</span>
+              <select name="trade" defaultValue="">
+                <option value="">{es.search.all}</option>
+                {catalog.map((t) => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="pill-field">
+              <span>{es.discover.whereNeed}</span>
+              <select name="m" defaultValue={preselectId} style={{ minHeight: 44 }}>
+                <option value="">{es.discover.allCountry}</option>
+                {[...new Set(municipalities.map((x) => x.province))].map((prov) => (
+                  <optgroup key={prov} label={prov}>
+                    {municipalities.filter((x) => x.province === prov).map((x) => (
+                      <option key={x.id} value={x.id}>{x.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <DateField id="home-date" name="date" label={<>{es.discover.when} <em className="muted">{es.discover.whenOptional}</em></>} />
+            <button className="button" type="submit">{es.discover.search}</button>
+          </form>
+          {userData.user ? null : (
+            <p className="landing-login">
+              <Link href="/login">{es.discover.login}</Link>
+            </p>
+          )}
+        </div>
       </section>
 
-      {/* 3. Trust strip. Qualitative only: no pro or review counts. */}
+      {/* Trust strip. Same items and data as before. */}
       <ul className="trust-strip" aria-label={es.discover.trustVerified}>
         <li className="trust-item"><HomeIcon name="shield-check" /><span>{es.discover.trustVerified}</span></li>
         {overallMin !== null ? (
@@ -148,8 +149,8 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         <li className="trust-item"><HomeIcon name="ribbon" /><span>{es.discover.trustGuarantee}</span></li>
       </ul>
 
-      {/* 4. Service grid: first trades by catalog order. "Desde" only when an approved pro in that trade has a price. */}
-      <section id="oficios" className="home-sec">
+      {/* 2. Services: restyled photo cards with chevron. Same data and links. */}
+      <section id="oficios" className="landing-sec">
         <h2>{es.discover.tilesTitle}</h2>
         <div className="tile-grid">
           {services.map((t) => {
@@ -163,8 +164,13 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
                 ) : (
                   <span className="tile-photo tile-photo-fallback" aria-hidden="true" />
                 )}
-                <span className="tile-name">{t.label}</span>
-                {min !== undefined ? <span className="tile-price">{es.discover.tileFrom(es.money.dop(min))}</span> : null}
+                <span className="tile-body">
+                  <span className="tile-text">
+                    <span className="tile-name">{t.label}</span>
+                    {min !== undefined ? <span className="tile-price">{es.discover.tileFrom(es.money.dop(min))}</span> : null}
+                  </span>
+                  <HomeIcon name="chevron-right" size={18} />
+                </span>
               </Link>
             );
           })}
@@ -172,9 +178,9 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         <Link className="button secondary" href="/buscar">{es.discover.seeAllServices}</Link>
       </section>
 
-      {/* 5. Verified pros. Rendered only when there are pros. */}
+      {/* 3. Verified pros nearby. Rendered only when there are pros. */}
       {nearby.length > 0 ? (
-        <section className="home-sec">
+        <section className="landing-sec">
           <h2>{es.discover.nearTitle}</h2>
           <div className="rail">
             {nearby.map((p) => <ProMiniCard key={p.id} pro={p} tradeLabel={proLabelOf(tm, p.trade)} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
@@ -182,9 +188,9 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         </section>
       ) : null}
 
-      {/* 6. New on Listavy: newest approved first. Rendered only when there are pros. */}
+      {/* 4. New on Listavy. Rendered only when there are pros. */}
       {newest.length > 0 ? (
-        <section className="home-sec">
+        <section className="landing-sec">
           <h2>{es.discover.newTitle}</h2>
           <div className="rail">
             {newest.map((p) => <ProMiniCard key={p.id} pro={p} tradeLabel={proLabelOf(tm, p.trade)} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
@@ -192,18 +198,37 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         </section>
       ) : null}
 
-      {/* 7. How it works. */}
-      <section className="home-sec">
-        <h2>{es.discover.howTitle}</h2>
-        <ol className="steps">
-          <li>{es.discover.step1}</li>
-          <li>{es.discover.step2}</li>
-          <li>{es.discover.step3}</li>
+      {/* 5. Cómo funciona: timeline. Rows 1–2 done, row 3 current, rows 4–6 upcoming. */}
+      <section className="landing-sec">
+        <p className="eyebrow-pill">{es.discover.howEyebrow}</p>
+        <h2 className="section-center">{es.discover.howTitle}</h2>
+        <ol className="timeline">
+          {es.discover.timeline.map((step, i) => {
+            const n = i + 1;
+            const state = n <= 2 ? "done" : n === 3 ? "current" : "todo";
+            return (
+              <li key={n} className={`timeline-row is-${state}`}>
+                <span className="timeline-node" aria-hidden="true">
+                  {state === "done" ? <HomeIcon name="check" size={16} /> : n}
+                </span>
+                <span className="sr-only">Paso {n}.</span>
+                <div className="timeline-card">
+                  <span className="timeline-chip">
+                    <HomeIcon name={TIMELINE_ICON[i]} size={22} />
+                  </span>
+                  <div className="timeline-text">
+                    <span className="timeline-who">{step.who === "tu" ? es.discover.timelineTu : es.discover.timelineListavy}</span>
+                    <p>{step.text}</p>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ol>
         <Link className="text-link" href="/ayuda">{es.discover.howMore}</Link>
       </section>
 
-      {/* 8. Referral strip. Only when the referral flag is on. */}
+      {/* 6. Referral strip. Only when the referral flag is on. */}
       {referralOn ? (
         <Link className="notice" href={userData.user ? "/cuenta" : "/login"}>
           <b>{es.referral.bannerTitle}</b>
@@ -217,8 +242,8 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         </Link>
       ) : null}
 
-      {/* 9. Why Listavy. */}
-      <section className="home-sec">
+      {/* 7. Por qué Listavy: original four items. */}
+      <section className="landing-sec">
         <h2>{es.discover.whyTitle}</h2>
         <ul className="why-grid">
           <li className="why-item">
@@ -240,16 +265,17 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         </ul>
       </section>
 
-      {/* 10. App install: not on the home page. Stores are the install path before launch. */}
-
-      {/* 11. Pro recruitment: navy card, distinct from the sections above. */}
+      {/* 8. Pro recruitment: pre-restyle card. Benefit line is the approved copy. */}
       <section className="pro-cta" aria-labelledby="pro-cta-title">
         <h2 id="pro-cta-title">{es.discover.proCtaTitle}</h2>
         <p>{es.discover.proCtaBenefit}</p>
         <Link className="button pro-cta-button" href="/pro/registro">{es.discover.proCtaButton}</Link>
       </section>
 
-      {/* 12. Footer: LegalFooter in the root layout. */}
+      {/* 9. Landing footer. The shared footer is hidden on this page. */}
+      <LandingFooter />
     </div>
   );
 }
+
+const TIMELINE_ICON: HomeIconName[] = ["file-text", "search", "shield-check", "handshake", "check-circle", "card"];
