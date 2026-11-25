@@ -12,6 +12,7 @@ export const STAGES = [
   "buena_conducta",
   "sie_licence",
   "infotep_certificate",
+  "diploma",
   "insurance",
   "company_entity",
   "company_registry",
@@ -23,11 +24,11 @@ export type Stage = (typeof STAGES)[number];
 export function stagesFor(proType: "individual" | "company", trade: string): Stage[] {
   if (proType === "company") return ["company_entity", "company_registry", "representative", "buena_conducta", "insurance"];
   const trade_stage: Stage = trade === "electrician" ? "sie_licence" : "infotep_certificate";
-  return ["identity", "selfie", "buena_conducta", trade_stage, "insurance"];
+  return ["identity", "selfie", "buena_conducta", trade_stage, "diploma", "insurance"];
 }
 
 /** Optional supporting documents. Approved ones show on the profile. Nothing waits on them. */
-export const SUPPORTING_STAGES: readonly Stage[] = ["sie_licence", "infotep_certificate", "insurance"];
+export const SUPPORTING_STAGES: readonly Stage[] = ["sie_licence", "infotep_certificate", "diploma", "insurance"];
 
 export function isSupporting(stage: Stage): boolean {
   return SUPPORTING_STAGES.includes(stage);

@@ -5456,6 +5456,33 @@ await check("0119 access notes: the owner always reads them; a pro reads them on
   });
 });
 
+// ---------------------------------------------------------------------------
+// 0123 · Diploma stage: the owner submits a pending row; approval takes the generic path (no expiry).
+// ---------------------------------------------------------------------------
+await check("0123 diploma: owner inserts a pending diploma row; admin approval leaves expiry null", async () => {
+  await withRollback(async () => {
+    const ins = await asUser(
+      PRO,
+      `insert into public.pro_verifications (pro_id, stage, status, consent_version)
+       values ('${PRO}', 'diploma', 'pending', 'test-v1') returning id::text as id`,
+    );
+    const id = ins.rows[0].id;
+    await asUser(ADMIN, `select public.admin_review_verification('${id}', 'approved', null, null, null, '{}'::jsonb)`);
+    const r = await db.query(`select status, expires_at from public.pro_verifications where id = '${id}'`);
+    assert.equal(r.rows[0].status, "approved");
+    assert.equal(r.rows[0].expires_at, null, "diploma has no expiry");
+  });
+});
+
+await check("0123 diploma: an unknown stage is still rejected by the check", async () => {
+  await withRollback(async () => {
+    await assert.rejects(
+      db.query(`insert into public.pro_verifications (pro_id, stage, status, consent_version) values ('${PRO}', 'not_a_stage', 'pending', 'test-v1')`),
+      /pro_verifications_stage_check/,
+    );
+  });
+});
+
 await db.close();
 
 // A known-red entry must match a check that runs. Otherwise the list has gone stale.

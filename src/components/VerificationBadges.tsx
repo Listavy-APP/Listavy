@@ -14,6 +14,7 @@ function label(c: CurrentStage): string | null {
     case "buena_conducta": return t.badge.buena_conducta(d);
     case "sie_licence": return t.badge.sie_licence(d);
     case "infotep_certificate": return t.badge.infotep_certificate(d);
+    case "diploma": return t.badge.diploma(d);
     case "insurance": return c.expires_at ? t.badge.insurance(d, date(`${c.expires_at}T00:00:00Z`)) : null;
     default: return null; // Company entity, registry and representative roll up into the company badge.
   }
