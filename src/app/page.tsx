@@ -16,9 +16,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { ProMiniCard } from "@/components/home/ProMiniCard";
 import { DateField } from "@/components/home/DateField";
-import { HomeIcon } from "@/components/home/HomeIcons";
-import { PhoneMockup } from "@/components/home/PhoneMockup";
-import { FaqAccordion } from "@/components/home/FaqAccordion";
+import { HomeIcon, type HomeIconName } from "@/components/home/HomeIcons";
 import { LandingFooter } from "@/components/home/LandingFooter";
 import type { ProCard } from "@/lib/types/database";
 import { isJobUnit } from "@/lib/domain/price-unit";
@@ -102,7 +100,7 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
 
   return (
     <div className="home landing">
-      {/* 1. Hero: eyebrow, headline, search pill (unchanged behavior), decorative phone on a pale-blue panel. */}
+      {/* 1. Hero: eyebrow, H1, search pill (unchanged), trust strip, phone image on a pale-blue panel. */}
       <section className="landing-hero">
         <div className="landing-hero-copy">
           <p className="landing-eyebrow">{es.discover.heroEyebrow}</p>
@@ -133,33 +131,31 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
             <DateField id="home-date" name="date" label={<>{es.discover.when} <em className="muted">{es.discover.whenOptional}</em></>} />
             <button className="button" type="submit">{es.discover.search}</button>
           </form>
-          {/* Sign-in link only for visitors. A signed-in user has the account tab. */}
           {userData.user ? null : (
             <p className="landing-login">
               <Link href="/login">{es.discover.login}</Link>
             </p>
           )}
+          <ul className="trust-strip" aria-label={es.discover.trustVerified}>
+            <li className="trust-item"><HomeIcon name="shield-check" /><span>{es.discover.trustVerified}</span></li>
+            {overallMin !== null ? (
+              <li className="trust-item"><HomeIcon name="tag" /><span>{es.discover.trustPrice(overallMin)}</span></li>
+            ) : null}
+            <li className="trust-item"><HomeIcon name="lock" /><span>{es.discover.trustSecure}</span></li>
+            <li className="trust-item"><HomeIcon name="ribbon" /><span>{es.discover.trustGuarantee}</span></li>
+          </ul>
         </div>
         <div className="landing-hero-visual">
           <div className="landing-panel">
-            <PhoneMockup />
+            {/* Decorative. The real search above is the interactive element. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="landing-hero-phone" src="/landing-hero-phone.jpg" alt="" width={1024} height={1536} />
           </div>
         </div>
       </section>
 
-      {/* 2. Trust strip. Same data as before: the price chip appears only when an approved pro has a price. */}
-      <ul className="trust-strip" aria-label={es.discover.trustVerified}>
-        <li className="trust-item"><HomeIcon name="shield-check" /><span>{es.discover.trustVerified}</span></li>
-        {overallMin !== null ? (
-          <li className="trust-item"><HomeIcon name="tag" /><span>{es.discover.trustPrice(overallMin)}</span></li>
-        ) : null}
-        <li className="trust-item"><HomeIcon name="lock" /><span>{es.discover.trustSecure}</span></li>
-        <li className="trust-item"><HomeIcon name="ribbon" /><span>{es.discover.trustGuarantee}</span></li>
-      </ul>
-
-      {/* 3. Services: same grid data and links. Photo, name, price, chevron. */}
+      {/* 2. Services: restyled photo cards with chevron. Same data and links. */}
       <section id="oficios" className="landing-sec">
-        <p className="landing-eyebrow">{es.discover.servicesEyebrow}</p>
         <h2>{es.discover.tilesTitle}</h2>
         <div className="tile-grid">
           {services.map((t) => {
@@ -187,10 +183,9 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         <Link className="button secondary" href="/buscar">{es.discover.seeAllServices}</Link>
       </section>
 
-      {/* 4. Verified pros nearby. Rendered only when there are pros. */}
+      {/* 3. Verified pros nearby. Rendered only when there are pros. */}
       {nearby.length > 0 ? (
         <section className="landing-sec">
-          <p className="landing-eyebrow">{es.discover.nearEyebrow}</p>
           <h2>{es.discover.nearTitle}</h2>
           <div className="rail">
             {nearby.map((p) => <ProMiniCard key={p.id} pro={p} tradeLabel={proLabelOf(tm, p.trade)} avatarSrc={avatarFor(p)} verified={verifiedKinds.get(p.id) ?? null} />)}
@@ -198,7 +193,7 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         </section>
       ) : null}
 
-      {/* 5. New on Listavy: newest approved first. Rendered only when there are pros. */}
+      {/* 4. New on Listavy. Rendered only when there are pros. */}
       {newest.length > 0 ? (
         <section className="landing-sec">
           <h2>{es.discover.newTitle}</h2>
@@ -208,27 +203,37 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         </section>
       ) : null}
 
-      {/* 6. How it works: "Tú / Listavy" split cards. Copy is final. */}
+      {/* 5. Cómo funciona: timeline. Rows 1–2 done, row 3 current, rows 4–6 upcoming. */}
       <section className="landing-sec">
-        <p className="landing-eyebrow">{es.discover.howEyebrow}</p>
-        <h2>{es.discover.howTitle}</h2>
-        <ol className="split-list">
-          {es.discover.splitSteps.map((step) => (
-            <li key={step.tu} className="split-card">
-              <div className="split-tu">
-                <span className="split-label">{es.discover.splitTu}</span>
-                <p>{step.tu}</p>
-              </div>
-              <div className="split-listavy">
-                <span className="split-label">{es.discover.splitListavy}</span>
-                <p>{step.listavy}</p>
-              </div>
-            </li>
-          ))}
+        <p className="eyebrow-pill">{es.discover.howEyebrow}</p>
+        <h2 className="section-center">{es.discover.howTitle}</h2>
+        <ol className="timeline">
+          {es.discover.timeline.map((step, i) => {
+            const n = i + 1;
+            const state = n <= 2 ? "done" : n === 3 ? "current" : "todo";
+            return (
+              <li key={n} className={`timeline-row is-${state}`}>
+                <span className="timeline-node" aria-hidden="true">
+                  {state === "done" ? <HomeIcon name="check" size={16} /> : n}
+                </span>
+                <span className="sr-only">Paso {n}.</span>
+                <div className="timeline-card">
+                  <span className="timeline-chip">
+                    <HomeIcon name={TIMELINE_ICON[i]} size={22} />
+                  </span>
+                  <div className="timeline-text">
+                    <span className="timeline-who">{step.who === "tu" ? es.discover.timelineTu : es.discover.timelineListavy}</span>
+                    <p>{step.text}</p>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ol>
+        <Link className="text-link" href="/ayuda">{es.discover.howMore}</Link>
       </section>
 
-      {/* 7. Referral strip. Only when the referral flag is on. */}
+      {/* 6. Referral strip. Only when the referral flag is on. */}
       {referralOn ? (
         <Link className="notice" href={userData.user ? "/cuenta" : "/login"}>
           <b>{es.referral.bannerTitle}</b>
@@ -242,18 +247,9 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         </Link>
       ) : null}
 
-      {/* 8. Pain rows, then the existing four-item grid. No grid item repeats a row word for word, so all four stay. */}
+      {/* 7. Por qué Listavy: original four items. */}
       <section className="landing-sec">
-        <p className="landing-eyebrow">{es.discover.whyEyebrow}</p>
         <h2>{es.discover.whyTitle}</h2>
-        <ul className="pain-list">
-          {es.discover.painRows.map((row) => (
-            <li key={row.pain} className="pain-row">
-              <div className="pain-card"><strong>{row.pain}</strong></div>
-              <div className="answer-card"><span>{row.answer}</span></div>
-            </li>
-          ))}
-        </ul>
         <ul className="why-grid">
           <li className="why-item">
             <HomeIcon name="shield-check" size={22} />
@@ -274,32 +270,17 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         </ul>
       </section>
 
-      {/* 9. FAQ. The one "Ver más en Ayuda" link on the page. */}
-      <section className="landing-sec">
-        <p className="landing-eyebrow">{es.discover.faqEyebrow}</p>
-        <h2>{es.discover.faqTitle}</h2>
-        <FaqAccordion items={es.discover.faq} />
-        <Link className="text-link" href="/ayuda">{es.discover.faqMore}</Link>
-      </section>
-
-      {/* 10. Pro recruitment: navy card. */}
+      {/* 8. Pro recruitment: pre-restyle card. Benefit line is the approved copy. */}
       <section className="pro-cta" aria-labelledby="pro-cta-title">
         <h2 id="pro-cta-title">{es.discover.proCtaTitle}</h2>
         <p>{es.discover.proCtaBenefit}</p>
         <Link className="button pro-cta-button" href="/pro/registro">{es.discover.proCtaButton}</Link>
       </section>
 
-      {/* 11. Closing band. */}
-      <section className="closing-band" aria-labelledby="closing-title">
-        <h2 id="closing-title">{es.discover.closingTitle}</h2>
-        <div className="closing-actions">
-          <Link className="button closing-primary" href="/buscar">{es.discover.closingSearch}</Link>
-          <Link className="button closing-secondary" href="/pro/registro">{es.discover.proCtaButton}</Link>
-        </div>
-      </section>
-
-      {/* 12. Landing footer. The shared footer is hidden on this page. */}
+      {/* 9. Landing footer. The shared footer is hidden on this page. */}
       <LandingFooter />
     </div>
   );
 }
+
+const TIMELINE_ICON: HomeIconName[] = ["file-text", "search", "shield-check", "handshake", "check-circle", "card"];
