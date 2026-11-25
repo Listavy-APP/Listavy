@@ -118,3 +118,6 @@ export function summarizeVerifications(
   if (statuses.includes("rejected")) return { state: "rejected" };
   return { state: "none" };
 }
+
+/** Consent version the verification upload passes. Same value as VerificationForm (draft, pending counsel). */
+export const DOCUMENT_CONSENT_VERSION = "draft-2026-11-16";

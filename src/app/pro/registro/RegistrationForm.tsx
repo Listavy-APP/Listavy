@@ -7,6 +7,10 @@ import { useState, type FormEvent } from "react";
 import { Choice } from "@/components/ui/Choice";
 import { FilePick } from "@/components/ui/FilePick";
 import { createProApplication, type CompanyInput } from "@/lib/data/pros";
+import { submitVerification } from "@/lib/data/verification";
+import Link from "next/link";
+import { BUENA_CONDUCTA_MAX_AGE_DAYS, DOCUMENT_CONSENT_VERSION, buenaConductaWindowOk, needsExpiryInput, needsIssueInput, stagesFor, type Stage } from "@/lib/domain/verification";
+import { esVerification as tv } from "@/lib/i18n/verification";
 import { recordLegalAcceptance } from "@/lib/data/legal";
 import { AcceptLegal } from "@/components/AcceptLegal";
 import type { CatalogTrade } from "@/lib/data/trades";
@@ -21,6 +25,15 @@ import type { ProType } from "@/lib/types/database";
 
 const MAX_WORK_PHOTOS = 3;
 const RNC_PATTERN = /^[0-9]{9}$/;
+const DOC_ACCEPT = "image/*,application/pdf";
+
+type DocUpload = { stage: Stage; file: File; issueDate: string | null; expiresAt: string | null };
+
+/** Images go through the same resize as the other photos. PDFs upload as-is. */
+async function toUpload(file: File): Promise<{ blob: Blob; contentType: "image/jpeg" | "application/pdf" }> {
+  if (file.type === "application/pdf") return { blob: file, contentType: "application/pdf" };
+  return { blob: await resizeImage(file), contentType: "image/jpeg" };
+}
 
 export function RegistrationForm({ trades, municipalities }: { trades: CatalogTrade[]; municipalities: Municipality[] }) {
   const [municipalityId, setMunicipalityId] = useState("");
@@ -34,6 +47,19 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
   const [companyDocFile, setCompanyDocFile] = useState<File | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [accepted, setAccepted] = useState(false);
+  const [trade, setTrade] = useState("");
+  // Individual verification documents, sent after the application succeeds (best-effort).
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  const [buenaFile, setBuenaFile] = useState<File | null>(null);
+  const [buenaIssue, setBuenaIssue] = useState("");
+  const [certFile, setCertFile] = useState<File | null>(null);
+  const [certExpiry, setCertExpiry] = useState("");
+  const [insFile, setInsFile] = useState<File | null>(null);
+  const [insExpiry, setInsExpiry] = useState("");
+  const [docsConsent, setDocsConsent] = useState(false);
+  const [partialFailures, setPartialFailures] = useState<string[] | null>(null);
+  // Stage for the trade certification. Electricians: SIE licence. Others: INFOTEP certificate.
+  const certStage: Stage | null = trade ? (stagesFor("individual", trade).find((x) => x === "sie_licence" || x === "infotep_certificate") ?? null) : null;
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,7 +67,6 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
     const form = new FormData(e.currentTarget);
 
     const fullName = String(form.get("fullName") ?? "").trim();
-    const trade = String(form.get("trade") ?? "");
     const zone = String(form.get("zone") ?? "");
     const priceMin = Number(form.get("priceMin"));
     const priceMax = Number(form.get("priceMax"));
@@ -61,6 +86,18 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
     if (!idFile) return setError(es.registration.needId);
     if (workFiles.length < 1) return setError(es.registration.needPhotos);
     if (workFiles.length > MAX_WORK_PHOTOS) return setError(es.registration.tooManyPhotos);
+
+    if (proType === "individual") {
+      const today = new Date().toISOString().slice(0, 10);
+      if (!selfieFile) return setError(es.registration.needSelfie);
+      if (buenaFile && !buenaIssue) return setError(tv.form.missingDate);
+      if (buenaFile && !buenaConductaWindowOk(buenaIssue, today)) {
+        return setError(`El certificado debe tener menos de ${BUENA_CONDUCTA_MAX_AGE_DAYS} días de emitido.`);
+      }
+      if (certFile && certStage && needsExpiryInput(certStage) && !certExpiry) return setError(tv.form.missingDate);
+      if (insFile && !insExpiry) return setError(tv.form.missingDate);
+      if (!docsConsent) return setError(tv.form.missingConsent);
+    }
 
     if (proType === "company") {
       if (!razonSocial) return setError(es.registration.needRazon);
@@ -105,6 +142,41 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
         customLine: proType === "company" && customLine ? customLine : undefined,
         avatar: avatarFile ? await resizeImage(avatarFile) : undefined,
       });
+
+      // Verification documents. The application already exists, so a failed upload never rolls it back.
+      // The pro re-uploads on /pro/verificacion, whose checklist shows what is missing.
+      const uploads: DocUpload[] = [];
+      if (selfieFile) uploads.push({ stage: "selfie", file: selfieFile, issueDate: null, expiresAt: null });
+      if (buenaFile) uploads.push({ stage: "buena_conducta", file: buenaFile, issueDate: buenaIssue, expiresAt: null });
+      if (certFile && certStage) {
+        uploads.push({ stage: certStage, file: certFile, issueDate: null, expiresAt: needsExpiryInput(certStage) ? certExpiry : null });
+      }
+      if (insFile) uploads.push({ stage: "insurance", file: insFile, issueDate: null, expiresAt: insExpiry });
+
+      const { data: userData } = await supabase.auth.getUser();
+      const proId = userData.user?.id ?? null;
+      const failed: string[] = [];
+      for (const u of uploads) {
+        try {
+          if (!proId) throw new Error("no session");
+          const { blob, contentType } = await toUpload(u.file);
+          await submitVerification(supabase, {
+            proId,
+            stage: u.stage,
+            file: blob,
+            contentType,
+            issueDate: needsIssueInput(u.stage) ? u.issueDate : null,
+            expiresAt: u.expiresAt,
+            consentVersion: DOCUMENT_CONSENT_VERSION,
+          });
+        } catch {
+          failed.push(tv.stageLabels[u.stage]);
+        }
+      }
+      if (failed.length > 0) {
+        setPartialFailures(failed);
+        return;
+      }
       router.push("/pro/estado");
       router.refresh();
     } catch {
@@ -112,6 +184,17 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
     } finally {
       setBusy(false);
     }
+  }
+
+  if (partialFailures) {
+    return (
+      <section className="stack">
+        <h1>{es.registration.title}</h1>
+        <p className="notice" role="status">{es.registration.docsSubmitNote}</p>
+        <p className="muted">{partialFailures.join(" · ")}</p>
+        <Link className="button" href="/pro/estado">{es.registration.docsContinue}</Link>
+      </section>
+    );
   }
 
   return (
@@ -138,7 +221,7 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
 
       <label className="field">
         <span>{es.registration.trade}</span>
-        <select name="trade" required defaultValue="">
+        <select name="trade" required value={trade} onChange={(e) => setTrade(e.target.value)}>
           <option value="" disabled>—</option>
           {trades.map((t) => (
             <option key={t.key} value={t.key}>
@@ -248,6 +331,88 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
             files={companyDocFile ? [companyDocFile] : []}
             onFiles={(files) => setCompanyDocFile(files[0] ?? null)}
           />
+        </fieldset>
+      )}
+
+      {proType === "individual" && (
+        <fieldset className="stack">
+          <legend>{es.registration.docsTitle}</legend>
+          <p className="muted">{es.registration.docsIntro}</p>
+
+          <div className="stack">
+            <span className="badge">{es.registration.docsRequired}</span>
+            <FilePick
+              label={tv.stageLabels.selfie}
+              hint={tv.form.fileSelfie}
+              buttonLabel={es.common.chooseOne}
+              accept="image/*"
+              capture="user"
+              preview={false}
+              files={selfieFile ? [selfieFile] : []}
+              onFiles={(files) => setSelfieFile(files[0] ?? null)}
+            />
+          </div>
+
+          <div className="stack">
+            <span className="badge">{tv.optional}</span>
+            <FilePick
+              label={tv.stageLabels.buena_conducta}
+              hint={tv.badgeRule}
+              buttonLabel={es.common.chooseOne}
+              accept={DOC_ACCEPT}
+              preview={false}
+              files={buenaFile ? [buenaFile] : []}
+              onFiles={(files) => setBuenaFile(files[0] ?? null)}
+            />
+            <label className="field">
+              <span>{tv.form.issueDate}</span>
+              <input type="date" value={buenaIssue} onChange={(e) => setBuenaIssue(e.target.value)} style={{ minHeight: 44 }} />
+            </label>
+          </div>
+
+          {certStage ? (
+            <div className="stack">
+              <span className="badge">{tv.optional}</span>
+              <FilePick
+                label={tv.stageLabels[certStage]}
+                buttonLabel={es.common.chooseOne}
+                accept={DOC_ACCEPT}
+                preview={false}
+                files={certFile ? [certFile] : []}
+                onFiles={(files) => setCertFile(files[0] ?? null)}
+              />
+              {needsExpiryInput(certStage) ? (
+                <label className="field">
+                  <span>{tv.form.expiryDate}</span>
+                  <input type="date" value={certExpiry} onChange={(e) => setCertExpiry(e.target.value)} style={{ minHeight: 44 }} />
+                </label>
+              ) : null}
+            </div>
+          ) : (
+            <p className="muted">{es.registration.docsChooseOfficio}</p>
+          )}
+
+          <div className="stack">
+            <span className="badge">{tv.optional}</span>
+            <FilePick
+              label={tv.stageLabels.insurance}
+              buttonLabel={es.common.chooseOne}
+              accept={DOC_ACCEPT}
+              preview={false}
+              files={insFile ? [insFile] : []}
+              onFiles={(files) => setInsFile(files[0] ?? null)}
+            />
+            <label className="field">
+              <span>{tv.form.expiryDate}</span>
+              <input type="date" value={insExpiry} onChange={(e) => setInsExpiry(e.target.value)} style={{ minHeight: 44 }} />
+            </label>
+          </div>
+
+          <label className="check-row">
+            <input type="checkbox" checked={docsConsent} disabled={busy} onChange={(e) => setDocsConsent(e.target.checked)} />
+            <span>{tv.form.consentLabel}</span>
+          </label>
+          <p className="muted">{tv.form.consentDraft}</p>
         </fieldset>
       )}
 
