@@ -1410,32 +1410,54 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
 .view-as-banner .view-as-text { margin: 0; }
 .view-as-exit { min-height: 44px; min-width: 44px; padding: 0 var(--s3); }
 
-/* Client first-run tour (8g). Sheet on the landing content; stays above the bottom nav. */
+/* Client first-run tour (8g). Full-screen on mobile, large centred card on desktop. */
 .tour-backdrop {
   position: fixed;
   inset: 0;
   z-index: 60;
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
+  justify-content: center;
   background: rgba(11, 19, 43, 0.5);
 }
 .tour-sheet {
   width: 100%;
-  max-height: 90vh;
-  overflow: auto;
-  padding: var(--s4, 24px) var(--s4, 24px) calc(var(--s4, 24px) + env(safe-area-inset-bottom));
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--s2) + env(safe-area-inset-top)) calc(var(--s3) + env(safe-area-inset-right))
+    calc(var(--s3) + env(safe-area-inset-bottom)) calc(var(--s3) + env(safe-area-inset-left));
   background: var(--paper);
-  border-radius: 16px 16px 0 0;
-  display: grid;
-  gap: var(--s2);
+  touch-action: pan-y;
 }
 .tour-sheet:focus { outline: none; }
-.tour-sheet h2 { margin: 0; }
-.tour-dots { display: flex; gap: 6px; }
-.tour-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
-.tour-dot.on { background: var(--primary); }
-.tour-actions { display: flex; gap: var(--s2); justify-content: space-between; margin-top: var(--s2); }
-.tour-actions .button { min-height: 44px; flex: 1; }
+.tour-top { display: flex; align-items: center; gap: var(--s2); min-height: 44px; }
+.tour-progress { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tour-seg { height: 4px; border-radius: 999px; background: var(--line); transition: background 0.2s ease; }
+.tour-seg.on { background: var(--accent); }
+.tour-step { margin: 0; font-size: 13px; white-space: nowrap; }
+.tour-skip { min-height: 44px; min-width: 44px; padding: 0 var(--s1); border: 0; background: none; font: inherit; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+.tour-skip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.tour-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s3); text-align: center; overflow-y: auto; padding: var(--s3) 0; }
+.tour-panel { width: min(100%, 300px); aspect-ratio: 1 / 1; border-radius: 32px; background: #E8F0FE; display: grid; place-items: center; color: var(--accent); }
+.tour-stage h2 { margin: 0; font-size: 26px; line-height: 1.2; }
+.tour-stage p { margin: 0; max-width: 34ch; font-size: 16px; line-height: 1.5; color: var(--ink-2); }
+.tour-cta { width: 100%; min-height: 56px; border-radius: 999px; }
+.tour-slide-next { animation: tour-in-right 0.28s ease both; }
+.tour-slide-back { animation: tour-in-left 0.28s ease both; }
+@keyframes tour-in-right { from { opacity: 0; transform: translateX(32px); } to { opacity: 1; transform: none; } }
+@keyframes tour-in-left { from { opacity: 0; transform: translateX(-32px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .tour-slide-next, .tour-slide-back { animation: none; }
+  .tour-seg { transition: none; }
+}
+@media (min-width: 720px) {
+  .tour-backdrop { align-items: center; padding: var(--s3); }
+  .tour-sheet { max-width: 520px; height: auto; max-height: min(760px, calc(100dvh - 48px)); border-radius: 24px; padding: var(--s3) var(--s4, 24px) var(--s4, 24px); }
+  .tour-stage { flex: none; padding: var(--s4, 24px) 0; }
+}
 
 /* Verified icon (check-seal), sized to the name text. Shown only for identity or company verified pros. */
 .verified-icon {
