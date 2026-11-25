@@ -10,6 +10,8 @@ import {
   summarizeVerifications,
   SUPPORTING_STAGES,
   type CurrentStage,
+  buenaConductaWindowOk,
+  todayInSantoDomingo,
 } from "./verification.ts";
 
 let passed = 0;
@@ -114,3 +116,15 @@ check("supporting stages are never required, for either pro type", () => {
 });
 
 console.log(`${passed} passed`);
+
+// Santo Domingo dates and the 30-day buena conducta window (local dates, not UTC).
+check("todayInSantoDomingo: an evening instant in Santo Domingo is still that local day", () => {
+  // 2026-11-25 02:30 UTC is 2026-11-24 22:30 in Santo Domingo (UTC-4, no DST).
+  assert.equal(todayInSantoDomingo(new Date("2026-11-25T02:30:00Z")), "2026-11-24");
+});
+
+check("buena conducta: issued exactly 30 local days ago is still accepted", () => {
+  assert.equal(buenaConductaWindowOk("2026-10-25", "2026-11-24"), true);
+  assert.equal(buenaConductaWindowOk("2026-10-24", "2026-11-24"), false);
+});
+

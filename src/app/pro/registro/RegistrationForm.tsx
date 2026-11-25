@@ -23,11 +23,14 @@ import {
   needsExpiryInput,
   needsIssueInput,
   stagesFor,
+  todayInSantoDomingo,
   type Stage,
 } from "@/lib/domain/verification";
 import { es } from "@/lib/i18n/es";
 import { esVerification as tv } from "@/lib/i18n/verification";
 import { resizeImage } from "@/lib/media/resize";
+import { toVerificationUpload } from "@/lib/media/upload";
+import { parsePriceDop } from "@/lib/domain/price-parse";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { ProType } from "@/lib/types/database";
 
@@ -37,12 +40,6 @@ const DOC_ACCEPT = "image/*,application/pdf";
 const TOTAL_STEPS = 5;
 
 type DocUpload = { stage: Stage; file: File; issueDate: string | null; expiresAt: string | null };
-
-/** Images go through the same resize as the other photos. PDFs upload as-is. */
-async function toUpload(file: File): Promise<{ blob: Blob; contentType: "image/jpeg" | "application/pdf" }> {
-  if (file.type === "application/pdf") return { blob: file, contentType: "application/pdf" };
-  return { blob: await resizeImage(file), contentType: "image/jpeg" };
-}
 
 /**
  * Pro application as a 5-step wizard. Presentation only: the createProApplication payload is unchanged,
@@ -110,11 +107,10 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
       }
     }
     if (n === 3) {
-      const min = Number(priceMin);
-      const max = Number(priceMax);
-      if (priceMin === "" || priceMax === "" || !Number.isInteger(min) || !Number.isInteger(max) || min < 0 || max < min) {
-        return es.registration.invalidPrice;
-      }
+      const min = parsePriceDop(priceMin);
+      const max = parsePriceDop(priceMax);
+      if (min === null || max === null) return es.registration.invalidPriceFormat;
+      if (max < min) return es.registration.invalidPrice;
       if (!isPriceUnit(priceUnit)) return es.priceUnit.needUnit;
     }
     if (n === 4) {
@@ -125,7 +121,7 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
     }
     if (n === 5) {
       if (!isCompany) {
-        const today = new Date().toISOString().slice(0, 10);
+        const today = todayInSantoDomingo();
         if (!selfieFile) return es.registration.needSelfie;
         if (buenaFile && !buenaIssue) return tv.form.missingDate;
         if (buenaFile && !buenaConductaWindowOk(buenaIssue, today)) {
@@ -198,8 +194,8 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
         trade,
         zone: zone.trim(),
         municipalityId,
-        priceMinDop: Number(priceMin),
-        priceMaxDop: Number(priceMax),
+        priceMinDop: parsePriceDop(priceMin) ?? 0,
+        priceMaxDop: parsePriceDop(priceMax) ?? 0,
         priceUnit: priceUnit as Parameters<typeof createProApplication>[1]["priceUnit"],
         idDocument,
         workPhotos,
@@ -228,7 +224,7 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
       for (const u of uploads) {
         try {
           if (!proId) throw new Error("no session");
-          const { blob, contentType } = await toUpload(u.file);
+          const { blob, contentType } = await toVerificationUpload(u.file);
           await submitVerification(supabase, {
             proId,
             stage: u.stage,
@@ -361,11 +357,11 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
           <div className="row">
             <label className="field">
               <span>{es.registration.priceMin}</span>
-              <input name="priceMin" type="number" inputMode="numeric" min={0} step={1} required value={priceMin} onChange={(e) => setPriceMin(e.target.value)} />
+              <input name="priceMin" type="text" inputMode="numeric" autoComplete="off" required value={priceMin} onChange={(e) => setPriceMin(e.target.value)} />
             </label>
             <label className="field">
               <span>{es.registration.priceMax}</span>
-              <input name="priceMax" type="number" inputMode="numeric" min={0} step={1} required value={priceMax} onChange={(e) => setPriceMax(e.target.value)} />
+              <input name="priceMax" type="text" inputMode="numeric" autoComplete="off" required value={priceMax} onChange={(e) => setPriceMax(e.target.value)} />
             </label>
           </div>
           <p className="muted">{es.registration.priceHint}</p>
