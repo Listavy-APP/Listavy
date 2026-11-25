@@ -659,6 +659,8 @@ export const es = {
     submit: "Enviar solicitud",
     submitting: "Enviando…",
     needName: "Escribe tu nombre completo.",
+    representativeName: "Nombre del representante",
+    needRepresentativeName: "Escribe el nombre del representante.",
     needTrade: "Elige tu oficio.",
     needZone: "Elige tu zona.",
     invalidPrice: "El precio mínimo no puede ser mayor que el máximo.",

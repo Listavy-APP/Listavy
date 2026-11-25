@@ -103,7 +103,7 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
       if (z.length < 2 || z.length > 60) return es.registration.needZone;
     }
     if (n === 2) {
-      if (!fullName.trim()) return es.registration.needName;
+      if (!fullName.trim()) return isCompany ? es.registration.needRepresentativeName : es.registration.needName;
       if (isCompany) {
         if (!razonSocial.trim()) return es.registration.needRazon;
         if (!RNC_PATTERN.test(rnc.trim())) return es.registration.invalidRnc;
@@ -322,7 +322,7 @@ export function RegistrationForm({ trades, municipalities }: { trades: CatalogTr
         <div className="stack">
           <h2>{stepTitle}</h2>
           <label className="field">
-            <span>{es.registration.name}</span>
+            <span>{isCompany ? es.registration.representativeName : es.registration.name}</span>
             <input name="fullName" autoComplete="name" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
           </label>
           {isCompany && (
