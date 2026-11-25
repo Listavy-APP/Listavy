@@ -1,21 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type TouchEvent } from "react";
-import { HomeIcon, type HomeIconName } from "@/components/home/HomeIcons";
 import { useDialog } from "@/components/useDialog";
 import { CLIENT_TOUR_STEPS, CLIENT_TOUR_STRINGS } from "@/lib/onboarding/clientTour";
 import { tourFinishAction } from "@/lib/domain/clientTour";
 import { stampClientTour } from "@/lib/data/profiles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-
-/** One brand icon per step, framed the same way on all three. */
-const STEP_ICON: Record<(typeof CLIENT_TOUR_STEPS)[number]["id"], HomeIconName> = {
-  pide: "notebook-pen",
-  compara: "handshake",
-  paga: "party-popper",
-};
 
 /** Horizontal travel (px) that counts as a swipe, and how much it must beat vertical travel. */
 const SWIPE_MIN = 50;
@@ -108,8 +101,8 @@ export function ClientTour({ mode }: { mode: "first" | "replay" }) {
                 <p className="tour-intro-line">{CLIENT_TOUR_STRINGS.introLine}</p>
               </div>
             ) : null}
-            <div className="tour-panel" aria-hidden="true">
-              <HomeIcon name={STEP_ICON[step.id]} size={88} />
+            <div className="tour-panel">
+              <Image src={step.image} alt={step.alt} width={480} height={308} sizes="320px" className="tour-photo" />
             </div>
             <p className="tour-kicker">{step.kicker}</p>
             <h2 id="tour-title">{step.title}</h2>
