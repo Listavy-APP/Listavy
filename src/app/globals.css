@@ -1471,3 +1471,108 @@ body:has(.admin-shell) main.page { max-width: none; padding: 0; min-height: 100d
 .delete-entry-link { min-height: 44px; padding: 0; background: none; border: 0; font-size: 12px; color: #B91C1C; text-decoration: underline; cursor: pointer; text-align: left; }
 .settings-text-link { min-height: 44px; padding: 0; background: none; border: 0; font-size: 13px; color: #1D4ED8; text-decoration: underline; cursor: pointer; text-align: left; align-self: flex-start; }
 .settings-text-link:disabled { color: #64748B; text-decoration: none; cursor: default; }
+
+/* ---------- Landing (/) — Item 20 restyle. Scoped to .landing; no shared rules changed. ---------- */
+body:has(.landing) { background: #F8FAFC; }
+body:has(.landing) .legal-footer { display: none !important; }
+
+.landing { color: var(--ink); }
+.landing h1, .landing h2 { color: var(--ink); letter-spacing: -0.01em; }
+.landing-eyebrow { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: #1D4ED8; }
+.landing-sec { padding: 40px 16px; max-width: 1120px; margin: 0 auto; }
+.landing-sec > h2 { margin: 0 0 20px; font-size: 26px; line-height: 1.2; }
+
+.landing-hero { display: grid; gap: 28px; padding: 40px 16px 24px; max-width: 1120px; margin: 0 auto; align-items: center; }
+.landing-hero h1 { margin: 0 0 20px; font-size: 34px; line-height: 1.12; }
+.landing-login { margin: 12px 0 0; font-size: 14px; }
+.landing-login a, .text-link { color: #1D4ED8; font-weight: 600; }
+.landing-hero-visual { display: flex; justify-content: center; }
+.landing-panel { width: 100%; max-width: 380px; padding: 32px 24px; border-radius: 20px; background: #E8F0FE; display: flex; flex-direction: column; align-items: center; }
+.landing-mockup { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.landing-mockup-caption { margin: 0; font-size: 12px; color: #64748B; }
+
+.phone { width: 240px; height: 420px; border-radius: 34px; background: var(--ink); padding: 14px; box-shadow: 0 18px 40px rgba(11, 19, 43, 0.18); }
+.phone-screen { height: 100%; border-radius: 24px; background: #fff; padding: 20px 14px; overflow: hidden; }
+.phone-job { margin: 0 0 14px; font-size: 13px; font-weight: 700; color: var(--ink); }
+.phone-quotes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.phone-quote { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.phone-quote.is-chosen { border-color: #2563EB; box-shadow: 0 0 0 1px #2563EB inset; }
+.phone-avatar { width: 32px; height: 32px; border-radius: 50%; background: #CBD5E1; }
+.phone-quote-main, .phone-quote-side { display: flex; flex-direction: column; font-size: 12px; }
+.phone-quote-main span, .phone-quote-side span { color: #64748B; }
+.phone-quote-side { text-align: right; }
+
+.trust-strip { list-style: none; margin: 0 auto; padding: 14px 16px; max-width: 1120px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.trust-item { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; background: #fff; border: 1px solid var(--line); font-size: 13px; color: var(--ink-2); }
+
+.tile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+.landing .tile { display: block; border-radius: 16px; overflow: hidden; background: #fff; border: 1px solid var(--line); text-decoration: none; color: inherit; }
+.landing .tile-photo { display: block; width: 100%; height: 110px; object-fit: cover; }
+.landing .tile-photo-fallback { background: #E2E8F0; }
+.landing .tile-body { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; }
+.landing .tile-text { display: flex; flex-direction: column; gap: 2px; }
+.landing .tile-name { font-weight: 700; }
+.landing .tile-price { font-size: 13px; color: #64748B; }
+
+.rail { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x mandatory; }
+.rail > * { flex: 0 0 min(260px, 78%); scroll-snap-align: start; }
+
+.split-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: step; }
+.split-card { display: grid; gap: 0; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #fff; }
+.split-tu, .split-listavy { padding: 16px; }
+.split-tu { background: #F1F5F9; }
+.split-listavy { background: #fff; border-top: 1px solid var(--line); }
+.split-label { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #1D4ED8; text-transform: uppercase; }
+.split-card p { margin: 0; font-size: 15px; line-height: 1.5; }
+
+.pain-list { list-style: none; margin: 0 0 24px; padding: 0; display: grid; gap: 10px; }
+.pain-row { display: grid; gap: 8px; }
+.pain-card, .answer-card { padding: 14px 16px; border-radius: 12px; font-size: 15px; line-height: 1.45; }
+.pain-card { background: #F1F5F9; color: var(--ink-2); }
+.answer-card { background: #fff; border: 1px solid var(--line); }
+
+.why-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.why-item { display: flex; gap: 12px; align-items: flex-start; }
+.why-item strong, .why-item span { display: block; }
+.why-item span { font-size: 14px; color: #64748B; margin-top: 2px; }
+
+.faq-list { list-style: none; margin: 0 0 16px; padding: 0; border-top: 1px solid var(--line); }
+.faq-item { border-bottom: 1px solid var(--line); }
+.faq-q { margin: 0; font-size: 16px; }
+.faq-btn { width: 100%; min-height: 48px; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 4px; background: none; border: 0; font: inherit; font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
+.faq-btn:focus-visible { outline: 2px solid #2563EB; outline-offset: 2px; border-radius: 6px; }
+.faq-mark { font-size: 20px; color: #1D4ED8; flex: 0 0 auto; }
+.faq-a p { margin: 0 4px 16px; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+
+.landing .pro-cta { margin: 0 auto; max-width: 1120px; padding: 32px 24px; border-radius: 20px; background: var(--ink); color: #fff; }
+.landing .pro-cta h2 { color: #fff; margin: 0 0 8px; font-size: 24px; }
+.landing .pro-cta p { margin: 0 0 18px; color: #CBD5E1; }
+.pro-cta-button { background: #fff; color: var(--ink); }
+
+.closing-band { margin: 40px auto 0; max-width: 1120px; padding: 40px 24px; text-align: center; background: #E8F0FE; border-radius: 20px; }
+.closing-band h2 { margin: 0 0 18px; font-size: 26px; }
+.closing-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.closing-primary { background: var(--accent); color: #fff; }
+.closing-secondary { background: #fff; color: var(--ink); }
+
+.landing-footer { margin-top: 40px; background: var(--ink); color: #CBD5E1; padding: 32px 16px 20px; }
+.landing-footer-grid { max-width: 1120px; margin: 0 auto; display: grid; gap: 24px; grid-template-columns: repeat(2, 1fr); }
+.landing-footer h2 { margin: 0 0 10px; font-size: 13px; color: #fff; letter-spacing: 0.06em; text-transform: uppercase; }
+.landing-footer nav, .landing-footer div { display: flex; flex-direction: column; gap: 8px; }
+.landing-footer a { color: #CBD5E1; font-size: 14px; text-decoration: none; }
+.landing-footer a:hover, .landing-footer a:focus-visible { color: #fff; text-decoration: underline; }
+.landing-footer-copy { max-width: 1120px; margin: 24px auto 0; font-size: 12px; color: #94A3B8; }
+
+@media (min-width: 720px) {
+  .landing-hero { grid-template-columns: 1.1fr 0.9fr; padding: 64px 24px 40px; }
+  .landing-hero h1 { font-size: 46px; }
+  .landing-sec { padding: 56px 24px; }
+  .tile-grid { grid-template-columns: repeat(4, 1fr); }
+  .split-card { grid-template-columns: 1fr 1fr; }
+  .split-tu { border-right: 1px solid var(--line); }
+  .split-tu, .split-listavy { border-top: 0; }
+  .pain-row { grid-template-columns: 1fr 1fr; align-items: stretch; }
+  .why-grid { grid-template-columns: repeat(2, 1fr); gap: 20px 28px; }
+  .landing-footer-grid { grid-template-columns: repeat(4, 1fr); }
+  .landing .pro-cta { padding: 40px; }
+}

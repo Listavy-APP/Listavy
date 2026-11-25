@@ -55,6 +55,9 @@ const PATHS = {
       <path d="M3 10h18" />
     </>
   ),
+  "chevron-right": (
+    <path d="m9 18 6-6-6-6" />
+  ),
 } as const;
 
 export type HomeIconName = keyof typeof PATHS;
