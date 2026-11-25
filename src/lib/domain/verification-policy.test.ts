@@ -2,6 +2,7 @@
 // Policy 2026-11-24: optional supporting docs, yearly buena conducta, badge-only gate (Reading A).
 import assert from "node:assert/strict";
 import {
+  stagesFor,
   companyVerified,
   individualVerified,
   isSupporting,
@@ -30,10 +31,16 @@ const row = (stage: Parameters<typeof summarizeVerifications>[1][number]["stage"
 });
 const TODAY = "2026-11-24";
 
-check("supporting stages are exactly SIE, INFOTEP and insurance", () => {
-  assert.deepEqual([...SUPPORTING_STAGES].sort(), ["infotep_certificate", "insurance", "sie_licence"]);
+check("supporting stages are exactly SIE, INFOTEP, diploma and insurance", () => {
+  assert.deepEqual([...SUPPORTING_STAGES].sort(), ["diploma", "infotep_certificate", "insurance", "sie_licence"]);
   assert.equal(isSupporting("insurance"), true);
   assert.equal(isSupporting("buena_conducta"), false);
+});
+
+check("individual stages include diploma before insurance; companies do not get it", () => {
+  assert.deepEqual(stagesFor("individual", "plumber"), ["identity", "selfie", "buena_conducta", "infotep_certificate", "diploma", "insurance"]);
+  assert.deepEqual(stagesFor("individual", "electrician"), ["identity", "selfie", "buena_conducta", "sie_licence", "diploma", "insurance"]);
+  assert.equal(stagesFor("company", "plumber").includes("diploma"), false);
 });
 
 check("individual: identity + selfie approved, no buena conducta: badge off, summary approved", () => {
