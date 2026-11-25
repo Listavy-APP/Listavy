@@ -54,7 +54,7 @@ export const esVerification = {
     submitting: "Enviando…",
     consentLabel: "Acepto que Listavy guarde este documento de forma segura para verificarlo.",
     // DRAFT consent text. Requires counsel review (Ley 172-13) before use.
-    consentDraft: "[BORRADOR — pendiente de revisión legal] Autorizo a Listavy a guardar una copia de este documento de forma privada para verificarlo. No se mostrará a clientes.",
+    consentDraft: "Autorizo a Listavy a guardar una copia de este documento de forma privada para verificarlo. No se mostrará a clientes.",
     missingFile: "Selecciona un archivo.",
     missingConsent: "Debes aceptar para enviar.",
     missingDate: "Indica la fecha.",
