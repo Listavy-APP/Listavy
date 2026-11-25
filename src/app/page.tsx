@@ -16,8 +16,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { avatarUrl } from "@/lib/storage/proFiles";
 import { ProMiniCard } from "@/components/home/ProMiniCard";
 import { DateField } from "@/components/home/DateField";
-import { HomeIcon, type HomeIconName } from "@/components/home/HomeIcons";
+import { HomeIcon } from "@/components/home/HomeIcons";
 import { LandingFooter } from "@/components/home/LandingFooter";
+import { HowCarousel } from "@/components/home/HowCarousel";
 import type { ProCard } from "@/lib/types/database";
 import { isJobUnit } from "@/lib/domain/price-unit";
 
@@ -198,33 +199,11 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
         </section>
       ) : null}
 
-      {/* 5. Cómo funciona: timeline. Rows 1–2 done, row 3 current, rows 4–6 upcoming. */}
+      {/* 5. Cómo funciona: three-step carousel. */}
       <section id="como-funciona" className="landing-sec">
         <p className="eyebrow-pill">{es.discover.howEyebrow}</p>
         <h2 className="section-center">{es.discover.howTitle}</h2>
-        <ol className="timeline">
-          {es.discover.timeline.map((step, i) => {
-            const n = i + 1;
-            const state = n <= 2 ? "done" : n === 3 ? "current" : "todo";
-            return (
-              <li key={n} className={`timeline-row is-${state}`}>
-                <span className="timeline-node" aria-hidden="true">
-                  {state === "done" ? <HomeIcon name="check" size={16} /> : n}
-                </span>
-                <span className="sr-only">Paso {n}.</span>
-                <div className="timeline-card">
-                  <span className="timeline-chip">
-                    <HomeIcon name={TIMELINE_ICON[i]} size={22} />
-                  </span>
-                  <div className="timeline-text">
-                    <span className="timeline-who">{step.who === "tu" ? es.discover.timelineTu : es.discover.timelineListavy}</span>
-                    <p>{step.text}</p>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+        <HowCarousel />
         <Link className="text-link" href="/ayuda">{es.discover.howMore}</Link>
       </section>
 
@@ -278,4 +257,3 @@ async function HomeContent({ searchParams }: { searchParams: Promise<HomeParams>
   );
 }
 
-const TIMELINE_ICON: HomeIconName[] = ["file-text", "search", "shield-check", "handshake", "check-circle", "card"];

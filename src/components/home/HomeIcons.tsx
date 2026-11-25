@@ -105,6 +105,29 @@ const PATHS = {
       <path d="M9 16h6" />
     </>
   ),
+  "notebook-pen": (
+    <>
+      <path d="M13.4 2.6a2.1 2.1 0 0 1 3 3L8 15l-4 1 1-4Z" />
+      <path d="M4 22h16" />
+      <path d="M8 2h4a2 2 0 0 1 2 2v2" />
+      <path d="M4 4h4" />
+      <path d="M4 8h4" />
+    </>
+  ),
+  "party-popper": (
+    <>
+      <path d="M5.8 11.3 2 22l10.7-3.8" />
+      <path d="M4 3h.01" />
+      <path d="M22 8h.01" />
+      <path d="M15 2h.01" />
+      <path d="M22 20h.01" />
+      <path d="m22 2-2.4 2.4" />
+      <path d="M13.5 13.5 13 13" />
+      <path d="M17 7.5 15.5 9" />
+      <path d="M20.1 14.4 19 13.3" />
+      <path d="M14.3 9.9l-1-1" />
+    </>
+  ),
 } as const;
 
 export type HomeIconName = keyof typeof PATHS;
