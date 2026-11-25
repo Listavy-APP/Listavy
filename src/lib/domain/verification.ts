@@ -122,3 +122,8 @@ export function summarizeVerifications(
 
 /** Consent version the verification upload passes. Same value as VerificationForm (draft, pending counsel). */
 export const DOCUMENT_CONSENT_VERSION = "draft-2026-11-16";
+
+/** Today as YYYY-MM-DD in Santo Domingo time. The 30-day buena conducta window is judged on local dates. */
+export function todayInSantoDomingo(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santo_Domingo", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}

@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { submitVerification } from "@/lib/data/verification";
-import { BUENA_CONDUCTA_MAX_AGE_DAYS, buenaConductaWindowOk, needsExpiryInput, needsIssueInput, type Stage } from "@/lib/domain/verification";
+import { toVerificationUpload } from "@/lib/media/upload";
+import { BUENA_CONDUCTA_MAX_AGE_DAYS, buenaConductaWindowOk, needsExpiryInput, needsIssueInput, todayInSantoDomingo, type Stage } from "@/lib/domain/verification";
 import { esVerification as t } from "@/lib/i18n/verification";
 
 const CONSENT_VERSION = "draft-2026-11-16";
-const ACCEPTED = ["image/jpeg", "application/pdf"] as const;
 
 /** Upload one verification document. Client-side checks are a convenience; the RPC enforces the rules. */
 export function VerificationForm({ proId, stages }: { proId: string; stages: Stage[] }) {
@@ -27,20 +27,23 @@ export function VerificationForm({ proId, stages }: { proId: string; stages: Sta
     if (!file) return setMsg({ ok: false, text: t.form.missingFile });
     if (!consent) return setMsg({ ok: false, text: t.form.missingConsent });
     if (needsIssueInput(stage) && !issueDate) return setMsg({ ok: false, text: t.form.missingDate });
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayInSantoDomingo();
     if (stage === "buena_conducta" && !buenaConductaWindowOk(issueDate, today)) {
       return setMsg({ ok: false, text: `El certificado debe tener menos de ${BUENA_CONDUCTA_MAX_AGE_DAYS} días de emitido.` });
     }
     if (needsExpiryInput(stage) && !expiresAt) return setMsg({ ok: false, text: t.form.missingDate });
-    const contentType = ACCEPTED.find((a) => a === file.type);
-    if (!contentType) return setMsg({ ok: false, text: t.form.file });
+    const isImage = file.type.startsWith("image/") || file.type === "";
+    const isPdf = file.type === "application/pdf";
+    if (!isImage && !isPdf) return setMsg({ ok: false, text: t.form.file });
 
     setBusy(true);
     try {
+      // Images are re-encoded to JPEG first (HEIC from iPhone included). PDFs go as-is.
+      const { blob, contentType } = await toVerificationUpload(file);
       await submitVerification(createSupabaseBrowserClient(), {
         proId,
         stage,
-        file,
+        file: blob,
         contentType,
         issueDate: needsIssueInput(stage) ? issueDate : null,
         expiresAt: needsExpiryInput(stage) ? expiresAt : null,
@@ -69,7 +72,7 @@ export function VerificationForm({ proId, stages }: { proId: string; stages: Sta
       </label>
       <label className="field">
         <span>{stage === "identity" ? t.form.fileIdentity : stage === "selfie" ? t.form.fileSelfie : t.form.file}</span>
-        <input type="file" accept="image/jpeg,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
       {needsIssueInput(stage) ? (
         <label className="field">

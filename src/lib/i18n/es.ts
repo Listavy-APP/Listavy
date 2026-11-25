@@ -664,6 +664,7 @@ export const es = {
     needTrade: "Elige tu oficio.",
     needZone: "Elige tu zona.",
     invalidPrice: "El precio mínimo no puede ser mayor que el máximo.",
+    invalidPriceFormat: "Escribe el precio solo con números, por ejemplo 1800.",
     needId: "Sube la foto de tu cédula.",
     needSelfie: "Sube tu selfie sosteniendo tu cédula.",
     docsTitle: "Documentos de verificación",
